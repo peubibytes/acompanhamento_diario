@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Acompanhamento Diário — Documentação Técnica</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  /* Fonte da documentação: gere o PDF com `npm run docs:pdf` (ver docs/fonte/gerar-pdf.mjs). */
+  :root {
+    --ink: #1a1a18; --ink-2: #52514e; --ink-3: #85847e;
+    --line: #e4e3dd; --soft: #f5f5f1; --accent: #4f46e5; --accent-soft: #eef0ff;
+    --good: #0b7a0b; --warn: #8a5a00; --crit: #b42323;
+  }
+  @page {
+    size: A4;
+    margin: 20mm 18mm 20mm 18mm;
+    @bottom-left { content: "Acompanhamento Diário · Documentação Técnica"; font: 500 8pt Inter, sans-serif; color: #85847e; }
+    @bottom-right { content: counter(page) " / " counter(pages); font: 500 8pt Inter, sans-serif; color: #85847e; }
+  }
+  @page :first { margin: 0; @bottom-left { content: none; } @bottom-right { content: none; } }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { margin: 0; font: 400 9.6pt/1.55 Inter, "Segoe UI", sans-serif; color: var(--ink); background: #fff; }
+  code, pre, .mono { font-family: "JetBrains Mono", Consolas, monospace; }
+  code { font-size: 8.4pt; background: var(--soft); border: 1px solid var(--line); border-radius: 3px; padding: 0 3px; }
+  pre { font-size: 7.9pt; line-height: 1.5; background: var(--soft); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+        border-radius: 4px; padding: 9px 11px; margin: 8px 0 12px; white-space: pre-wrap; break-inside: avoid; }
+  pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+  h1, h2, h3 { color: var(--ink); line-height: 1.25; break-after: avoid; }
+  h2 { font-size: 17pt; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 4px; }
+  h2 .num { color: var(--accent); margin-right: 8px; }
+  .lead { color: var(--ink-2); margin: 0 0 14px; font-size: 10pt; }
+  h3 { font-size: 11pt; font-weight: 700; margin: 16px 0 5px; }
+  h4 { font-size: 9.6pt; font-weight: 700; margin: 12px 0 3px; break-after: avoid; }
+  p { margin: 0 0 8px; }
+  ul, ol { margin: 0 0 9px; padding-left: 17px; }
+  li { margin-bottom: 2px; }
+  strong { font-weight: 600; }
+  section.chapter { break-before: page; }
+  table { width: 100%; border-collapse: collapse; margin: 6px 0 12px; font-size: 8.6pt; break-inside: auto; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+  th { text-align: left; font-weight: 600; font-size: 7.6pt; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3);
+       border-bottom: 1.5px solid var(--ink); padding: 5px 7px; }
+  td { border-bottom: 1px solid var(--line); padding: 5px 7px; vertical-align: top; }
+  td code { white-space: nowrap; }
+  .note { border: 1px solid #d9dbfb; background: var(--accent-soft); border-radius: 5px; padding: 8px 11px; margin: 8px 0 12px; break-inside: avoid; }
+  .note.warn { border-color: #f1d9a6; background: #fdf6e6; }
+  .note strong:first-child { color: var(--accent); }
+  .note.warn strong:first-child { color: var(--warn); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; }
+  .card { border: 1px solid var(--line); border-radius: 6px; padding: 9px 11px; break-inside: avoid; }
+  .card h4 { margin-top: 0; }
+  .tag { display: inline-block; font: 600 7.2pt Inter, sans-serif; padding: 1px 6px; border-radius: 9px; letter-spacing: 0.02em; }
+  .get { background: #e3f5e6; color: var(--good); } .post { background: #e6e9ff; color: var(--accent); }
+  .put { background: #fdf0d8; color: var(--warn); } .del { background: #fbe4e4; color: var(--crit); }
+  .endpoint { border: 1px solid var(--line); border-radius: 6px; padding: 9px 12px 4px; margin: 10px 0 12px; break-inside: avoid; }
+  .endpoint .route { font: 600 10pt "JetBrains Mono", monospace; margin-bottom: 5px; }
+  .endpoint table { margin: 4px 0 6px; }
+  figure { margin: 8px 0 14px; break-inside: avoid; }
+  figcaption { font-size: 8pt; color: var(--ink-3); margin-top: 4px; text-align: center; }
+
+  /* Capa */
+  .cover { height: 297mm; display: flex; flex-direction: column; padding: 0; break-after: page; }
+  .cover .band { background: var(--accent); color: #fff; padding: 34mm 22mm 20mm; }
+  .cover .logo { width: 15mm; height: 15mm; border-radius: 4mm; background: #fff; display: grid; place-items: center; margin-bottom: 14mm; }
+  .cover .eyebrow { font: 600 9pt Inter, sans-serif; letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.8; }
+  .cover h1 { color: #fff; font-size: 34pt; font-weight: 800; letter-spacing: -0.03em; margin: 3mm 0 4mm; }
+  .cover .sub { font-size: 12.5pt; opacity: 0.92; max-width: 150mm; margin: 0; line-height: 1.5; }
+  .cover .body { padding: 16mm 22mm; flex: 1; display: flex; flex-direction: column; }
+  .cover .meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8mm; border-top: 1px solid var(--line); padding-top: 7mm; }
+  .cover .meta div span { display: block; font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-3); font-weight: 600; }
+  .cover .meta div b { font-size: 10.5pt; font-weight: 600; }
+  .cover .stack { margin-top: 10mm; display: flex; flex-wrap: wrap; gap: 6px; }
+  .cover .stack span { border: 1px solid var(--line); border-radius: 20px; padding: 3px 11px; font-size: 8.5pt; color: var(--ink-2); }
+  .cover .foot { margin-top: auto; font-size: 8pt; color: var(--ink-3); }
+
+  /* Sumário */
+  .toc ol { list-style: none; padding: 0; margin: 10px 0 0; counter-reset: none; }
+  .toc li { display: flex; align-items: baseline; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 10pt; }
+  .toc li .n { color: var(--accent); font-weight: 700; width: 22px; }
+  .toc li .t { font-weight: 600; }
+  .toc li .d { color: var(--ink-3); font-size: 8.6pt; margin-left: auto; text-align: right; }
+</style>
+</head>
+<body>
+
+<!-- ============================== CAPA ============================== -->
+<div class="cover">
+  <div class="band">
+    <div class="logo">
+      <svg width="34" height="34" viewBox="0 0 32 32"><path d="M8 17l5 5 11-12" stroke="#4f46e5" stroke-width="3.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="eyebrow">Documentação técnica</div>
+    <h1>Acompanhamento Diário</h1>
+    <p class="sub">Aplicação web para registro de atividades e acompanhamento do apontamento de horas em ciclos semanais de sexta a quinta-feira.</p>
+  </div>
+  <div class="body">
+    <div class="meta">
+      <div><span>Versão</span><b>0.1.0</b></div>
+      <div><span>Data</span><b>26/10/2026</b></div>
+      <div><span>Repositório</span><b>peubibytes/acompanhamento_diario</b></div>
+    </div>
+    <div class="stack">
+      <span>React 19</span><span>TypeScript</span><span>Vite 8</span><span>Tailwind CSS 4</span><span>TanStack Query 5</span>
+      <span>React Router 8</span><span>Node.js ≥ 23.6</span><span>Express 5</span><span>SQLite (node:sqlite)</span><span>Zod 4</span>
+    </div>
+    <div class="toc" style="margin-top:14mm">
+      <h3 style="margin:0">Sumário</h3>
+      <ol>
+        <li><span class="n">1</span><span class="t">Visão geral</span><span class="d">Propósito, conceitos e escopo</span></li>
+        <li><span class="n">2</span><span class="t">Regras de negócio</span><span class="d">Ciclo, meta, métricas e conformidade</span></li>
+        <li><span class="n">3</span><span class="t">Arquitetura</span><span class="d">Monorepo, camadas e decisões técnicas</span></li>
+        <li><span class="n">4</span><span class="t">Pacote <code>shared</code></span><span class="d">Domínio compartilhado</span></li>
+        <li><span class="n">5</span><span class="t">Back-end</span><span class="d">Persistência, repositório e servidor HTTP</span></li>
+        <li><span class="n">6</span><span class="t">Referência da API REST</span><span class="d">Endpoints, contratos e erros</span></li>
+        <li><span class="n">7</span><span class="t">Front-end</span><span class="d">Telas, estado, componentes e tema</span></li>
+        <li><span class="n">8</span><span class="t">Execução e operação</span><span class="d">Instalação, scripts e configuração</span></li>
+        <li><span class="n">9</span><span class="t">Qualidade</span><span class="d">Testes, tipos e convenções</span></li>
+        <li><span class="n">10</span><span class="t">Roadmap</span><span class="d">Evoluções planejadas</span></li>
+      </ol>
+    </div>
+    <div class="foot">Documento gerado a partir de <code>docs/fonte/documentacao.html</code>.</div>
+  </div>
+</div>
+
+<!-- ============================== 1 ============================== -->
+<section>
+  <h2><span class="num">1</span>Visão geral</h2>
+  <p class="lead">O que a aplicação resolve, os conceitos do domínio e o que está dentro e fora do escopo.</p>
+
+  <h3>1.1 Propósito</h3>
+  <p>O <strong>Acompanhamento Diário</strong> substitui uma planilha Excel de controle de horas por uma aplicação web. O usuário registra, ao longo da semana, as atividades realizadas, com horário de início e fim. A aplicação consolida esses registros em métricas diárias e semanais e indica, a cada momento, quanto da carga horária do ciclo já foi apontada.</p>
+  <p>O objetivo operacional é chegar à <strong>quinta-feira com 100% das horas preenchidas</strong>. Nesse dia, o usuário transfere os apontamentos para um sistema externo (Azure DevOps). Essa integração está fora do escopo da versão atual.</p>
+
+  <h3>1.2 Conceitos do domínio</h3>
+  <table>
+    <thead><tr><th style="width:25%">Termo</th><th>Definição</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Ciclo</strong></td><td>Período de apuração que começa na sexta-feira e termina na quinta-feira seguinte. Contém 5 dias úteis: Sex, Seg, Ter, Qua e Qui.</td></tr>
+      <tr><td><strong>Atividade</strong></td><td>Registro de trabalho em um dia útil: intervalo de horário, projeto/demanda, descrição, observações e status.</td></tr>
+      <tr><td><strong>Meta diária</strong></td><td>Carga horária esperada por dia, definida pelo usuário: 5h30, 8h48 ou um valor personalizado (“Outro”).</td></tr>
+      <tr><td><strong>Meta semanal</strong></td><td>Meta diária × 5 dias úteis.</td></tr>
+      <tr><td><strong>Horas apontadas</strong></td><td>Soma das durações das atividades de um dia ou do ciclo.</td></tr>
+      <tr><td><strong>Conformidade</strong></td><td>Situação do dia em relação à meta: <em>Conforme</em> (exatamente a meta), <em>Não conforme</em> ou <em>Pendente</em> (sem apontamento).</td></tr>
+      <tr><td><strong>Irregularidade</strong></td><td>Dia com horas acima da meta. É não conforme e exige reajuste do apontamento.</td></tr>
+      <tr><td><strong>% preenchido</strong></td><td>Horas apontadas no ciclo ÷ meta semanal.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>1.3 Escopo da versão 0.1.0</h3>
+  <div class="grid2">
+    <div class="card">
+      <h4>Incluído</h4>
+      <ul>
+        <li>CRUD de atividades por dia útil</li>
+        <li>Métricas diárias e semanais equivalentes às fórmulas da planilha</li>
+        <li>Meta diária configurável e versionada por ciclo</li>
+        <li>Detecção e sinalização de dias irregulares</li>
+        <li>Painel visual, registro por dia e tabela detalhada</li>
+        <li>Temas claro e escuro, layout responsivo</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>Fora do escopo</h4>
+      <ul>
+        <li>Integração com o Azure DevOps (códigos de work item, envio automático)</li>
+        <li>Autenticação e múltiplos usuários. A aplicação roda localmente, para um único usuário.</li>
+        <li>Lançamentos em sábados e domingos</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== 2 ============================== -->
+<section class="chapter">
+  <h2><span class="num">2</span>Regras de negócio</h2>
+  <p class="lead">Todas as regras ficam no pacote <code>shared</code> e são consumidas igualmente pelo servidor e pela interface.</p>
+
+  <h3>2.1 Ciclo sexta → quinta</h3>
+  <p>O ciclo de qualquer data é derivado dela mesma, sem tabela de semanas. A data de início é a sexta-feira mais recente que seja menor ou igual à data de referência:</p>
+<pre><code>offset = (diaDaSemana(data) − 5 + 7) mod 7      // 0 = domingo … 6 = sábado; 5 = sexta
+inicio = data − offset dias                      // sexta-feira
+fim    = inicio + 6 dias                         // quinta-feira
+diasUteis = inicio + [0, 3, 4, 5, 6]             // Sex, Seg, Ter, Qua, Qui</code></pre>
+  <p>Sábado e domingo pertencem ao ciclo da sexta-feira anterior, mas não são dias úteis e não aceitam lançamentos. As datas trafegam como texto ISO <code>AAAA-MM-DD</code>, e a aritmética é feita em UTC para evitar desvios de fuso horário e de horário de verão.</p>
+
+  <h3>2.2 Meta diária</h3>
+  <ul>
+    <li><strong>Opções:</strong> 5h30 (330 min), 8h48 (528 min) ou “Outro”, informado em <code>hh:mm</code> entre 1 min e 24h.</li>
+    <li><strong>Versionamento por ciclo:</strong> cada ciclo guarda a sua meta (<code>cycle_goals</code>). Sem registro próprio, o ciclo usa a meta padrão (<code>settings.default_daily_goal_minutes</code>, inicialmente 330).</li>
+    <li><strong>Alteração no ciclo atual ou futuro:</strong> a nova meta vale para o ciclo e passa a ser o padrão dos próximos. Antes da troca, os ciclos anteriores que tinham atividades e ainda seguiam o padrão antigo têm a meta congelada, para que o histórico não seja recalculado.</li>
+    <li><strong>Alteração em ciclo passado:</strong> afeta somente aquele ciclo.</li>
+  </ul>
+
+  <h3>2.3 Atividade</h3>
+  <table>
+    <thead><tr><th style="width:22%">Campo</th><th style="width:18%">Tipo</th><th>Regra</th></tr></thead>
+    <tbody>
+      <tr><td><code>date</code></td><td>ISO date</td><td>Data válida e dia útil (segunda a sexta).</td></tr>
+      <tr><td><code>startMinute</code></td><td>inteiro</td><td>Minutos desde 00:00, de 0 a 1439.</td></tr>
+      <tr><td><code>endMinute</code></td><td>inteiro</td><td>De 1 a 1440, estritamente maior que <code>startMinute</code>.</td></tr>
+      <tr><td><code>project</code></td><td>texto</td><td>Obrigatório, de 1 a 200 caracteres (após <em>trim</em>).</td></tr>
+      <tr><td><code>description</code></td><td>texto</td><td>Opcional, até 2000 caracteres.</td></tr>
+      <tr><td><code>notes</code></td><td>texto</td><td>Observações/entregáveis, opcional, até 2000 caracteres.</td></tr>
+      <tr><td><code>status</code></td><td>enum</td><td><code>concluido</code>, <code>nao_concluido</code>, <code>pendente_aprovacao</code> ou <code>nao_iniciado</code>.</td></tr>
+    </tbody>
+  </table>
+  <p>A <strong>duração</strong> não é persistida: é sempre calculada como <code>endMinute − startMinute</code>. Horários sobrepostos no mesmo dia são aceitos, mas geram avisos (<code>warnings</code>) na resposta da API.</p>
+
+  <h3>2.4 Métricas por dia</h3>
+  <p>As métricas reproduzem as fórmulas da planilha original (colunas E a I). Considere <code>m</code> = minutos apontados e <code>g</code> = meta diária do ciclo:</p>
+  <table>
+    <thead><tr><th style="width:20%">Métrica</th><th>Regra</th><th style="width:28%">Exemplo (g = 5h30)</th></tr></thead>
+    <tbody>
+      <tr><td>Horas apontadas</td><td>Σ durações das atividades do dia</td><td><code>345</code> min</td></tr>
+      <tr><td>Diferença</td><td>vazio se <code>m = 0</code>; <code>00:00</code> se <code>m = g</code>; senão <code>±hh:mm</code></td><td><code>+00:15</code></td></tr>
+      <tr><td>Qtd. atividades</td><td>atividades do dia com duração &gt; 0</td><td><code>4</code></td></tr>
+      <tr><td>Conformidade</td><td><code>pendente</code> se <code>m = 0</code>; <code>conforme</code> se <code>m = g</code>; senão <code>nao_conforme</code></td><td><code>nao_conforme</code></td></tr>
+      <tr><td>Excedido</td><td><code>m &gt; 0</code> e <code>m &gt; g</code></td><td><code>true</code></td></tr>
+      <tr><td>Diagnóstico</td><td>“Sem apontamento” · “Meta 5h30 atingida” · “Faltam hh:mm” · “Excedeu a meta de 5h30 em hh:mm. Reajuste o apontamento”</td><td>“Excedeu a meta de 5h30 em 00:15. Reajuste o apontamento”</td></tr>
+    </tbody>
+  </table>
+
+  <h3>2.5 Métricas do ciclo</h3>
+  <table>
+    <thead><tr><th style="width:24%">Métrica</th><th>Regra</th></tr></thead>
+    <tbody>
+      <tr><td>Meta semanal</td><td><code>g × 5</code></td></tr>
+      <tr><td>Total realizado</td><td>Σ minutos dos 5 dias úteis</td></tr>
+      <tr><td>Dias conformes</td><td>quantidade de dias com <code>conforme</code>, exibida como <code>X/5</code></td></tr>
+      <tr><td>Dias excedidos</td><td>quantidade de dias irregulares</td></tr>
+      <tr><td>% preenchido</td><td><code>floor(total × 100 ÷ metaSemanal)</code>. O arredondamento para baixo garante que 100% só apareça com a semana realmente completa.</td></tr>
+      <tr><td>Situação geral</td><td>“100% conforme / Meta total atingida” se os 5 dias forem conformes; senão “X/5 conformes / Ajustes pendentes”</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note warn"><strong>Regra de conformidade estrita.</strong> Somente o valor exato da meta é conforme. Excesso não compensa falta: um ciclo com 100% de horas distribuídas de forma desigual continua irregular. A interface só sinaliza “pronto para apontar” quando os 5 dias estão conformes.</div>
+</section>
+
+<!-- ============================== 3 ============================== -->
+<section class="chapter">
+  <h2><span class="num">3</span>Arquitetura</h2>
+  <p class="lead">Monorepo com três pacotes npm (workspaces), um servidor HTTP único e banco SQLite em arquivo.</p>
+
+  <figure>
+    <svg viewBox="0 0 640 250" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="Inter, sans-serif">
+      <defs>
+        <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#85847e"/></marker>
+      </defs>
+      <!-- Browser / web -->
+      <rect x="10" y="20" width="190" height="150" rx="10" fill="#eef0ff" stroke="#c7cbf7"/>
+      <text x="25" y="44" font-size="11" font-weight="700" fill="#4f46e5">web/ · Navegador</text>
+      <text x="25" y="64" font-size="9.5" fill="#1a1a18">React 19 + React Router</text>
+      <text x="25" y="80" font-size="9.5" fill="#1a1a18">TanStack Query (cache)</text>
+      <text x="25" y="96" font-size="9.5" fill="#1a1a18">Tailwind CSS 4</text>
+      <rect x="25" y="110" width="160" height="46" rx="6" fill="#fff" stroke="#c7cbf7"/>
+      <text x="35" y="129" font-size="9" fill="#52514e">Painel · Atividades ·</text>
+      <text x="35" y="144" font-size="9" fill="#52514e">Detalhes</text>
+      <!-- Server -->
+      <rect x="250" y="20" width="190" height="150" rx="10" fill="#f5f5f1" stroke="#d6d5ce"/>
+      <text x="265" y="44" font-size="11" font-weight="700" fill="#1a1a18">server/ · Node.js</text>
+      <text x="265" y="64" font-size="9.5" fill="#1a1a18">Express 5 · rotas /api</text>
+      <text x="265" y="80" font-size="9.5" fill="#1a1a18">Validação Zod 4</text>
+      <text x="265" y="96" font-size="9.5" fill="#1a1a18">Repositório (SQL)</text>
+      <rect x="265" y="110" width="160" height="46" rx="6" fill="#fff" stroke="#d6d5ce"/>
+      <text x="275" y="129" font-size="9" fill="#52514e">Produção: também serve</text>
+      <text x="275" y="144" font-size="9" fill="#52514e">o build de web/dist</text>
+      <!-- DB -->
+      <path d="M500 40 a55 12 0 0 0 110 0 v110 a55 12 0 0 1 -110 0z" fill="#fff" stroke="#d6d5ce"/>
+      <ellipse cx="555" cy="40" rx="55" ry="12" fill="#f5f5f1" stroke="#d6d5ce"/>
+      <text x="555" y="85" font-size="11" font-weight="700" fill="#1a1a18" text-anchor="middle">SQLite</text>
+      <text x="555" y="102" font-size="9" fill="#52514e" text-anchor="middle">node:sqlite</text>
+      <text x="555" y="117" font-size="9" fill="#52514e" text-anchor="middle">server/data/*.db</text>
+      <!-- arrows -->
+      <line x1="200" y1="80" x2="246" y2="80" stroke="#85847e" stroke-width="1.5" marker-end="url(#a)"/>
+      <text x="223" y="72" font-size="8.5" fill="#52514e" text-anchor="middle">HTTP/JSON</text>
+      <line x1="440" y1="95" x2="496" y2="95" stroke="#85847e" stroke-width="1.5" marker-end="url(#a)"/>
+      <text x="468" y="87" font-size="8.5" fill="#52514e" text-anchor="middle">SQL</text>
+      <!-- shared -->
+      <rect x="10" y="195" width="430" height="44" rx="10" fill="#fff" stroke="#4f46e5" stroke-dasharray="4 3"/>
+      <text x="25" y="214" font-size="11" font-weight="700" fill="#4f46e5">shared/ · Domínio em TypeScript puro</text>
+      <text x="25" y="230" font-size="9" fill="#52514e">ciclo · métricas · formatação de tempo · tipos — importado pelo web e pelo server</text>
+      <line x1="105" y1="195" x2="105" y2="174" stroke="#4f46e5" stroke-width="1.3" marker-end="url(#a)"/>
+      <line x1="345" y1="195" x2="345" y2="174" stroke="#4f46e5" stroke-width="1.3" marker-end="url(#a)"/>
+    </svg>
+    <figcaption>Figura 1 — Componentes e fluxo de dados. Em desenvolvimento, o Vite (porta 5173) encaminha <code>/api</code> para o Express (porta 3001).</figcaption>
+  </figure>
+
+  <h3>3.1 Fluxo de uma requisição</h3>
+  <ol>
+    <li>A tela chama um <em>hook</em> do TanStack Query (ex.: <code>useCycle(data)</code>), que executa <code>fetch('/api/cycles/:data')</code>.</li>
+    <li>O Express valida os parâmetros com Zod e consulta o repositório, que executa SQL preparado no SQLite.</li>
+    <li>As atividades do ciclo são agregadas por <code>buildCycleSummary</code> (pacote <code>shared</code>) e devolvidas como JSON.</li>
+    <li>Mutações (criar, editar, excluir, alterar meta) invalidam as consultas <code>cycle</code> e <code>activities</code>; a interface é atualizada automaticamente.</li>
+  </ol>
+
+  <h3>3.2 Decisões técnicas</h3>
+  <table>
+    <thead><tr><th style="width:27%">Decisão</th><th>Motivação</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Tempo em minutos inteiros</strong></td><td>Comparações exatas (<code>330 === 330</code>). Elimina o arredondamento <code>ROUND(x·1440)</code> que a planilha usava para contornar ponto flutuante.</td></tr>
+      <tr><td><strong>Domínio no pacote <code>shared</code></strong></td><td>Uma única implementação das regras para servidor e interface, testável sem I/O.</td></tr>
+      <tr><td><strong><code>node:sqlite</code></strong></td><td>Driver SQLite embutido no Node.js: sem dependência nativa para compilar (relevante no Windows) e com API síncrona simples.</td></tr>
+      <tr><td><strong>TypeScript sem build no servidor</strong></td><td>O Node executa <code>.ts</code> diretamente (<em>type stripping</em>). O código segue <code>erasableSyntaxOnly</code>: sem <code>enum</code>, <code>namespace</code> ou <em>parameter properties</em>.</td></tr>
+      <tr><td><strong>Duração derivada</strong></td><td>Persistir apenas início e fim evita inconsistência entre colunas.</td></tr>
+      <tr><td><strong>Ciclo derivado da data</strong></td><td>Dispensa tabela de semanas e qualquer rotina de “abertura” de ciclo.</td></tr>
+      <tr><td><strong>Estado na URL</strong></td><td>A data de referência (<code>?data=</code>) sobrevive a recarregamentos e permite compartilhar links para um dia específico.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>3.3 Estrutura de diretórios</h3>
+<pre><code>acompanhamento_diario/
+├── package.json            workspaces e scripts raiz (dev, test, typecheck, build, start)
+├── tsconfig.base.json      configuração TypeScript compartilhada
+├── docs/                   plano de ação, esta documentação (PDF) e sua fonte
+├── shared/
+│   ├── src/  cycle.ts · metrics.ts · time.ts · types.ts · index.ts
+│   └── test/ rules.test.ts
+├── server/
+│   ├── src/  index.ts · app.ts · repo.ts · db.ts
+│   ├── test/ api.test.ts
+│   └── data/               banco SQLite local (ignorado pelo git)
+└── web/
+    ├── index.html · vite.config.ts
+    └── src/
+        ├── main.tsx · hooks.ts · index.css
+        ├── api/client.ts
+        ├── pages/        Dashboard.tsx · Activities.tsx · Details.tsx
+        └── components/   gráficos, formulário, badges, navegação, tema, toasts</code></pre>
+</section>
+
+<!-- ============================== 4 ============================== -->
+<section class="chapter">
+  <h2><span class="num">4</span>Pacote <code style="font-size:15pt">shared</code></h2>
+  <p class="lead">Funções puras e tipos do domínio. O pacote não depende de nada externo e é exportado como <code>@acomp/shared</code>.</p>
+
+  <h3>4.1 <code>time.ts</code> — tempo</h3>
+  <table>
+    <thead><tr><th style="width:38%">Função</th><th>Comportamento</th></tr></thead>
+    <tbody>
+      <tr><td><code>parseHM(text): number | null</code></td><td><code>"08:45"</code> → <code>525</code>. Retorna <code>null</code> fora do formato <code>h:mm</code>/<code>hh:mm</code>.</td></tr>
+      <tr><td><code>formatHM(min): string</code></td><td><code>525</code> → <code>"08:45"</code>. Acima de 24h não reinicia: <code>1650</code> → <code>"27:30"</code>.</td></tr>
+      <tr><td><code>formatDuration(min): string</code></td><td>Formato de leitura: <code>330</code> → <code>"5h30"</code>, <code>480</code> → <code>"8h"</code>, <code>45</code> → <code>"45min"</code>.</td></tr>
+      <tr><td><code>formatDiff(diff): string</code></td><td><code>0</code> → <code>"00:00"</code>, <code>15</code> → <code>"+00:15"</code>, <code>-70</code> → <code>"-01:10"</code>.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>4.2 <code>cycle.ts</code> — datas e ciclo</h3>
+  <table>
+    <thead><tr><th style="width:38%">Função</th><th>Comportamento</th></tr></thead>
+    <tbody>
+      <tr><td><code>getCycle(ref): Cycle</code></td><td>Retorna <code>{ start, end, workdays[5] }</code> do ciclo que contém <code>ref</code>.</td></tr>
+      <tr><td><code>isWorkday(iso)</code></td><td><code>true</code> de segunda a sexta.</td></tr>
+      <tr><td><code>isValidISODate(text)</code></td><td>Valida formato e existência da data (rejeita <code>2026-02-30</code>).</td></tr>
+      <tr><td><code>todayISO()</code></td><td>Data de hoje no fuso local.</td></tr>
+      <tr><td><code>addDays</code>, <code>weekdayOf</code></td><td>Aritmética de datas em UTC.</td></tr>
+      <tr><td><code>remainingWorkdays(cycle, today)</code></td><td>Dias úteis do ciclo posteriores a <code>today</code>.</td></tr>
+      <tr><td><code>formatDayMonth(iso)</code></td><td><code>"2026-10-23"</code> → <code>"23/10"</code>.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>4.3 <code>types.ts</code> — tipos e constantes</h3>
+<pre><code>type ActivityStatus = 'concluido' | 'nao_concluido' | 'pendente_aprovacao' | 'nao_iniciado';
+
+interface Activity {
+  id: number; date: ISODate; startMinute: number; endMinute: number;
+  project: string; description: string; notes: string; status: ActivityStatus;
+}
+type ActivityInput = Omit&lt;Activity, 'id'&gt;;
+
+GOAL_PRESETS = [{ label: '5h30', minutes: 330 }, { label: '8h48', minutes: 528 }]
+DEFAULT_DAILY_GOAL = 330      WORKDAYS_PER_CYCLE = 5</code></pre>
+
+  <h3>4.4 <code>metrics.ts</code> — métricas</h3>
+  <table>
+    <thead><tr><th style="width:42%">Função</th><th>Comportamento</th></tr></thead>
+    <tbody>
+      <tr><td><code>dayMetrics(date, activities, goal)</code></td><td>Calcula <code>DayMetrics</code> de um dia (seção 2.4). Ignora atividades de outras datas.</td></tr>
+      <tr><td><code>weekMetrics(days, dailyGoal)</code></td><td>Agrega os dias em <code>WeekMetrics</code> (seção 2.5).</td></tr>
+      <tr><td><code>buildCycleSummary(ref, activities, goal)</code></td><td>Monta o <code>CycleSummary</code> completo: limites do ciclo, meta, 5 dias e totais.</td></tr>
+      <tr><td><code>durationOf(activity)</code></td><td><code>max(0, end − start)</code>.</td></tr>
+    </tbody>
+  </table>
+<pre><code>interface DayMetrics {
+  date; weekdayShort; weekdayLong; goal; minutes; diff; diffLabel;
+  activityCount; conformity: 'conforme' | 'nao_conforme' | 'pendente';
+  exceeded: boolean; diagnosis: string;
+}
+interface WeekMetrics {
+  goal; total; diff; diffLabel; activityCount; conformDays; exceededDays;
+  fillPercent; conformityLabel; diagnosis;
+}
+interface CycleSummary { start; end; dailyGoal; days: DayMetrics[]; week: WeekMetrics }</code></pre>
+</section>
+
+<!-- ============================== 5 ============================== -->
+<section class="chapter">
+  <h2><span class="num">5</span>Back-end</h2>
+  <p class="lead">Servidor Express organizado em quatro módulos: conexão, repositório, aplicação HTTP e ponto de entrada.</p>
+
+  <h3>5.1 <code>db.ts</code> — esquema</h3>
+  <p>Abre o banco, ativa o modo <strong>WAL</strong> e aplica o esquema de forma idempotente (<code>CREATE … IF NOT EXISTS</code>). Restrições de integridade também são impostas pelo SQLite (<code>CHECK</code>).</p>
+<pre><code>CREATE TABLE activities (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  date         TEXT    NOT NULL,                 -- 'AAAA-MM-DD'
+  start_minute INTEGER NOT NULL,
+  end_minute   INTEGER NOT NULL,
+  project      TEXT    NOT NULL,
+  description  TEXT    NOT NULL DEFAULT '',
+  notes        TEXT    NOT NULL DEFAULT '',
+  status       TEXT    NOT NULL CHECK (status IN
+               ('concluido','nao_concluido','pendente_aprovacao','nao_iniciado')),
+  created_at   TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CHECK (end_minute &gt; start_minute)
+);
+CREATE INDEX idx_activities_date ON activities(date);
+
+CREATE TABLE cycle_goals (cycle_start TEXT PRIMARY KEY, daily_goal_minutes INTEGER NOT NULL);
+CREATE TABLE settings    (key TEXT PRIMARY KEY, value TEXT NOT NULL);</code></pre>
+
+  <h3>5.2 <code>repo.ts</code> — repositório</h3>
+  <p>Encapsula todo o SQL em <em>prepared statements</em> e converte as linhas (<em>snake_case</em>) para objetos do domínio (<em>camelCase</em>).</p>
+  <table>
+    <thead><tr><th style="width:42%">Operação</th><th>Descrição</th></tr></thead>
+    <tbody>
+      <tr><td><code>listActivities(from, to)</code></td><td>Atividades no intervalo, ordenadas por data, início e id.</td></tr>
+      <tr><td><code>getActivity</code> · <code>createActivity</code> · <code>updateActivity</code> · <code>deleteActivity</code></td><td>CRUD por id. A atualização também grava <code>updated_at</code>.</td></tr>
+      <tr><td><code>findOverlaps(a, ignoreId)</code></td><td>Atividades do mesmo dia com <code>start &lt; a.end</code> e <code>end &gt; a.start</code>. Intervalos que apenas se encostam não contam como sobreposição.</td></tr>
+      <tr><td><code>goalForCycle(cycleStart)</code></td><td>Meta do ciclo ou, na ausência, a meta padrão.</td></tr>
+      <tr><td><code>setCycleGoal(start, min, makeDefault)</code></td><td>Grava a meta em transação. Com <code>makeDefault</code>: congela os ciclos anteriores, remove metas de ciclos posteriores e atualiza o padrão.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>5.3 <code>app.ts</code> — aplicação HTTP</h3>
+  <ul>
+    <li><code>createApp({ repo, today?, staticDir? })</code> cria a instância Express. <code>today</code> é injetável para testes determinísticos.</li>
+    <li>Corpos e parâmetros são validados com <strong>Zod</strong>. A primeira mensagem de erro é devolvida em <code>error</code>, e a lista completa em <code>issues</code>.</li>
+    <li>JSON malformado gera <code>400</code>, rotas <code>/api</code> inexistentes geram <code>404</code> e exceções não tratadas geram <code>500</code> com registro no console.</li>
+    <li>Quando <code>web/dist</code> existe, o servidor serve os arquivos estáticos e devolve <code>index.html</code> para as demais rotas (<em>SPA fallback</em>).</li>
+  </ul>
+
+  <h3>5.4 <code>index.ts</code> — ponto de entrada</h3>
+  <table>
+    <thead><tr><th style="width:22%">Variável</th><th style="width:38%">Padrão</th><th>Uso</th></tr></thead>
+    <tbody>
+      <tr><td><code>PORT</code></td><td><code>3001</code></td><td>Porta HTTP do servidor.</td></tr>
+      <tr><td><code>DB_PATH</code></td><td><code>server/data/acompanhamento.db</code></td><td>Arquivo SQLite. Aceita <code>:memory:</code>.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============================== 6 ============================== -->
+<section class="chapter">
+  <h2><span class="num">6</span>Referência da API REST</h2>
+  <p class="lead">Base: <code>/api</code>. Todas as requisições e respostas usam <code>application/json</code>. Horários são expressos em minutos desde 00:00.</p>
+
+  <div class="endpoint">
+    <div class="route"><span class="tag get">GET</span> /api/cycles/:date</div>
+    <p>Resumo do ciclo que contém <code>:date</code>: os 5 dias úteis com métricas e os totais da semana.</p>
+    <table><thead><tr><th style="width:18%">Status</th><th>Corpo</th></tr></thead><tbody>
+      <tr><td><code>200</code></td><td><code>CycleSummary</code></td></tr>
+      <tr><td><code>400</code></td><td>Data inválida</td></tr>
+    </tbody></table>
+<pre><code>{ "start": "2026-10-23", "end": "2026-10-29", "dailyGoal": 330,
+  "days": [ { "date": "2026-10-26", "weekdayShort": "Seg", "minutes": 345, "diff": 15,
+              "diffLabel": "+00:15", "activityCount": 4, "conformity": "nao_conforme",
+              "exceeded": true, "diagnosis": "Excedeu a meta de 5h30 em 00:15. Reajuste o apontamento", … }, … ],
+  "week": { "goal": 1650, "total": 675, "fillPercent": 40, "conformDays": 1, "exceededDays": 1, … } }</code></pre>
+  </div>
+
+  <div class="endpoint">
+    <div class="route"><span class="tag put">PUT</span> /api/cycles/:date/goal</div>
+    <p>Define a meta diária do ciclo de <code>:date</code>. Em ciclo atual ou futuro, ela também se torna o padrão dos próximos ciclos.</p>
+<pre><code>// requisição                        // resposta 200
+{ "dailyGoalMinutes": 528 }          { "cycleStart": "2026-10-23", "dailyGoalMinutes": 528,
+                                       "appliesToNextCycles": true }</code></pre>
+    <table><thead><tr><th style="width:18%">Status</th><th>Condição</th></tr></thead><tbody>
+      <tr><td><code>400</code></td><td>Data inválida, ou meta fora de 1–1440 ou não inteira</td></tr>
+    </tbody></table>
+  </div>
+
+  <div class="endpoint">
+    <div class="route"><span class="tag get">GET</span> /api/activities?date=AAAA-MM-DD</div>
+    <p>Atividades de um dia, ordenadas por horário de início. Responde <code>200</code> com <code>Activity[]</code>, ou <code>400</code> se a data for inválida.</p>
+  </div>
+
+  <div class="endpoint">
+    <div class="route"><span class="tag post">POST</span> /api/activities &nbsp;·&nbsp; <span class="tag put">PUT</span> /api/activities/:id</div>
+    <p>Cria ou substitui uma atividade. O corpo é um <code>ActivityInput</code> (seção 2.3). A resposta inclui avisos de sobreposição de horário.</p>
+<pre><code>// requisição
+{ "date": "2026-10-26", "startMinute": 480, "endMinute": 525, "project": "Projeto Exemplo",
+  "description": "Leitura da documentação", "notes": "", "status": "concluido" }
+
+// resposta 201 (POST) / 200 (PUT)
+{ "activity": { "id": 7, …campos… },
+  "warnings": ["Sobrepõe \"Suporte\" (08:30–09:00)."] }</code></pre>
+    <table><thead><tr><th style="width:18%">Status</th><th>Condição</th></tr></thead><tbody>
+      <tr><td><code>400</code></td><td>Falha de validação: fim ≤ início, fim de semana, status inválido, projeto vazio, JSON malformado</td></tr>
+      <tr><td><code>404</code></td><td><code>PUT</code> com <code>id</code> inexistente</td></tr>
+    </tbody></table>
+  </div>
+
+  <div class="endpoint">
+    <div class="route"><span class="tag del">DELETE</span> /api/activities/:id</div>
+    <p>Remove a atividade. Responde <code>204</code> sem corpo, ou <code>404</code> se o <code>id</code> não existir.</p>
+  </div>
+
+  <h3>Formato de erro</h3>
+<pre><code>HTTP/1.1 400 Bad Request
+{ "error": "O horário de fim deve ser depois do início.",
+  "issues": [ { "path": ["endMinute"], "message": "…", "code": "custom" } ] }</code></pre>
+</section>
+
+<!-- ============================== 7 ============================== -->
+<section class="chapter">
+  <h2><span class="num">7</span>Front-end</h2>
+  <p class="lead">SPA em React 19 com Vite. O estado de servidor fica no TanStack Query e o estado de navegação, na URL.</p>
+
+  <h3>7.1 Rotas e telas</h3>
+  <table>
+    <thead><tr><th style="width:17%">Rota</th><th style="width:20%">Tela</th><th>Conteúdo</th></tr></thead>
+    <tbody>
+      <tr><td><code>/</code></td><td>Painel</td><td>% preenchido, KPIs (meta semanal, total realizado, dias conformes), alerta de irregularidade, status do ciclo, gráfico por dia útil, seletor de meta, “Registrar atividades” e “Mostrar mais”.</td></tr>
+      <tr><td><code>/atividades</code></td><td>Atividades</td><td>Abas Sex–Qui com progresso, resumo do dia, lista com edição e exclusão confirmada, formulário com duração em tempo real.</td></tr>
+      <tr><td><code>/detalhes</code></td><td>Detalhamento</td><td>Tabela equivalente à da planilha, com linha de total geral.</td></tr>
+    </tbody>
+  </table>
+  <p>Todas as telas aceitam <code>?data=AAAA-MM-DD</code>. Sem o parâmetro, vale a data de hoje. Em <code>/atividades</code>, datas de fim de semana são resolvidas para o último dia útil do ciclo.</p>
+
+  <h3>7.2 Estado e dados (<code>api/client.ts</code>)</h3>
+  <table>
+    <thead><tr><th style="width:30%">Hook</th><th style="width:30%">Query key / efeito</th><th>Uso</th></tr></thead>
+    <tbody>
+      <tr><td><code>useCycle(date)</code></td><td><code>['cycle', inicioDoCiclo]</code></td><td>Resumo do ciclo (todas as telas)</td></tr>
+      <tr><td><code>useDayActivities(date)</code></td><td><code>['activities', date]</code></td><td>Lista do dia</td></tr>
+      <tr><td><code>useSaveActivity()</code></td><td>invalida <code>cycle</code> e <code>activities</code></td><td>Cria (sem <code>id</code>) ou edita</td></tr>
+      <tr><td><code>useDeleteActivity()</code></td><td>invalida <code>cycle</code> e <code>activities</code></td><td>Exclusão</td></tr>
+      <tr><td><code>useSetGoal()</code></td><td>invalida <code>cycle</code> e <code>activities</code></td><td>Altera a meta do ciclo</td></tr>
+    </tbody>
+  </table>
+  <p><code>QueryClient</code>: <code>staleTime</code> de 30 s, 1 nova tentativa, revalidação ao focar a janela. Falhas de rede viram <code>ApiError</code> com mensagem em português.</p>
+
+  <h3>7.3 Componentes principais</h3>
+  <table>
+    <thead><tr><th style="width:26%">Componente</th><th>Responsabilidade</th></tr></thead>
+    <tbody>
+      <tr><td><code>Layout</code></td><td>Cabeçalho fixo, navegação que preserva <code>?data=</code>, botão de tema.</td></tr>
+      <tr><td><code>CycleNav</code></td><td>Navegação entre ciclos (±7 dias) e atalho “Hoje”.</td></tr>
+      <tr><td><code>GoalSelector</code></td><td>Controle segmentado 5h30 / 8h48 / Outro, com campo <code>hh:mm</code>.</td></tr>
+      <tr><td><code>ProgressRing</code></td><td>Anel SVG do % preenchido: índigo em andamento, verde quando completo, vermelho quando excedido.</td></tr>
+      <tr><td><code>DailyChart</code></td><td>Barras por dia útil contra a linha de meta, com tooltip e clique para abrir o dia.</td></tr>
+      <tr><td><code>IrregularAlert</code></td><td>Lista os dias acima da meta, com link direto para reajuste.</td></tr>
+      <tr><td><code>CycleBanner</code></td><td>Contagem até quinta, aviso de dia de apontamento e fechamento de ciclos passados.</td></tr>
+      <tr><td><code>ActivityForm</code></td><td>Formulário de criação/edição. Sugere o início a partir do fim da última atividade do dia.</td></tr>
+      <tr><td><code>Badges</code></td><td><code>dayTone</code> classifica o dia em <em>conforme</em>, <em>abaixo</em>, <em>acima</em> ou <em>pendente</em>; badges de conformidade e de status.</td></tr>
+      <tr><td><code>Toast</code></td><td>Notificações de sucesso, aviso e erro (região <code>aria-live</code>).</td></tr>
+    </tbody>
+  </table>
+
+  <h3>7.4 Linguagem visual e tema</h3>
+  <ul>
+    <li><strong>Tokens de design</strong> em variáveis CSS (<code>index.css</code>), expostos ao Tailwind via <code>@theme inline</code> (ex.: <code>bg-surface</code>, <code>text-ink-2</code>).</li>
+    <li><strong>Cores de status reservadas:</strong> verde (conforme), âmbar (abaixo da meta), vermelho (acima da meta/irregular) e cinza (pendente). Toda cor de status vem acompanhada de ícone e rótulo, nunca sozinha.</li>
+    <li><strong>Tema:</strong> segue <code>prefers-color-scheme</code> até o usuário escolher um. O <code>ThemeToggle</code> grava <code>data-theme</code> em <code>&lt;html&gt;</code> e persiste a escolha em <code>localStorage['tema']</code>. Um script inline em <code>index.html</code> aplica o tema salvo antes da primeira pintura, evitando o efeito de piscar.</li>
+    <li><strong>Acessibilidade:</strong> rótulos ARIA nos controles de ícone, <code>role="tablist"</code> nas abas de dias, foco visível e respeito a <code>prefers-reduced-motion</code>.</li>
+  </ul>
+</section>
+
+<!-- ============================== 8 ============================== -->
+<section class="chapter">
+  <h2><span class="num">8</span>Execução e operação</h2>
+  <p class="lead">A aplicação roda localmente, sem serviços externos. O único requisito é o Node.js.</p>
+
+  <h3>8.1 Requisitos</h3>
+  <ul>
+    <li><strong>Node.js ≥ 23.6</strong>, necessário para executar TypeScript nativamente e para o módulo <code>node:sqlite</code>. O projeto foi desenvolvido no Node 26.</li>
+    <li>npm 10 ou superior.</li>
+  </ul>
+
+  <h3>8.2 Instalação e uso</h3>
+<pre><code>git clone https://github.com/peubibytes/acompanhamento_diario.git
+cd acompanhamento_diario
+npm install
+
+npm run dev      # desenvolvimento: API em :3001 e interface em http://localhost:5173
+npm start        # uso diário: build da interface + servidor único em http://localhost:3001</code></pre>
+
+  <h3>8.3 Scripts</h3>
+  <table>
+    <thead><tr><th style="width:24%">Script</th><th>Ação</th></tr></thead>
+    <tbody>
+      <tr><td><code>npm run dev</code></td><td>Executa em paralelo (<code>concurrently</code>) o servidor com <code>node --watch</code> e o Vite com HMR.</td></tr>
+      <tr><td><code>npm test</code></td><td>Testes de domínio e de API com <code>node --test</code>.</td></tr>
+      <tr><td><code>npm run typecheck</code></td><td><code>tsc</code> em <code>shared</code>, <code>server</code> e <code>web</code> (modo <code>strict</code>).</td></tr>
+      <tr><td><code>npm run build</code></td><td>Build de produção da interface em <code>web/dist</code>.</td></tr>
+      <tr><td><code>npm start</code></td><td>Build seguido do servidor, que entrega API e interface na mesma porta.</td></tr>
+      <tr><td><code>npm run docs:pdf</code></td><td>Regenera este PDF a partir de <code>docs/fonte/documentacao.html</code> (requer Microsoft Edge ou Google Chrome).</td></tr>
+    </tbody>
+  </table>
+
+  <h3>8.4 Dados e backup</h3>
+  <p>Todos os dados ficam em <code>server/data/acompanhamento.db</code>, junto com os arquivos <code>-wal</code> e <code>-shm</code> do modo WAL. O diretório é ignorado pelo git. Para backup, copie o arquivo com o servidor parado. Para mover os dados, use <code>DB_PATH</code>.</p>
+
+  <div class="note"><strong>Privacidade.</strong> O repositório é público. Registros reais de trabalho (o banco local e a planilha de referência) nunca são versionados: <code>server/data/</code> e <code>*.xlsx</code> estão no <code>.gitignore</code>, e os exemplos de código usam dados fictícios.</div>
+</section>
+
+<!-- ============================== 9 ============================== -->
+<section class="chapter">
+  <h2><span class="num">9</span>Qualidade</h2>
+  <p class="lead">Testes automatizados sobre as regras e o contrato HTTP, com tipagem estrita em todo o monorepo.</p>
+
+  <h3>9.1 Testes</h3>
+  <table>
+    <thead><tr><th style="width:27%">Suíte</th><th>Cobertura</th></tr></thead>
+    <tbody>
+      <tr><td><code>shared/test/rules.test.ts</code></td><td>Conversão e formatação de tempo; ciclo sexta→quinta, incluindo viradas de mês e de ano; métricas diárias com o cenário de exemplo da planilha; conformidade exata; excesso com metas de 8h48 e personalizada; % preenchido com arredondamento para baixo; semana 100% conforme.</td></tr>
+      <tr><td><code>server/test/api.test.ts</code></td><td>Servidor real sobre banco <code>:memory:</code>: CRUD completo, validações (horário, fim de semana, status, projeto), avisos de sobreposição, resumo do ciclo, regras de meta para ciclo atual, futuro e passado, JSON malformado.</td></tr>
+    </tbody>
+  </table>
+  <p>Total atual: <strong>23 testes</strong>, executados com o <em>test runner</em> nativo do Node.js, sem dependências adicionais.</p>
+
+  <h3>9.2 Convenções</h3>
+  <ul>
+    <li>TypeScript em modo <code>strict</code>, com <code>verbatimModuleSyntax</code> e <code>erasableSyntaxOnly</code>; imports com extensão <code>.ts</code> no servidor e no domínio.</li>
+    <li>Identificadores de código em inglês; textos de interface, mensagens de erro e comentários em português.</li>
+    <li>Regras de negócio apenas em <code>shared</code>; o servidor valida e persiste, e a interface apenas apresenta.</li>
+    <li>Commits com mensagens descritivas em português.</li>
+  </ul>
+</section>
+
+<!-- ============================== 10 ============================== -->
+<section style="margin-top:22px">
+  <h2><span class="num">10</span>Roadmap</h2>
+  <p class="lead">Evoluções previstas, em ordem aproximada de prioridade.</p>
+  <table>
+    <thead><tr><th style="width:30%">Item</th><th>Descrição</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Integração com o Azure DevOps</strong></td><td>Associar atividades a work items e enviar os apontamentos do ciclo às quintas-feiras.</td></tr>
+      <tr><td>Autocompletar projetos</td><td>Sugerir projetos já usados no ciclo ou em ciclos anteriores.</td></tr>
+      <tr><td>Duplicar atividade</td><td>Copiar atividades recorrentes de outro dia.</td></tr>
+      <tr><td>Exportação</td><td>Exportar o ciclo em CSV/XLSX.</td></tr>
+      <tr><td>Feriados</td><td>Marcar dias úteis sem expediente e ajustar a meta semanal.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+</body>
+</html>

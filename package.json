@@ -12,7 +12,8 @@
     "test": "node --test \"shared/test/*.test.ts\" \"server/test/*.test.ts\"",
     "typecheck": "tsc -p shared && tsc -p server && tsc -p web",
     "build": "npm run build -w web",
-    "start": "npm run build && npm run start -w server"
+    "start": "npm run build && npm run start -w server",
+    "docs:pdf": "node docs/fonte/gerar-pdf.mjs"
   },
   "engines": {
     "node": ">=23.6"
