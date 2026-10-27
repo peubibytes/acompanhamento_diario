@@ -8,6 +8,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <title>Acompanhamento Diário</title>
+    <script>
+      // Aplica o tema salvo antes da primeira pintura (ver ThemeToggle.tsx).
+      try {
+        var tema = localStorage.getItem('tema');
+        if (tema === 'light' || tema === 'dark') document.documentElement.dataset.theme = tema;
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

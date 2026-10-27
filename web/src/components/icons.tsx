@@ -37,6 +37,17 @@ export const TrendUpIcon = (p: IconProps) => (
     <path d="M4 16l5-5 4 4 7-7M15 8h5v5" />
   </Icon>
 );
+export const SunIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="12" cy="12" r="4" />
+    <path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4" />
+  </Icon>
+);
+export const MoonIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z" />
+  </Icon>
+);
 export const XIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M7 7l10 10M17 7L7 17" />
