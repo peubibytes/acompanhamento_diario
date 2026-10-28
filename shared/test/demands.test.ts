@@ -2,9 +2,13 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   compareDemands,
+  DEMAND_DEFAULTS,
   buildDemandSummary,
   demandMetrics,
   parseHM,
+  matchesDemandFilter,
+  parseExternalIds,
+  waitingWorkdays,
   workdaysBetween,
   type Demand,
 } from '../src/index.ts';
@@ -19,7 +23,8 @@ function demand(overrides: Partial<Demand> = {}): Demand {
     targetMinutes: 20 * 60,
     startDate: '2026-10-23',
     dueDate: null,
-    status: 'ativa',
+    status: 'em_andamento',
+    ...DEMAND_DEFAULTS,
     ...overrides,
   };
 }
@@ -149,7 +154,7 @@ describe('demandas: prazo e lembretes', () => {
   });
 
   it('demanda concluída não gera alertas', () => {
-    const m = demandMetrics(demand({ status: 'concluida', dueDate: '2026-10-20' }), [], '2026-10-27', DAILY_GOAL);
+    const m = demandMetrics(demand({ status: 'concluido', dueDate: '2026-10-20' }), [], '2026-10-27', DAILY_GOAL);
     assert.equal(m.deadline, 'concluida');
     assert.equal(m.atRisk, false);
     assert.equal(m.reminder, null);
@@ -159,7 +164,7 @@ describe('demandas: prazo e lembretes', () => {
     const s = (id: number, o: Partial<Demand>) => buildDemandSummary(demand({ id, ...o }), [], '2026-10-27', DAILY_GOAL);
     const sorted = [
       s(1, { title: 'Sem prazo' }),
-      s(2, { title: 'Concluída', status: 'concluida' }),
+      s(2, { title: 'Concluída', status: 'concluido' }),
       s(3, { title: 'Longe', dueDate: '2026-11-20' }),
       s(4, { title: 'Atrasada', dueDate: '2026-10-20' }),
       s(5, { title: 'Próxima', dueDate: '2026-10-28' }),
@@ -167,6 +172,90 @@ describe('demandas: prazo e lembretes', () => {
     assert.deepEqual(
       sorted.map((d) => d.title),
       ['Atrasada', 'Próxima', 'Longe', 'Sem prazo', 'Concluída'],
+    );
+  });
+});
+
+describe('demandas como chamados', () => {
+  it('sem meta de horas: mostra o apontado e não calcula risco', () => {
+    const m = demandMetrics(
+      demand({ targetMinutes: null, dueDate: '2026-10-28', progressPercent: 60 }),
+      [log('2026-10-26', '08:00', '10:30')],
+      '2026-10-27',
+      DAILY_GOAL,
+    );
+    assert.equal(m.target, null);
+    assert.equal(m.percent, null);
+    assert.equal(m.progress, 'em_andamento');
+    assert.equal(m.diagnosis, '2h30 apontadas, sem meta de horas');
+    assert.equal(m.atRisk, false);
+    assert.equal(m.requiredPerDay, null);
+    assert.equal(m.reminder, 'Vence em 1 dia útil (28/10). Progresso informado: 60%.');
+  });
+
+  it('cancelada encerra o prazo sem alertas', () => {
+    const m = demandMetrics(demand({ status: 'cancelado', dueDate: '2026-10-20' }), [], '2026-10-27', DAILY_GOAL);
+    assert.equal(m.deadline, 'cancelada');
+    assert.equal(m.reminder, null);
+  });
+
+  it('aguardando terceiro e em homologação continuam abertas', () => {
+    for (const status of ['novo', 'em_andamento', 'aguardando_terceiro', 'em_homologacao'] as const) {
+      assert.equal(matchesDemandFilter({ status }, 'abertas'), true, status);
+      assert.equal(matchesDemandFilter({ status }, 'encerradas'), false, status);
+    }
+    assert.equal(matchesDemandFilter({ status: 'cancelado' }, 'encerradas'), true);
+    assert.equal(matchesDemandFilter({ status: 'concluido' }, 'concluido'), true);
+    assert.equal(matchesDemandFilter({ status: 'concluido' }, 'novo'), false);
+  });
+
+  it('lê identificadores externos em maiúsculas e sem repetir', () => {
+    assert.deepEqual(parseExternalIds(' sctask0001, RITM0002;sctask0001  us-12 '), ['SCTASK0001', 'RITM0002', 'US-12']);
+    assert.deepEqual(parseExternalIds('  '), []);
+  });
+
+  it('conta dias úteis de espera sem duplicar impedimentos simultâneos', () => {
+    const today = '2026-10-29'; // qui
+    assert.equal(waitingWorkdays([], today), 0);
+    // sex 23 → ter 27, resolvido: sex, seg, ter = 3 dias úteis
+    assert.equal(waitingWorkdays([{ since: '2026-10-23', resolvedAt: '2026-10-27' }], today), 3);
+    // aberto desde seg 26 até hoje (qui): 4 dias, sobrepondo o anterior em seg e ter
+    assert.equal(
+      waitingWorkdays(
+        [
+          { since: '2026-10-23', resolvedAt: '2026-10-27' },
+          { since: '2026-10-26', resolvedAt: null },
+        ],
+        today,
+      ),
+      5,
+    );
+  });
+
+  it('resume linha do tempo e impedimentos de cada demanda', () => {
+    const s = buildDemandSummary(demand(), [], '2026-10-27', DAILY_GOAL, {
+      events: [
+        { demandId: 1, date: '2026-10-23' },
+        { demandId: 1, date: '2026-10-26' },
+        { demandId: 2, date: '2026-10-27' },
+      ],
+      blockers: [
+        { demandId: 1, since: '2026-10-26', resolvedAt: null },
+        { demandId: 2, since: '2026-10-20', resolvedAt: null },
+      ],
+    });
+    assert.deepEqual(s.tracking, { eventCount: 2, lastEventDate: '2026-10-26', openBlockers: 1, waitingWorkdays: 2 });
+  });
+
+  it('no mesmo prazo, a prioridade mais alta vem primeiro', () => {
+    const s = (id: number, o: Partial<Demand>) =>
+      buildDemandSummary(demand({ id, dueDate: '2026-11-20', ...o }), [], '2026-10-27', DAILY_GOAL);
+    const sorted = [s(1, { title: 'Baixa', priority: 'baixa' }), s(2, { title: 'Urgente', priority: 'urgente' })].sort(
+      compareDemands,
+    );
+    assert.deepEqual(
+      sorted.map((d) => d.title),
+      ['Urgente', 'Baixa'],
     );
   });
 });

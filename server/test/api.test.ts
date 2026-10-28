@@ -165,7 +165,7 @@ describe('API de demandas', () => {
     assert.equal(created.status, 201);
     const d = created.data as DemandSummary;
     assert.equal(d.startDate, '2026-10-27'); // padrão: hoje
-    assert.equal(d.status, 'ativa');
+    assert.equal(d.status, 'novo');
     assert.equal(d.metrics.progress, 'nao_iniciada');
 
     const link = { ...sample, demandId: d.id };
@@ -219,14 +219,14 @@ describe('API de demandas', () => {
     );
     assert.equal(list[0].metrics.deadline, 'atrasada');
 
-    const done = await api('PUT', `/demands/${late.id}`, { ...lateBody, status: 'concluida' });
+    const done = await api('PUT', `/demands/${late.id}`, { ...lateBody, status: 'concluido' });
     assert.equal(done.data.metrics.deadline, 'concluida');
     assert.equal(done.data.metrics.reminder, null);
 
     const titles = async (query: string) =>
       ((await api('GET', `/demands${query}`)).data as DemandSummary[]).map((d) => d.title);
-    assert.deepEqual(await titles('?status=ativa'), ['Sem prazo']);
-    assert.deepEqual(await titles('?status=concluida'), ['Atrasada']);
+    assert.deepEqual(await titles('?status=abertas'), ['Sem prazo']);
+    assert.deepEqual(await titles('?status=concluido'), ['Atrasada']);
     assert.equal((await api('GET', '/demands?status=xyz')).status, 400);
 
     // Sem startDate no corpo, a edição mantém a data de início original.
@@ -247,6 +247,107 @@ describe('API de demandas', () => {
     assert.equal(kept.id, act.id);
     assert.equal(kept.demandId, null);
     await api('DELETE', `/activities/${act.id}`);
+  });
+});
+
+describe('API de demandas como chamados', () => {
+  const ticket = {
+    title: 'Ajuste no relatório de vendas',
+    externalIds: ['sctask0000001', ' RITM0000002 ', 'SCTASK0000001'],
+    system: 'Sistema Exemplo',
+    kind: 'intempestiva',
+    priority: 'alta',
+    progressPercent: 40,
+    targetMinutes: null,
+    dueDate: '2026-11-06',
+    status: 'em_andamento',
+    branch: 'feature/ajuste-relatorio',
+    prUrl: 'https://exemplo.invalid/pr/1',
+    environment: 'staging',
+  };
+
+  it('grava os campos de chamado e aceita demanda sem meta de horas', async () => {
+    const created = await api('POST', '/demands', ticket);
+    assert.equal(created.status, 201);
+    const d = created.data as DemandSummary;
+    assert.deepEqual(d.externalIds, ['SCTASK0000001', 'RITM0000002']);
+    assert.equal(d.kind, 'intempestiva');
+    assert.equal(d.priority, 'alta');
+    assert.equal(d.progressPercent, 40);
+    assert.equal(d.targetMinutes, null);
+    assert.equal(d.metrics.target, null);
+    assert.equal(d.environment, 'staging');
+    assert.deepEqual(d.tracking, { eventCount: 0, lastEventDate: null, openBlockers: 0, waitingWorkdays: 0 });
+
+    // Só com o essencial, os campos novos recebem os padrões.
+    const minimal = (await api('POST', '/demands', { title: 'Mínima' })).data as DemandSummary;
+    assert.equal(minimal.kind, 'planejada');
+    assert.equal(minimal.priority, 'media');
+    assert.deepEqual(minimal.externalIds, []);
+
+    for (const x of [d, minimal]) await api('DELETE', `/demands/${x.id}`);
+  });
+
+  it('valida identificadores, progresso, PR e ambiente', async () => {
+    const cases: [object, RegExp][] = [
+      [{ ...ticket, externalIds: ['com espaço'] }, /Identificador externo inválido/],
+      [{ ...ticket, progressPercent: 101 }, /entre 0 e 100/],
+      [{ ...ticket, prUrl: 'pr-1' }, /Link do PR inválido/],
+      [{ ...ticket, environment: 'qa' }, /Ambiente inválido/],
+      [{ ...ticket, kind: 'urgente' }, /Tipo inválido/],
+    ];
+    for (const [body, message] of cases) {
+      const res = await api('POST', '/demands', body);
+      assert.equal(res.status, 400, JSON.stringify(body));
+      assert.match(res.data.error, message);
+    }
+  });
+
+  it('registra linha do tempo e impedimentos, separando a espera', async () => {
+    const d = (await api('POST', '/demands', ticket)).data as DemandSummary;
+
+    const e1 = await api('POST', `/demands/${d.id}/events`, { date: '2026-10-23', kind: 'decisao', text: 'Escopo definido' });
+    assert.equal(e1.status, 201);
+    const e2 = await api('POST', `/demands/${d.id}/events`, { text: 'Ajuste enviado para validação' });
+    assert.equal(e2.data.date, '2026-10-27'); // padrão: hoje
+    assert.equal(e2.data.kind, 'acao');
+    assert.equal((await api('POST', `/demands/${d.id}/events`, { text: ' ' })).status, 400);
+
+    const edited = await api('PUT', `/demands/${d.id}/events/${e1.data.id}`, { ...e1.data, text: 'Escopo revisado' });
+    assert.equal(edited.data.text, 'Escopo revisado');
+
+    const b = await api('POST', `/demands/${d.id}/blockers`, { owner: 'Equipe de infraestrutura', since: '2026-10-26' });
+    assert.equal(b.status, 201);
+    assert.equal(b.data.resolvedAt, null);
+    const bad = await api('POST', `/demands/${d.id}/blockers`, {
+      owner: 'Equipe X',
+      since: '2026-10-26',
+      resolvedAt: '2026-10-20',
+    });
+    assert.match(bad.data.error, /anterior ao início/);
+
+    let detail = (await api('GET', `/demands/${d.id}`)).data;
+    assert.equal(detail.events.length, 2);
+    assert.equal(detail.events[0].date, '2026-10-27'); // mais recentes primeiro
+    assert.equal(detail.blockers.length, 1);
+    assert.deepEqual(detail.tracking, { eventCount: 2, lastEventDate: '2026-10-27', openBlockers: 1, waitingWorkdays: 2 });
+
+    await api('PUT', `/demands/${d.id}/blockers/${b.data.id}`, { ...b.data, resolvedAt: '2026-10-26' });
+    detail = (await api('GET', `/demands/${d.id}`)).data;
+    assert.equal(detail.tracking.openBlockers, 0);
+    assert.equal(detail.tracking.waitingWorkdays, 1);
+
+    // Itens de outra demanda ou inexistentes não são encontrados.
+    assert.equal((await api('PUT', `/demands/${d.id}/events/9999`, { text: 'x' })).status, 404);
+    assert.equal((await api('POST', '/demands/9999/events', { text: 'x' })).status, 404);
+    assert.equal((await api('DELETE', `/demands/${d.id}/events/${e2.data.id}`)).status, 204);
+    assert.equal((await api('DELETE', `/demands/${d.id}/events/${e2.data.id}`)).status, 404);
+
+    // Excluir a demanda leva junto a linha do tempo e os impedimentos.
+    await api('DELETE', `/demands/${d.id}`);
+    const again = (await api('POST', '/demands', ticket)).data as DemandSummary;
+    assert.deepEqual(again.tracking, { eventCount: 0, lastEventDate: null, openBlockers: 0, waitingWorkdays: 0 });
+    await api('DELETE', `/demands/${again.id}`);
   });
 });
 
@@ -273,5 +374,41 @@ describe('migração do banco', () => {
     assert.equal(row.project, 'Antiga');
     assert.equal(row.demandId, null);
     assert.deepEqual(repo.listDemands(), []);
+  });
+
+  it('converte as demandas da v0.2 em chamados sem perder o vínculo das atividades', () => {
+    const db = new DatabaseSync(':memory:');
+    db.exec('PRAGMA foreign_keys = ON');
+    migrate(db);
+    // Volta o esquema de demandas para o da versão 2 e grava dados nele.
+    db.exec(`
+      PRAGMA foreign_keys = OFF;
+      DROP TABLE demand_events; DROP TABLE demand_blockers; DROP TABLE demands;
+      CREATE TABLE demands (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
+        target_minutes INTEGER NOT NULL CHECK (target_minutes > 0), start_date TEXT NOT NULL, due_date TEXT,
+        status TEXT NOT NULL DEFAULT 'ativa' CHECK (status IN ('ativa', 'concluida')),
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+      PRAGMA foreign_keys = ON;
+      INSERT INTO demands (title, target_minutes, start_date, status) VALUES ('Aberta', 600, '2026-10-01', 'ativa');
+      INSERT INTO demands (title, target_minutes, start_date, status) VALUES ('Fechada', 300, '2026-10-01', 'concluida');
+      INSERT INTO activities (date, start_minute, end_minute, project, status, demand_id)
+        VALUES ('2026-10-26', 480, 525, 'Vinculada', 'concluido', 1);
+      PRAGMA user_version = 2;
+    `);
+
+    migrate(db);
+
+    const repo = createRepo(db);
+    const [open, closed] = repo.listDemands();
+    assert.equal(open.status, 'em_andamento');
+    assert.equal(open.targetMinutes, 600);
+    assert.equal(open.kind, 'planejada');
+    assert.equal(closed.status, 'concluido');
+    assert.equal(closed.progressPercent, 100);
+    const [act] = repo.listActivities('2026-10-26', '2026-10-26');
+    assert.equal(act.demandId, 1); // o DROP da tabela antiga não apagou o vínculo
+    const fk = db.prepare('PRAGMA foreign_keys').get() as { foreign_keys: number };
+    assert.equal(fk.foreign_keys, 1);
   });
 });

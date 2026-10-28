@@ -5,6 +5,10 @@ import {
   type Activity,
   type ActivityInput,
   type Demand,
+  type DemandBlocker,
+  type DemandBlockerInput,
+  type DemandEvent,
+  type DemandEventInput,
   type DemandInput,
   type ISODate,
 } from '@acomp/shared';
@@ -25,10 +29,35 @@ interface DemandRow {
   id: number;
   title: string;
   description: string;
-  target_minutes: number;
+  external_ids: string;
+  system: string;
+  kind: Demand['kind'];
+  priority: Demand['priority'];
+  progress_percent: number;
+  target_minutes: number | null;
   start_date: string;
   due_date: string | null;
   status: Demand['status'];
+  branch: string;
+  pr_url: string;
+  environment: Demand['environment'];
+}
+
+interface EventRow {
+  id: number;
+  demand_id: number;
+  date: string;
+  kind: DemandEvent['kind'];
+  text: string;
+}
+
+interface BlockerRow {
+  id: number;
+  demand_id: number;
+  owner: string;
+  description: string;
+  since: string;
+  resolved_at: string | null;
 }
 
 const toActivity = (r: ActivityRow): Activity => ({
@@ -47,10 +76,53 @@ const toDemand = (r: DemandRow): Demand => ({
   id: r.id,
   title: r.title,
   description: r.description,
+  externalIds: JSON.parse(r.external_ids) as string[],
+  system: r.system,
+  kind: r.kind,
+  priority: r.priority,
+  progressPercent: r.progress_percent,
   targetMinutes: r.target_minutes,
   startDate: r.start_date,
   dueDate: r.due_date,
   status: r.status,
+  branch: r.branch,
+  prUrl: r.pr_url,
+  environment: r.environment,
+});
+
+/** Parâmetros nomeados de INSERT/UPDATE de demandas (a lista de IDs vai como JSON). */
+const demandParams = (d: DemandInput) => ({
+  title: d.title,
+  description: d.description,
+  externalIds: JSON.stringify(d.externalIds),
+  system: d.system,
+  kind: d.kind,
+  priority: d.priority,
+  progressPercent: d.progressPercent,
+  targetMinutes: d.targetMinutes,
+  startDate: d.startDate,
+  dueDate: d.dueDate,
+  status: d.status,
+  branch: d.branch,
+  prUrl: d.prUrl,
+  environment: d.environment,
+});
+
+const toEvent = (r: EventRow): DemandEvent => ({
+  id: r.id,
+  demandId: r.demand_id,
+  date: r.date,
+  kind: r.kind,
+  text: r.text,
+});
+
+const toBlocker = (r: BlockerRow): DemandBlocker => ({
+  id: r.id,
+  demandId: r.demand_id,
+  owner: r.owner,
+  description: r.description,
+  since: r.since,
+  resolvedAt: r.resolved_at,
 });
 
 const DEFAULT_GOAL_KEY = 'default_daily_goal_minutes';
@@ -93,11 +165,15 @@ export function createRepo(db: DatabaseSync) {
     demands: db.prepare('SELECT * FROM demands ORDER BY id'),
     demandById: db.prepare('SELECT * FROM demands WHERE id = ?'),
     insertDemand: db.prepare(`
-      INSERT INTO demands (title, description, target_minutes, start_date, due_date, status)
-      VALUES (:title, :description, :targetMinutes, :startDate, :dueDate, :status)`),
+      INSERT INTO demands (title, description, external_ids, system, kind, priority, progress_percent,
+        target_minutes, start_date, due_date, status, branch, pr_url, environment)
+      VALUES (:title, :description, :externalIds, :system, :kind, :priority, :progressPercent,
+        :targetMinutes, :startDate, :dueDate, :status, :branch, :prUrl, :environment)`),
     updateDemand: db.prepare(`
-      UPDATE demands SET title = :title, description = :description, target_minutes = :targetMinutes,
-        start_date = :startDate, due_date = :dueDate, status = :status, updated_at = CURRENT_TIMESTAMP
+      UPDATE demands SET title = :title, description = :description, external_ids = :externalIds,
+        system = :system, kind = :kind, priority = :priority, progress_percent = :progressPercent,
+        target_minutes = :targetMinutes, start_date = :startDate, due_date = :dueDate, status = :status,
+        branch = :branch, pr_url = :prUrl, environment = :environment, updated_at = CURRENT_TIMESTAMP
       WHERE id = :id`),
     removeDemand: db.prepare('DELETE FROM demands WHERE id = ?'),
     linkedActivities: db.prepare(
@@ -106,6 +182,29 @@ export function createRepo(db: DatabaseSync) {
     activitiesOfDemand: db.prepare(
       'SELECT * FROM activities WHERE demand_id = ? ORDER BY date DESC, start_minute DESC, id DESC',
     ),
+
+    events: db.prepare('SELECT * FROM demand_events ORDER BY date DESC, id DESC'),
+    eventsOfDemand: db.prepare('SELECT * FROM demand_events WHERE demand_id = ? ORDER BY date DESC, id DESC'),
+    eventById: db.prepare('SELECT * FROM demand_events WHERE id = ? AND demand_id = ?'),
+    insertEvent: db.prepare(`
+      INSERT INTO demand_events (demand_id, date, kind, text) VALUES (:demandId, :date, :kind, :text)`),
+    updateEvent: db.prepare(`
+      UPDATE demand_events SET date = :date, kind = :kind, text = :text WHERE id = :id AND demand_id = :demandId`),
+    removeEvent: db.prepare('DELETE FROM demand_events WHERE id = ? AND demand_id = ?'),
+
+    blockers: db.prepare('SELECT * FROM demand_blockers ORDER BY since DESC, id DESC'),
+    blockersOfDemand: db.prepare(
+      'SELECT * FROM demand_blockers WHERE demand_id = ? ORDER BY resolved_at IS NOT NULL, since DESC, id DESC',
+    ),
+    blockerById: db.prepare('SELECT * FROM demand_blockers WHERE id = ? AND demand_id = ?'),
+    insertBlocker: db.prepare(`
+      INSERT INTO demand_blockers (demand_id, owner, description, since, resolved_at)
+      VALUES (:demandId, :owner, :description, :since, :resolvedAt)`),
+    updateBlocker: db.prepare(`
+      UPDATE demand_blockers SET owner = :owner, description = :description, since = :since,
+        resolved_at = :resolvedAt
+      WHERE id = :id AND demand_id = :demandId`),
+    removeBlocker: db.prepare('DELETE FROM demand_blockers WHERE id = ? AND demand_id = ?'),
   };
 
   const defaultGoal = (): number => {
@@ -154,16 +253,19 @@ export function createRepo(db: DatabaseSync) {
     },
 
     createDemand(input: DemandInput): Demand {
-      const { lastInsertRowid } = q.insertDemand.run({ ...input });
+      const { lastInsertRowid } = q.insertDemand.run(demandParams(input));
       return this.getDemand(Number(lastInsertRowid))!;
     },
 
     updateDemand(id: number, input: DemandInput): Demand | undefined {
-      const { changes } = q.updateDemand.run({ ...input, id });
+      const { changes } = q.updateDemand.run({ ...demandParams(input), id });
       return changes ? this.getDemand(id) : undefined;
     },
 
-    /** Remove a demanda; as atividades vinculadas permanecem, sem vínculo (ON DELETE SET NULL). */
+    /**
+     * Remove a demanda; as atividades vinculadas permanecem, sem vínculo (ON DELETE SET NULL),
+     * e a linha do tempo e os impedimentos vão junto (ON DELETE CASCADE).
+     */
     deleteDemand(id: number): boolean {
       return q.removeDemand.run(id).changes > 0;
     },
@@ -176,6 +278,64 @@ export function createRepo(db: DatabaseSync) {
     /** Atividades de uma demanda, das mais recentes para as mais antigas. */
     listDemandActivities(id: number): Activity[] {
       return (q.activitiesOfDemand.all(id) as unknown as ActivityRow[]).map(toActivity);
+    },
+
+    /** Eventos de todas as demandas (para resumir a linha do tempo de cada uma). */
+    listAllEvents(): DemandEvent[] {
+      return (q.events.all() as unknown as EventRow[]).map(toEvent);
+    },
+
+    /** Linha do tempo de uma demanda, da mais recente para a mais antiga. */
+    listDemandEvents(demandId: number): DemandEvent[] {
+      return (q.eventsOfDemand.all(demandId) as unknown as EventRow[]).map(toEvent);
+    },
+
+    getEvent(demandId: number, id: number): DemandEvent | undefined {
+      const row = q.eventById.get(id, demandId) as EventRow | undefined;
+      return row && toEvent(row);
+    },
+
+    createEvent(demandId: number, input: DemandEventInput): DemandEvent {
+      const { lastInsertRowid } = q.insertEvent.run({ demandId, date: input.date, kind: input.kind, text: input.text });
+      return this.getEvent(demandId, Number(lastInsertRowid))!;
+    },
+
+    updateEvent(demandId: number, id: number, input: DemandEventInput): DemandEvent | undefined {
+      const { changes } = q.updateEvent.run({ id, demandId, date: input.date, kind: input.kind, text: input.text });
+      return changes ? this.getEvent(demandId, id) : undefined;
+    },
+
+    deleteEvent(demandId: number, id: number): boolean {
+      return q.removeEvent.run(id, demandId).changes > 0;
+    },
+
+    /** Impedimentos de todas as demandas (para contar os abertos e os dias de espera). */
+    listAllBlockers(): DemandBlocker[] {
+      return (q.blockers.all() as unknown as BlockerRow[]).map(toBlocker);
+    },
+
+    /** Impedimentos de uma demanda: abertos primeiro, depois os resolvidos. */
+    listDemandBlockers(demandId: number): DemandBlocker[] {
+      return (q.blockersOfDemand.all(demandId) as unknown as BlockerRow[]).map(toBlocker);
+    },
+
+    getBlocker(demandId: number, id: number): DemandBlocker | undefined {
+      const row = q.blockerById.get(id, demandId) as BlockerRow | undefined;
+      return row && toBlocker(row);
+    },
+
+    createBlocker(demandId: number, input: DemandBlockerInput): DemandBlocker {
+      const { lastInsertRowid } = q.insertBlocker.run({ demandId, ...input });
+      return this.getBlocker(demandId, Number(lastInsertRowid))!;
+    },
+
+    updateBlocker(demandId: number, id: number, input: DemandBlockerInput): DemandBlocker | undefined {
+      const { changes } = q.updateBlocker.run({ id, demandId, ...input });
+      return changes ? this.getBlocker(demandId, id) : undefined;
+    },
+
+    deleteBlocker(demandId: number, id: number): boolean {
+      return q.removeBlocker.run(id, demandId).changes > 0;
     },
 
     defaultGoal,

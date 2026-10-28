@@ -2,7 +2,7 @@
 // pelo painel em alertas, para que o usuário veja só quando quiser.
 
 import { addDays, formatDayMonth, getCycle, WEEKDAY_SHORT, weekdayOf, type ISODate } from './cycle.ts';
-import { DEADLINE_LABEL, type DeadlineStatus, type DemandSummary } from './demands.ts';
+import { DEADLINE_LABEL, formatDemandHours, isOpenDemand, type DeadlineStatus, type DemandSummary } from './demands.ts';
 import type { CycleSummary } from './metrics.ts';
 import { formatDuration } from './time.ts';
 
@@ -58,7 +58,7 @@ export function buildNotifications(current: CycleSummary, demands: DemandSummary
     });
   }
 
-  for (const d of demands.filter((x) => x.status === 'ativa' && x.metrics.reminder)) {
+  for (const d of demands.filter((x) => isOpenDemand(x) && x.metrics.reminder)) {
     items.push({
       id: `demanda:${d.id}`,
       severity: d.metrics.deadline === 'atrasada' || d.metrics.atRisk ? 'critical' : 'warning',
@@ -114,14 +114,14 @@ export function buildAgenda(demands: DemandSummary[], today: ISODate): AgendaIte
     });
   }
 
-  for (const d of demands.filter((x) => x.status === 'ativa')) {
+  for (const d of demands.filter(isOpenDemand)) {
     if (d.dueDate) {
       items.push({
         id: `prazo:${d.id}`,
         date: d.dueDate,
         kind: 'prazo_demanda',
         title: d.title,
-        detail: `Prazo da demanda · ${formatDuration(d.metrics.logged)} de ${formatDuration(d.metrics.target)} · ${DEADLINE_LABEL[d.metrics.deadline]}`,
+        detail: `Prazo da demanda · ${formatDemandHours(d.metrics)} · ${DEADLINE_LABEL[d.metrics.deadline]}`,
         deadline: d.metrics.deadline,
         target: { screen: 'demandas', demandId: d.id },
       });
@@ -132,7 +132,7 @@ export function buildAgenda(demands: DemandSummary[], today: ISODate): AgendaIte
         date: d.startDate,
         kind: 'inicio_demanda',
         title: d.title,
-        detail: `Início da demanda · meta de ${formatDuration(d.metrics.target)}`,
+        detail: `Início da demanda · ${d.metrics.target === null ? 'sem meta de horas' : `meta de ${formatDuration(d.metrics.target)}`}`,
         target: { screen: 'demandas', demandId: d.id },
       });
     }

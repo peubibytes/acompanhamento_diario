@@ -7,8 +7,16 @@ import {
   buildCycleSummary,
   buildDemandSummary,
   compareDemands,
+  DEMAND_DEFAULTS,
+  DEMAND_ENVIRONMENTS,
+  DEMAND_EVENT_KINDS,
+  DEMAND_KINDS,
+  DEMAND_PRIORITIES,
+  DEMAND_STATUS_GROUPS,
   DEMAND_STATUSES,
   formatHM,
+  matchesDemandFilter,
+  normalizeExternalId,
   getCycle,
   isValidISODate,
   isWorkday,
@@ -39,25 +47,75 @@ const activitySchema = z
 /** Até 999h59 — o mesmo limite do campo hh:mm da interface. */
 const MAX_DEMAND_MINUTES = 999 * 60 + 59;
 
+/** Letras, números e - _ . # / (ex.: SCTASK0012345, RITM0001, US-42). */
+const EXTERNAL_ID = /^[A-Z0-9][A-Z0-9_.#/-]{0,39}$/;
+
+const externalIdsSchema = z
+  .array(z.string('Identificador inválido.'))
+  .max(20, 'Informe no máximo 20 identificadores.')
+  .transform((ids) => [...new Set(ids.map(normalizeExternalId).filter(Boolean))])
+  .refine((ids) => ids.every((id) => EXTERNAL_ID.test(id)), 'Identificador externo inválido (use letras, números e - _ . # /).');
+
 const demandSchema = (defaultStart: ISODate) =>
   z
     .object({
       title: z.string().trim().min(1, 'Informe o título da demanda.').max(200),
       description: z.string().trim().max(2000).default(''),
+      externalIds: externalIdsSchema.default(DEMAND_DEFAULTS.externalIds),
+      system: z.string().trim().max(200).default(DEMAND_DEFAULTS.system),
+      kind: z.enum(DEMAND_KINDS, 'Tipo inválido.').default(DEMAND_DEFAULTS.kind),
+      priority: z.enum(DEMAND_PRIORITIES, 'Prioridade inválida.').default(DEMAND_DEFAULTS.priority),
+      progressPercent: z
+        .int('Progresso inválido.')
+        .min(0, 'O progresso deve ficar entre 0 e 100%.')
+        .max(100, 'O progresso deve ficar entre 0 e 100%.')
+        .default(DEMAND_DEFAULTS.progressPercent),
       targetMinutes: z
-        .int('Informe a meta de horas.')
+        .int('Meta de horas inválida.')
         .min(1, 'A meta de horas deve ser maior que zero.')
-        .max(MAX_DEMAND_MINUTES, 'A meta de horas deve ser de no máximo 999h59.'),
+        .max(MAX_DEMAND_MINUTES, 'A meta de horas deve ser de no máximo 999h59.')
+        .nullable()
+        .default(null),
       startDate: isoDate.default(defaultStart),
       dueDate: isoDate.nullable().default(null),
-      status: z.enum(DEMAND_STATUSES, 'Status inválido.').default('ativa'),
+      status: z.enum(DEMAND_STATUSES, 'Status inválido.').default('novo'),
+      branch: z.string().trim().max(200).default(DEMAND_DEFAULTS.branch),
+      prUrl: z
+        .string()
+        .trim()
+        .max(500)
+        .refine((u) => u === '' || /^https?:\/\/\S+$/.test(u), 'Link do PR inválido (use http:// ou https://).')
+        .default(DEMAND_DEFAULTS.prUrl),
+      environment: z.enum(DEMAND_ENVIRONMENTS, 'Ambiente inválido.').nullable().default(DEMAND_DEFAULTS.environment),
     })
     .refine((d) => d.dueDate === null || d.dueDate >= d.startDate, {
       message: 'A data de conclusão não pode ser anterior ao início.',
       path: ['dueDate'],
     });
 
-const demandFilterSchema = z.enum(DEMAND_STATUSES, 'Filtro de status inválido.').optional();
+const demandFilterSchema = z
+  .enum([...DEMAND_STATUSES, ...DEMAND_STATUS_GROUPS], 'Filtro de status inválido.')
+  .optional();
+
+const eventSchema = (defaultDate: ISODate) =>
+  z.object({
+    date: isoDate.default(defaultDate),
+    kind: z.enum(DEMAND_EVENT_KINDS, 'Tipo de evento inválido.').default('acao'),
+    text: z.string().trim().min(1, 'Descreva o evento.').max(2000),
+  });
+
+const blockerSchema = (defaultDate: ISODate) =>
+  z
+    .object({
+      owner: z.string().trim().min(1, 'Informe o responsável pelo impedimento.').max(200),
+      description: z.string().trim().max(2000).default(''),
+      since: isoDate.default(defaultDate),
+      resolvedAt: isoDate.nullable().default(null),
+    })
+    .refine((b) => b.resolvedAt === null || b.resolvedAt >= b.since, {
+      message: 'A resolução não pode ser anterior ao início do impedimento.',
+      path: ['resolvedAt'],
+    });
 
 const goalSchema = z.object({
   dailyGoalMinutes: z.int('Meta inválida.').min(1, 'A meta deve ser maior que zero.').max(24 * 60),
@@ -90,12 +148,16 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
   const app = express();
   app.use(express.json());
 
-  /** Métricas das demandas: horas apontadas, prazo e ritmo, com a meta diária do ciclo atual. */
+  /**
+   * Métricas das demandas: horas apontadas, prazo e ritmo (com a meta diária do ciclo atual),
+   * mais o resumo da linha do tempo e dos impedimentos.
+   */
   const summarize = (demands: Demand[]) => {
     const now = today();
     const linked = repo.listLinkedActivities();
     const dailyGoal = repo.goalForCycle(getCycle(now).start);
-    return demands.map((d) => buildDemandSummary(d, linked, now, dailyGoal)).sort(compareDemands);
+    const history = { events: repo.listAllEvents(), blockers: repo.listAllBlockers() };
+    return demands.map((d) => buildDemandSummary(d, linked, now, dailyGoal, history)).sort(compareDemands);
   };
 
   /** Rejeita o vínculo com uma demanda inexistente. */
@@ -159,7 +221,7 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
   app.get('/api/demands', (req, res) => {
     const status = demandFilterSchema.safeParse(req.query.status);
     if (!status.success) return badRequest(res, status.error);
-    const demands = repo.listDemands().filter((d) => !status.data || d.status === status.data);
+    const demands = repo.listDemands().filter((d) => !status.data || matchesDemandFilter(d, status.data));
     res.json(summarize(demands));
   });
 
@@ -168,7 +230,12 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
     if (!id.success) return badRequest(res, id.error);
     const demand = repo.getDemand(id.data);
     if (!demand) return res.status(404).json({ error: 'Demanda não encontrada.' });
-    res.json({ ...summarize([demand])[0], activities: repo.listDemandActivities(id.data) });
+    res.json({
+      ...summarize([demand])[0],
+      activities: repo.listDemandActivities(id.data),
+      events: repo.listDemandEvents(id.data),
+      blockers: repo.listDemandBlockers(id.data),
+    });
   });
 
   app.post('/api/demands', (req, res) => {
@@ -192,6 +259,73 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
     const id = idSchema.safeParse(req.params.id);
     if (!id.success) return badRequest(res, id.error);
     if (!repo.deleteDemand(id.data)) return res.status(404).json({ error: 'Demanda não encontrada.' });
+    res.status(204).end();
+  });
+
+  /** Valida o par demanda/item das sub-rotas; responde 400/404 e devolve null em caso de erro. */
+  const subIds = (res: Response, params: { id?: string; itemId?: string }) => {
+    const id = idSchema.safeParse(params.id);
+    const itemId = idSchema.safeParse(params.itemId ?? 1);
+    if (!id.success || !itemId.success) {
+      badRequest(res, (id.error ?? itemId.error)!);
+      return null;
+    }
+    if (!repo.getDemand(id.data)) {
+      res.status(404).json({ error: 'Demanda não encontrada.' });
+      return null;
+    }
+    return { demandId: id.data, itemId: itemId.data };
+  };
+
+  app.post('/api/demands/:id/events', (req, res) => {
+    const ids = subIds(res, req.params);
+    if (!ids) return;
+    const body = eventSchema(today()).safeParse(req.body);
+    if (!body.success) return badRequest(res, body.error);
+    res.status(201).json(repo.createEvent(ids.demandId, body.data));
+  });
+
+  app.put('/api/demands/:id/events/:itemId', (req, res) => {
+    const ids = subIds(res, req.params);
+    if (!ids) return;
+    const body = eventSchema(today()).safeParse(req.body);
+    if (!body.success) return badRequest(res, body.error);
+    const event = repo.updateEvent(ids.demandId, ids.itemId, body.data);
+    if (!event) return res.status(404).json({ error: 'Evento não encontrado.' });
+    res.json(event);
+  });
+
+  app.delete('/api/demands/:id/events/:itemId', (req, res) => {
+    const ids = subIds(res, req.params);
+    if (!ids) return;
+    if (!repo.deleteEvent(ids.demandId, ids.itemId)) return res.status(404).json({ error: 'Evento não encontrado.' });
+    res.status(204).end();
+  });
+
+  app.post('/api/demands/:id/blockers', (req, res) => {
+    const ids = subIds(res, req.params);
+    if (!ids) return;
+    const body = blockerSchema(today()).safeParse(req.body);
+    if (!body.success) return badRequest(res, body.error);
+    res.status(201).json(repo.createBlocker(ids.demandId, body.data));
+  });
+
+  app.put('/api/demands/:id/blockers/:itemId', (req, res) => {
+    const ids = subIds(res, req.params);
+    if (!ids) return;
+    const body = blockerSchema(today()).safeParse(req.body);
+    if (!body.success) return badRequest(res, body.error);
+    const blocker = repo.updateBlocker(ids.demandId, ids.itemId, body.data);
+    if (!blocker) return res.status(404).json({ error: 'Impedimento não encontrado.' });
+    res.json(blocker);
+  });
+
+  app.delete('/api/demands/:id/blockers/:itemId', (req, res) => {
+    const ids = subIds(res, req.params);
+    if (!ids) return;
+    if (!repo.deleteBlocker(ids.demandId, ids.itemId)) {
+      return res.status(404).json({ error: 'Impedimento não encontrado.' });
+    }
     res.status(204).end();
   });
 

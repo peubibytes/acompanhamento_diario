@@ -173,7 +173,7 @@ function MetricsNav({ view, onChange }: { view: View; onChange: (v: View) => voi
 }
 
 function DemandsView() {
-  const demands = useDemands('ativa');
+  const demands = useDemands('abertas');
   if (demands.isPending) return <Skeleton className="h-96" />;
   if (demands.isError) return <ErrorState message={demands.error.message} onRetry={() => demands.refetch()} />;
   return <DemandsChart demands={demands.data} />;

@@ -4,8 +4,12 @@ import {
   type Activity,
   type ActivityInput,
   type CycleSummary,
+  type DemandBlocker,
+  type DemandBlockerInput,
+  type DemandEvent,
+  type DemandEventInput,
+  type DemandFilter,
   type DemandInput,
-  type DemandStatus,
   type DemandSummary,
   type ISODate,
 } from '@acomp/shared';
@@ -37,11 +41,15 @@ interface SaveResult {
 const keys = {
   cycle: (date: ISODate) => ['cycle', getCycle(date).start] as const,
   activities: (date: ISODate) => ['activities', date] as const,
-  demands: (status?: DemandStatus) => ['demands', 'list', status ?? 'todas'] as const,
+  demands: (filter?: DemandFilter) => ['demands', 'list', filter ?? 'todas'] as const,
   demand: (id: number) => ['demands', 'detail', id] as const,
 };
 
-export type DemandDetail = DemandSummary & { activities: Activity[] };
+export type DemandDetail = DemandSummary & {
+  activities: Activity[];
+  events: DemandEvent[];
+  blockers: DemandBlocker[];
+};
 
 export function useCycle(date: ISODate) {
   return useQuery({
@@ -57,10 +65,10 @@ export function useDayActivities(date: ISODate) {
   });
 }
 
-export function useDemands(status?: DemandStatus) {
+export function useDemands(filter?: DemandFilter) {
   return useQuery({
-    queryKey: keys.demands(status),
-    queryFn: () => request<DemandSummary[]>('GET', `/demands${status ? `?status=${status}` : ''}`),
+    queryKey: keys.demands(filter),
+    queryFn: () => request<DemandSummary[]>('GET', `/demands${filter ? `?status=${filter}` : ''}`),
   });
 }
 
@@ -125,6 +133,44 @@ export function useDeleteDemand() {
   const invalidate = useInvalidate();
   return useMutation({
     mutationFn: (id: number) => request<void>('DELETE', `/demands/${id}`),
+    onSuccess: invalidate,
+  });
+}
+
+export function useSaveEvent(demandId: number) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ id, input }: { id?: number; input: DemandEventInput }) =>
+      id
+        ? request<DemandEvent>('PUT', `/demands/${demandId}/events/${id}`, input)
+        : request<DemandEvent>('POST', `/demands/${demandId}/events`, input),
+    onSuccess: invalidate,
+  });
+}
+
+export function useDeleteEvent(demandId: number) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (id: number) => request<void>('DELETE', `/demands/${demandId}/events/${id}`),
+    onSuccess: invalidate,
+  });
+}
+
+export function useSaveBlocker(demandId: number) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ id, input }: { id?: number; input: DemandBlockerInput }) =>
+      id
+        ? request<DemandBlocker>('PUT', `/demands/${demandId}/blockers/${id}`, input)
+        : request<DemandBlocker>('POST', `/demands/${demandId}/blockers`, input),
+    onSuccess: invalidate,
+  });
+}
+
+export function useDeleteBlocker(demandId: number) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (id: number) => request<void>('DELETE', `/demands/${demandId}/blockers/${id}`),
     onSuccess: invalidate,
   });
 }

@@ -5,22 +5,23 @@ import { ArrowRight, PlusIcon, TargetIcon } from './icons';
 
 const MAX_ROWS = 6;
 
-/** Painel: horas apontadas × meta de cada demanda ativa, das mais urgentes para as demais. */
+/** Painel: horas apontadas × meta de cada demanda aberta, das mais urgentes para as demais. */
 export function DemandsChart({ demands }: { demands: DemandSummary[] }) {
   const shown = demands.slice(0, MAX_ROWS);
   const logged = demands.reduce((sum, d) => sum + d.metrics.logged, 0);
-  const target = demands.reduce((sum, d) => sum + d.metrics.target, 0);
+  // Demandas sem meta de horas entram no total apontado, mas não na soma das metas.
+  const target = demands.reduce((sum, d) => sum + (d.metrics.target ?? 0), 0);
 
   return (
     <section className="card rise p-5 sm:p-6" style={{ animationDelay: '240ms' }}>
       <div className="mb-5">
         <h2 className="text-lg font-semibold text-ink">Demandas em andamento</h2>
-        <p className="text-sm text-ink-2">Horas apontadas em cada demanda em relação à meta total.</p>
+        <p className="text-sm text-ink-2">Horas apontadas em cada demanda em relação à meta (ou o progresso informado).</p>
         {demands.length > 0 && (
           <p className="tabular mt-3 inline-flex items-baseline gap-1.5 rounded-full bg-surface-2 px-3 py-1 text-xs text-ink-2">
             Total nas demandas
             <strong className="text-sm font-bold text-ink">{formatDuration(logged)}</strong>
-            <span className="text-ink-3">de {formatDuration(target)}</span>
+            {target > 0 && <span className="text-ink-3">de {formatDuration(target)} em metas</span>}
           </p>
         )}
       </div>
@@ -30,9 +31,9 @@ export function DemandsChart({ demands }: { demands: DemandSummary[] }) {
           <span className="grid size-10 place-items-center rounded-full bg-accent-soft text-accent">
             <TargetIcon size={20} />
           </span>
-          <p className="mt-2 font-semibold text-ink">Nenhuma demanda ativa</p>
+          <p className="mt-2 font-semibold text-ink">Nenhuma demanda aberta</p>
           <p className="mt-1 max-w-xs text-sm text-ink-2">
-            Cadastre trabalhos mais longos com meta de horas e prazo para acompanhá-los aqui.
+            Cadastre demandas e chamados com prazo e, se quiser, meta de horas para acompanhá-los aqui.
           </p>
           <Link
             to="/demandas"
@@ -54,9 +55,9 @@ export function DemandsChart({ demands }: { demands: DemandSummary[] }) {
                   <span className="truncate text-sm font-medium text-ink">{d.title}</span>
                   <DeadlineBadge status={d.metrics.deadline} />
                 </div>
-                <DemandProgressBar metrics={d.metrics} height={10} />
+                <DemandProgressBar demand={d} height={10} />
                 <div className="mt-1.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-                  <DemandHoursCaption metrics={d.metrics} />
+                  <DemandHoursCaption demand={d} />
                   {d.dueDate && (
                     <span className="tabular text-xs text-ink-3">
                       Prazo {WEEKDAY_SHORT[weekdayOf(d.dueDate)]} {formatDayMonth(d.dueDate)}

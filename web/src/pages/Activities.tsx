@@ -268,7 +268,7 @@ function ActivityItem({
                 <Link
                   to={`/demandas#demanda-${a.demandId}`}
                   className="inline-flex max-w-56 items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent hover:brightness-95"
-                  title="Demanda de ciclo"
+                  title="Demanda"
                 >
                   <TargetIcon size={13} className="shrink-0" />
                   <span className="truncate">{demandTitle}</span>

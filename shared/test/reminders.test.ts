@@ -6,6 +6,7 @@ import {
   buildCycleSummary,
   buildDemandSummary,
   buildNotifications,
+  DEMAND_DEFAULTS,
   daysBetween,
   parseHM,
   type Activity,
@@ -38,7 +39,8 @@ function demand(id: number, o: Partial<Demand>, acts: Activity[] = [], today = T
     targetMinutes: 600,
     startDate: '2026-10-20',
     dueDate: null,
-    status: 'ativa',
+    status: 'em_andamento',
+    ...DEMAND_DEFAULTS,
     ...o,
   };
   return buildDemandSummary(d, acts, today, GOAL);
@@ -88,7 +90,7 @@ describe('notificações do sino', () => {
   });
 
   it('demandas concluídas não notificam', () => {
-    const items = buildNotifications(cycle, [demand(1, { dueDate: '2026-10-20', status: 'concluida' })], TODAY);
+    const items = buildNotifications(cycle, [demand(1, { dueDate: '2026-10-20', status: 'concluido' })], TODAY);
     assert.equal(items.filter((n) => n.kind === 'prazo_demanda').length, 0);
   });
 });
@@ -99,7 +101,7 @@ describe('agenda', () => {
       [
         demand(1, { title: 'Relatórios', dueDate: '2026-10-29' }, [act('2026-10-26', '08:00', '11:00', 1)]),
         demand(2, { title: 'Futura', startDate: '2026-11-02', dueDate: '2026-11-20' }),
-        demand(3, { title: 'Concluída', dueDate: '2026-10-28', status: 'concluida' }),
+        demand(3, { title: 'Concluída', dueDate: '2026-10-28', status: 'concluido' }),
       ],
       TODAY,
     );

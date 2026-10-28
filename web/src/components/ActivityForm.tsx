@@ -1,8 +1,11 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import {
   ACTIVITY_STATUSES,
+  DEMAND_STATUS_LABEL,
+  formatDemandHours,
   formatDuration,
   formatHM,
+  isOpenDemand,
   parseHM,
   STATUS_LABEL,
   type Activity,
@@ -35,10 +38,10 @@ export function ActivityForm({ date, editing, suggestedStart, onDone }: Props) {
   const [status, setStatus] = useState<ActivityStatus>(editing?.status ?? 'concluido');
   const [demandId, setDemandId] = useState<number | null>(editing?.demandId ?? null);
 
-  // Demandas ativas, mais a já vinculada (caso tenha sido concluída depois).
+  // Demandas abertas, mais a já vinculada (caso tenha sido encerrada depois).
   const demands = useDemands();
   const demandOptions = (demands.data ?? [])
-    .filter((d) => d.status === 'ativa' || d.id === editing?.demandId)
+    .filter((d) => isOpenDemand(d) || d.id === editing?.demandId)
     .sort((a, b) => a.title.localeCompare(b.title, 'pt-BR'));
 
   const chooseDemand = (value: string) => {
@@ -113,18 +116,18 @@ export function ActivityForm({ date, editing, suggestedStart, onDone }: Props) {
         </div>
       </div>
 
-      <Field label="Demanda de ciclo" optional>
+      <Field label="Demanda" optional>
         <select value={demandId ?? ''} onChange={(e) => chooseDemand(e.target.value)} className="field">
           <option value="">Nenhuma</option>
           {demandOptions.map((d) => (
             <option key={d.id} value={d.id}>
-              {d.title} ({formatDuration(d.metrics.logged)} de {formatDuration(d.metrics.target)})
-              {d.status === 'concluida' ? ' · concluída' : ''}
+              {d.title} ({formatDemandHours(d.metrics)})
+              {isOpenDemand(d) ? '' : ` · ${DEMAND_STATUS_LABEL[d.status].toLowerCase()}`}
             </option>
           ))}
         </select>
         {demandOptions.length === 0 && demands.isSuccess && (
-          <span className="mt-1 block text-xs text-ink-3">Nenhuma demanda ativa. Crie uma na tela Demandas.</span>
+          <span className="mt-1 block text-xs text-ink-3">Nenhuma demanda aberta. Crie uma na tela Demandas.</span>
         )}
       </Field>
 

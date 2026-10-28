@@ -95,8 +95,12 @@ activities(id, date, start_minute, end_minute, project, description, notes, stat
            demand_id → demands (ON DELETE SET NULL), created_at, updated_at)
 cycle_goals(cycle_start PRIMARY KEY, daily_goal_minutes)
 settings(key PRIMARY KEY, value)          -- default_daily_goal_minutes
-demands(id, title, description, target_minutes, start_date, due_date, status,
+demands(id, title, description, external_ids (JSON), system, kind, priority, progress_percent,
+        target_minutes (opcional), start_date, due_date, status, branch, pr_url, environment,
         created_at, updated_at)
+demand_events(id, demand_id → demands (ON DELETE CASCADE), date, kind, text, created_at)
+demand_blockers(id, demand_id → demands (ON DELETE CASCADE), owner, description, since,
+                resolved_at, created_at)
 ```
 O esquema evolui por migrações numeradas em `server/src/db.ts` (`PRAGMA user_version`).
 
@@ -109,11 +113,13 @@ O esquema evolui por migrações numeradas em `server/src/db.ts` (`PRAGMA user_v
 | POST | `/api/activities` | cria |
 | PUT | `/api/activities/:id` | edita |
 | DELETE | `/api/activities/:id` | remove |
-| GET | `/api/demands?status=` | demandas com métricas, das mais urgentes para as demais |
-| GET | `/api/demands/:id` | demanda com métricas e atividades vinculadas |
+| GET | `/api/demands?status=` | demandas com métricas e resumo do acompanhamento, das mais urgentes para as demais; `status` aceita um status, `abertas` ou `encerradas` |
+| GET | `/api/demands/:id` | demanda com métricas, atividades vinculadas, eventos e impedimentos |
 | POST | `/api/demands` | cria |
 | PUT | `/api/demands/:id` | edita |
-| DELETE | `/api/demands/:id` | remove (as atividades ficam sem vínculo) |
+| DELETE | `/api/demands/:id` | remove (as atividades ficam sem vínculo; eventos e impedimentos vão junto) |
+| POST/PUT/DELETE | `/api/demands/:id/events[/:eventId]` | linha do tempo da demanda |
+| POST/PUT/DELETE | `/api/demands/:id/blockers[/:blockerId]` | impedimentos da demanda |
 
 ## 3. Telas
 
@@ -163,8 +169,9 @@ npm start       # build do front + servidor único em :3001
 ## 6. Demandas de ciclo e correção de sobreposição (v0.2)
 
 - **Demandas de ciclo:** trabalhos longos, feitos em vários dias, com meta de horas totais
-  (até 999h59), data de início e data de conclusão opcional. Status: ativa ou concluída.
-- **Vínculo:** cada atividade pode ser atribuída a uma demanda (campo "Demanda de ciclo").
+  (até 999h59), data de início e data de conclusão opcional. Status: ativa ou concluída
+  (substituído na v0.4 pelos 6 status da seção 8.1; a meta de horas passou a ser opcional).
+- **Vínculo:** cada atividade pode ser atribuída a uma demanda (campo "Demanda").
   As horas da demanda são a soma das atividades vinculadas. Excluir a demanda mantém as
   atividades, sem vínculo.
 - **Análise de horas:** não iniciada, em andamento, meta atingida ou meta excedida, com o
@@ -200,13 +207,13 @@ Princípio: o usuário vê apenas o que escolher, sem poluição.
   de telas. Lembretes agrupados por gravidade e agenda por data (prazos vencidos, prazos e
   inícios de demandas, dias de apontamento do ciclo atual e do próximo).
 
-## 8. Expansão: gestão do colaborador (v0.4 — planejada)
+## 8. Expansão: gestão do colaborador (v0.4 — em andamento)
 
 Objetivo: transformar o app, de controlador de apontamentos, em organizador completo do dia a dia
 do colaborador, incorporando o acompanhamento de demandas que hoje é feito em texto solto
 (chamados com status `[X]`/`[80%]` e bullets datados).
 
-### 8.1 Demandas ampliadas (estende a "Demanda de ciclo" da seção 6)
+### 8.1 Demandas ampliadas (estende a "Demanda de ciclo" da seção 6) — ✅ implementado
 - Novos campos: identificadores externos (SCTASK, RITM, user story), sistema/projeto,
   tipo (planejada / intempestiva / preventiva), prioridade, % de progresso, prazo final.
 - Status ampliado: Novo → Em andamento → Aguardando terceiro → Em homologação → Concluído | Cancelado.
@@ -216,6 +223,23 @@ do colaborador, incorporando o acompanhamento de demandas que hoje é feito em t
 - **Impedimentos:** responsável (pessoa/equipe), desde quando, resolvido ou não.
   Separa esforço de espera. Concluído com impedimento aberto gera validação.
 - **Vínculos técnicos:** branch, PR e ambiente (staging/PRD) opcionais.
+
+Como ficou (decisão em `docs/decisions/0001-demandas-viram-chamados.md`):
+- **Migração 3** recria `demands` com o mesmo nome: `ativa → em_andamento`, `concluida → concluido`
+  (com progresso 100%). Os vínculos das atividades são preservados.
+- **Meta de horas opcional.** Sem meta, a demanda mostra as horas apontadas e o % informado;
+  prazo e lembretes continuam, sem ritmo necessário nem "em risco".
+- **Abertas** = novo, em andamento, aguardando terceiro e em homologação. Lembretes, agenda,
+  painel e o campo "Demanda" do formulário de atividade consideram só as abertas.
+- **Identificadores** em maiúsculas, sem repetir, separados por espaço, vírgula ou ponto e vírgula.
+- **Ordenação:** urgência do prazo, depois prioridade (urgente → baixa), depois prazo e título.
+- **Espera:** dias úteis com algum impedimento aberto (de `since` até a resolução ou hoje),
+  sem contar duas vezes impedimentos simultâneos. Fica separada das horas apontadas (esforço).
+- **Tela Demandas:** filtros Abertas / Encerradas / Todas; cartão com identificadores, sistema,
+  selos de status, tipo (só se não for planejada), prioridade (só alta/urgente) e ambiente; o
+  indicador "Espera" aparece quando não há ritmo necessário a mostrar. "Acompanhamento" abre as abas
+  Linha do tempo (entrada rápida: data, tipo e texto), Impedimentos (resolver com um clique) e Apontamentos.
+- **Formulário:** vínculos técnicos numa seção recolhível, aberta só se já houver algum preenchido.
 
 ### 8.2 Treinamentos
 Título, tipo, data/período, carga horária, status (planejado / em curso / concluído),

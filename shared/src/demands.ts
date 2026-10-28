@@ -1,33 +1,179 @@
-// Demandas de ciclo: trabalhos mais longos, feitos ao longo de vários dias, com meta
-// de horas totais e, opcionalmente, uma data de conclusão.
+// Demandas / chamados: trabalhos acompanhados ao longo de vários dias, com status de fluxo,
+// identificadores externos, linha do tempo (eventos), impedimentos e, opcionalmente, uma
+// meta de horas e uma data de conclusão. Ver docs/decisions/0001-demandas-viram-chamados.md.
 
 import { addDays, formatDayMonth, isWorkday, type ISODate } from './cycle.ts';
 import { unionMinutesByDay } from './metrics.ts';
 import { formatDuration } from './time.ts';
 import type { Activity } from './types.ts';
 
-export const DEMAND_STATUSES = ['ativa', 'concluida'] as const;
+export const DEMAND_STATUSES = [
+  'novo',
+  'em_andamento',
+  'aguardando_terceiro',
+  'em_homologacao',
+  'concluido',
+  'cancelado',
+] as const;
 export type DemandStatus = (typeof DEMAND_STATUSES)[number];
+
+export const DEMAND_STATUS_LABEL: Record<DemandStatus, string> = {
+  novo: 'Novo',
+  em_andamento: 'Em andamento',
+  aguardando_terceiro: 'Aguardando terceiro',
+  em_homologacao: 'Em homologação',
+  concluido: 'Concluído',
+  cancelado: 'Cancelado',
+};
+
+/** Agrupamentos aceitos no filtro de status, além dos status em si. */
+export const DEMAND_STATUS_GROUPS = ['abertas', 'encerradas'] as const;
+export type DemandStatusGroup = (typeof DEMAND_STATUS_GROUPS)[number];
+export type DemandFilter = DemandStatus | DemandStatusGroup;
+
+/** Aberta = ainda pede trabalho ou acompanhamento (não concluída nem cancelada). */
+export const isOpenDemand = (d: Pick<Demand, 'status'>) => d.status !== 'concluido' && d.status !== 'cancelado';
+
+export const matchesDemandFilter = (d: Pick<Demand, 'status'>, filter: DemandFilter) =>
+  filter === 'abertas' ? isOpenDemand(d) : filter === 'encerradas' ? !isOpenDemand(d) : d.status === filter;
+
+export const DEMAND_KINDS = ['planejada', 'intempestiva', 'preventiva'] as const;
+export type DemandKind = (typeof DEMAND_KINDS)[number];
+export const DEMAND_KIND_LABEL: Record<DemandKind, string> = {
+  planejada: 'Planejada',
+  intempestiva: 'Intempestiva',
+  preventiva: 'Preventiva',
+};
+
+export const DEMAND_PRIORITIES = ['baixa', 'media', 'alta', 'urgente'] as const;
+export type DemandPriority = (typeof DEMAND_PRIORITIES)[number];
+export const DEMAND_PRIORITY_LABEL: Record<DemandPriority, string> = {
+  baixa: 'Baixa',
+  media: 'Média',
+  alta: 'Alta',
+  urgente: 'Urgente',
+};
+
+export const DEMAND_ENVIRONMENTS = ['desenvolvimento', 'staging', 'producao'] as const;
+export type DemandEnvironment = (typeof DEMAND_ENVIRONMENTS)[number];
+export const DEMAND_ENVIRONMENT_LABEL: Record<DemandEnvironment, string> = {
+  desenvolvimento: 'Desenvolvimento',
+  staging: 'Staging',
+  producao: 'Produção (PRD)',
+};
 
 export interface Demand {
   id: number;
   title: string;
   description: string;
-  /** Meta de horas totais, em minutos. */
-  targetMinutes: number;
+  /** Identificadores externos (SCTASK, RITM, user story), normalizados em maiúsculas. */
+  externalIds: string[];
+  /** Sistema ou projeto ao qual a demanda pertence. */
+  system: string;
+  kind: DemandKind;
+  priority: DemandPriority;
+  /** Progresso informado pelo usuário, de 0 a 100. */
+  progressPercent: number;
+  /** Meta de horas totais, em minutos (opcional: nem todo chamado tem estimativa). */
+  targetMinutes: number | null;
   startDate: ISODate;
-  /** Data de conclusão desejada (opcional). */
+  /** Prazo final (opcional). */
   dueDate: ISODate | null;
   status: DemandStatus;
+  branch: string;
+  prUrl: string;
+  environment: DemandEnvironment | null;
 }
 
 export type DemandInput = Omit<Demand, 'id'>;
+
+/** Valores dos campos de chamado quando a demanda é criada só com o essencial. */
+export const DEMAND_DEFAULTS = {
+  externalIds: [] as string[],
+  system: '',
+  kind: 'planejada',
+  priority: 'media',
+  progressPercent: 0,
+  branch: '',
+  prUrl: '',
+  environment: null,
+} satisfies Partial<DemandInput>;
+
+/** Normaliza um identificador externo: sem espaços nas pontas e em maiúsculas. */
+export const normalizeExternalId = (id: string) => id.trim().toUpperCase();
+
+/** Lê identificadores separados por espaço, vírgula ou ponto e vírgula, sem repetir. */
+export function parseExternalIds(text: string): string[] {
+  const ids = text.split(/[\s,;]+/).map(normalizeExternalId).filter(Boolean);
+  return [...new Set(ids)];
+}
+
+export const DEMAND_EVENT_KINDS = ['acao', 'decisao', 'impedimento', 'validacao', 'deploy'] as const;
+export type DemandEventKind = (typeof DEMAND_EVENT_KINDS)[number];
+export const DEMAND_EVENT_LABEL: Record<DemandEventKind, string> = {
+  acao: 'Ação',
+  decisao: 'Decisão',
+  impedimento: 'Impedimento',
+  validacao: 'Validação',
+  deploy: 'Deploy',
+};
+
+/** Linha datada na linha do tempo de uma demanda. */
+export interface DemandEvent {
+  id: number;
+  demandId: number;
+  date: ISODate;
+  kind: DemandEventKind;
+  text: string;
+}
+export type DemandEventInput = Omit<DemandEvent, 'id' | 'demandId'>;
+
+/** Bloqueio com responsável externo; aberto enquanto `resolvedAt` for nulo. */
+export interface DemandBlocker {
+  id: number;
+  demandId: number;
+  /** Pessoa ou equipe de quem a demanda depende. */
+  owner: string;
+  description: string;
+  since: ISODate;
+  resolvedAt: ISODate | null;
+}
+export type DemandBlockerInput = Omit<DemandBlocker, 'id' | 'demandId'>;
+
+/**
+ * Dias úteis em que a demanda esteve parada por algum impedimento (de `since` até a
+ * resolução, ou até hoje se ainda aberto), sem contar duas vezes impedimentos simultâneos.
+ * Separa o tempo de espera do esforço (horas apontadas).
+ */
+export function waitingWorkdays(blockers: Pick<DemandBlocker, 'since' | 'resolvedAt'>[], today: ISODate): number {
+  const days = new Set<ISODate>();
+  for (const b of blockers) {
+    const end = b.resolvedAt && b.resolvedAt < today ? b.resolvedAt : today;
+    for (let d = b.since; d <= end; d = addDays(d, 1)) if (isWorkday(d)) days.add(d);
+  }
+  return days.size;
+}
+
+/** Acompanhamento do chamado: linha do tempo e impedimentos. */
+export interface DemandTracking {
+  eventCount: number;
+  lastEventDate: ISODate | null;
+  openBlockers: number;
+  waitingWorkdays: number;
+}
 
 /** A partir de quantos dias úteis antes do prazo a demanda entra em alerta. */
 export const DEADLINE_WARNING_WORKDAYS = 2;
 
 export type DemandProgress = 'nao_iniciada' | 'em_andamento' | 'atingida' | 'excedida';
-export type DeadlineStatus = 'sem_prazo' | 'no_prazo' | 'proxima' | 'vence_hoje' | 'atrasada' | 'concluida';
+export type DeadlineStatus =
+  | 'sem_prazo'
+  | 'no_prazo'
+  | 'proxima'
+  | 'vence_hoje'
+  | 'atrasada'
+  | 'concluida'
+  | 'cancelada';
 
 export const PROGRESS_LABEL: Record<DemandProgress, string> = {
   nao_iniciada: 'Não iniciada',
@@ -43,15 +189,17 @@ export const DEADLINE_LABEL: Record<DeadlineStatus, string> = {
   vence_hoje: 'Vence hoje',
   atrasada: 'Atrasada',
   concluida: 'Concluída',
+  cancelada: 'Cancelada',
 };
 
 export interface DemandMetrics {
   logged: number;
-  target: number;
+  /** Meta de horas; nula quando a demanda não tem estimativa. */
+  target: number | null;
   remaining: number;
   excess: number;
-  /** Horas apontadas ÷ meta, em % inteiro arredondado para baixo. */
-  percent: number;
+  /** Horas apontadas ÷ meta, em % inteiro arredondado para baixo (nulo sem meta). */
+  percent: number | null;
   progress: DemandProgress;
   diagnosis: string;
   deadline: DeadlineStatus;
@@ -67,8 +215,13 @@ export interface DemandMetrics {
   lastActivityDate: ISODate | null;
 }
 
+/** "12h de 40h", ou só as horas apontadas quando a demanda não tem meta. */
+export const formatDemandHours = (m: Pick<DemandMetrics, 'logged' | 'target'>) =>
+  m.target === null ? `${formatDuration(m.logged)} apontadas` : `${formatDuration(m.logged)} de ${formatDuration(m.target)}`;
+
 export interface DemandSummary extends Demand {
   metrics: DemandMetrics;
+  tracking: DemandTracking;
 }
 
 /** Dias úteis `d` com `from < d ≤ to`. */
@@ -89,12 +242,16 @@ export function demandMetrics(
   const ofDemand = activities.filter((a) => a.demandId === demand.id && a.endMinute > a.startMinute);
   const target = demand.targetMinutes;
   const logged = unionMinutesByDay(ofDemand);
-  const remaining = Math.max(0, target - logged);
-  const excess = Math.max(0, logged - target);
+  const remaining = target === null ? 0 : Math.max(0, target - logged);
+  const excess = target === null ? 0 : Math.max(0, logged - target);
 
   let progress: DemandProgress;
   let diagnosis: string;
-  if (logged === 0) {
+  if (target === null) {
+    progress = logged === 0 ? 'nao_iniciada' : 'em_andamento';
+    diagnosis =
+      logged === 0 ? 'Nenhuma hora apontada. Sem meta de horas' : `${formatDuration(logged)} apontadas, sem meta de horas`;
+  } else if (logged === 0) {
     progress = 'nao_iniciada';
     diagnosis = `Nenhuma hora apontada. Meta de ${formatDuration(target)}`;
   } else if (logged < target) {
@@ -108,13 +265,13 @@ export function demandMetrics(
     diagnosis = `Excedeu a meta de ${formatDuration(target)} em ${formatDuration(excess)}. Revise os apontamentos`;
   }
 
-  const active = demand.status === 'ativa';
+  const active = isOpenDemand(demand);
   const due = demand.dueDate;
   let deadline: DeadlineStatus;
   let workdaysLeft: number | null = null;
   let ahead = 0;
 
-  if (!active) deadline = 'concluida';
+  if (!active) deadline = demand.status === 'cancelado' ? 'cancelada' : 'concluida';
   else if (!due) deadline = 'sem_prazo';
   else if (today > due) {
     deadline = 'atrasada';
@@ -133,7 +290,9 @@ export function demandMetrics(
   let reminder: string | null = null;
   if (active && due) {
     const left =
-      remaining > 0
+      target === null
+        ? `Progresso informado: ${demand.progressPercent}%`
+        : remaining > 0
         ? `Faltam ${formatDuration(remaining)}`
         : excess > 0
           ? `Meta de horas excedida em ${formatDuration(excess)}: revise os apontamentos e conclua a demanda`
@@ -152,7 +311,7 @@ export function demandMetrics(
     target,
     remaining,
     excess,
-    percent: target > 0 ? Math.floor((logged * 100) / target) : 0,
+    percent: target ? Math.floor((logged * 100) / target) : null,
     progress,
     diagnosis,
     deadline,
@@ -165,13 +324,37 @@ export function demandMetrics(
   };
 }
 
+export function demandTracking(
+  demandId: number,
+  events: Pick<DemandEvent, 'demandId' | 'date'>[],
+  blockers: Pick<DemandBlocker, 'demandId' | 'since' | 'resolvedAt'>[],
+  today: ISODate,
+): DemandTracking {
+  const ofEvents = events.filter((e) => e.demandId === demandId);
+  const ofBlockers = blockers.filter((b) => b.demandId === demandId);
+  return {
+    eventCount: ofEvents.length,
+    lastEventDate: ofEvents.reduce<ISODate | null>((last, e) => (!last || e.date > last ? e.date : last), null),
+    openBlockers: ofBlockers.filter((b) => b.resolvedAt === null).length,
+    waitingWorkdays: waitingWorkdays(ofBlockers, today),
+  };
+}
+
 export function buildDemandSummary(
   demand: Demand,
   activities: Pick<Activity, 'demandId' | 'date' | 'startMinute' | 'endMinute'>[],
   today: ISODate,
   dailyGoal: number,
+  history: {
+    events?: Pick<DemandEvent, 'demandId' | 'date'>[];
+    blockers?: Pick<DemandBlocker, 'demandId' | 'since' | 'resolvedAt'>[];
+  } = {},
 ): DemandSummary {
-  return { ...demand, metrics: demandMetrics(demand, activities, today, dailyGoal) };
+  return {
+    ...demand,
+    metrics: demandMetrics(demand, activities, today, dailyGoal),
+    tracking: demandTracking(demand.id, history.events ?? [], history.blockers ?? [], today),
+  };
 }
 
 const URGENCY: Record<DeadlineStatus, number> = {
@@ -181,12 +364,16 @@ const URGENCY: Record<DeadlineStatus, number> = {
   no_prazo: 3,
   sem_prazo: 4,
   concluida: 5,
+  cancelada: 6,
 };
 
-/** Ordena por urgência: atrasadas e próximas do prazo primeiro, concluídas por último. */
+const PRIORITY_ORDER: Record<DemandPriority, number> = { urgente: 0, alta: 1, media: 2, baixa: 3 };
+
+/** Ordena pela urgência do prazo e depois pela prioridade; encerradas por último. */
 export function compareDemands(a: DemandSummary, b: DemandSummary): number {
   return (
     URGENCY[a.metrics.deadline] - URGENCY[b.metrics.deadline] ||
+    PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority] ||
     (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999') ||
     a.title.localeCompare(b.title, 'pt-BR')
   );
