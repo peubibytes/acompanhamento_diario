@@ -1,11 +1,42 @@
 # Plano de ação — Acompanhamento Diário
 
-Aplicação web (React + Node + SQLite) que replica a lógica da planilha
-`Acompanhamento diário.xlsx` (mantida fora do repositório por conter dados reais), com foco no **acompanhamento do apontamento de horas**.
-O usuário registra as atividades ao longo do ciclo (sexta → quinta) e, na quinta-feira,
-faz o apontamento no Azure (integração futura). A meta é chegar a quinta com 100% preenchido.
+## 0. Visão do produto (fonte da verdade)
 
-## 1. Regras de negócio
+Aplicação web (React + Node + SQLite) de **organização e gestão para colaboradores, focada em
+gestão de tempo**: acompanhamento de atividades diárias, demandas/chamados, treinamentos,
+metas e relatórios de prestação de contas (daily, 1:1, relatório mensal).
+
+> **Mudança de escopo:** o projeto nasceu como um controlador de apontamentos de horas
+> (replicando a planilha `Acompanhamento diário.xlsx`, mantida fora do repositório por conter
+> dados reais). O apontamento agora é **um módulo** do produto, e não o seu núcleo.
+> Em conflito entre este plano e o código/nomes antigos, vale este plano.
+
+### Módulos
+| Módulo | Situação | Descrição |
+|---|---|---|
+| Apontamento de horas | Existente (seções 1–7) | Ciclo sex→qui, meta, atividades, métricas, conformidade |
+| Demandas | Existente, a expandir (seção 6 e 8) | Passa a cobrir chamados: identificadores, status, %, linha do tempo, impedimentos |
+| Treinamentos | Novo (seção 8) | Capacitações planejadas e realizadas |
+| Metas | Novo (seção 8) | Objetivos com prazo e progresso, ligados a atividades/demandas/treinamentos |
+| Relatórios | Novo (seção 8) | Status diário/semanal/mensal exportável |
+| Integração Azure | Futuro | Fora de escopo por enquanto |
+
+### Glossário
+- **Atividade:** unidade de trabalho diária (início, fim, projeto, status).
+- **Apontamento:** registro de tempo gasto; é o conjunto de atividades do ciclo.
+- **Demanda / Chamado:** trabalho acompanhado ao longo do tempo (pode ter SCTASK, RITM, user story).
+- **Evento:** linha datada na linha do tempo de uma demanda.
+- **Impedimento:** bloqueio com responsável externo e data de início.
+- **Intempestiva:** demanda não planejada, que interrompe o planejado.
+- **Meta:** diária/semanal (horas) ou objetivo de acompanhamento (progresso e prazo).
+
+### Princípios
+- O usuário vê apenas o que escolher, sem poluição (ver seção 7).
+- Tempo sempre em minutos inteiros.
+- Toda funcionalidade deve ajudar o colaborador a se organizar, priorizar ou prestar contas.
+- Dados reais (nomes, pedidos, chamados) nunca entram no repositório, em testes ou em commits.
+
+## 1. Regras de negócio — módulo Apontamento
 
 ### Ciclo
 - Começa na **sexta-feira** e termina na **quinta-feira** seguinte.
@@ -100,6 +131,7 @@ settings(key PRIMARY KEY, value)          -- default_daily_goal_minutes
 | 5 | Detalhamento | ✅ |
 | 6 | Polimento: estados vazios, carregamento, modo escuro, responsividade | ✅ primeira versão |
 | 7 | Próximos passos: autocompletar projetos, copiar atividade de outro dia, exportar semana | a definir |
+| 8 | Expansão para gestão do colaborador (seção 8) | a definir |
 | — | Integração com o Azure | futuro |
 
 ### Decisões registradas
@@ -143,3 +175,67 @@ npm start       # build do front + servidor único em :3001
   sobrepostos são divididos igualmente entre as atividades simultâneas, para a soma das
   fatias bater com o total do dia. Até 6 fatias (o restante vira "Outros"); cores da paleta
   categórica validada, atribuídas pela identidade e não pelo tamanho.
+
+## 7. Painel sob demanda, sino e lembretes (v0.3)
+
+Princípio: o usuário vê apenas o que escolher, sem poluição.
+
+- **Coluna de métricas no painel:** o usuário escolhe uma visão por vez: *Acompanhamento por
+  dia útil* (anel de horas apontadas, meta semanal, total realizado, dias conformes e o gráfico
+  diário, juntos), *Distribuição do dia* ou *Demandas em andamento*. A escolha fica salva no
+  navegador. No celular, a coluna vira um controle segmentado.
+- **Lembretes fora da tela:** os alertas de apontamento irregular, de prazo das demandas e o
+  aviso do dia de apontamento saíram do painel e da tela de detalhes.
+- **Sino no header:** contador do que pede atenção (vermelho se houver algo urgente); ao passar
+  o mouse ou focar pelo teclado, mostra um resumo; ao clicar, abre a tela de lembretes.
+- **Tela "Lembretes e agenda" (`/lembretes`):** acessível só pelo sino, sem entrada no seletor
+  de telas. Lembretes agrupados por gravidade e agenda por data (prazos vencidos, prazos e
+  inícios de demandas, dias de apontamento do ciclo atual e do próximo).
+
+## 8. Expansão: gestão do colaborador (v0.4 — planejada)
+
+Objetivo: transformar o app, de controlador de apontamentos, em organizador completo do dia a dia
+do colaborador, incorporando o acompanhamento de demandas que hoje é feito em texto solto
+(chamados com status `[X]`/`[80%]` e bullets datados).
+
+### 8.1 Demandas ampliadas (estende a "Demanda de ciclo" da seção 6)
+- Novos campos: identificadores externos (SCTASK, RITM, user story), sistema/projeto,
+  tipo (planejada / intempestiva / preventiva), prioridade, % de progresso, prazo final.
+- Status ampliado: Novo → Em andamento → Aguardando terceiro → Em homologação → Concluído | Cancelado.
+  O status "ativa/concluída" da v0.2 é migrado para este (migração versionada).
+- A meta de horas e o vínculo com atividades continuam como estão.
+- **Eventos:** linha do tempo datada (ação, decisão, impedimento, validação, deploy), com entrada rápida.
+- **Impedimentos:** responsável (pessoa/equipe), desde quando, resolvido ou não.
+  Separa esforço de espera. Concluído com impedimento aberto gera validação.
+- **Vínculos técnicos:** branch, PR e ambiente (staging/PRD) opcionais.
+
+### 8.2 Treinamentos
+Título, tipo, data/período, carga horária, status (planejado / em curso / concluído),
+anotações e vínculo opcional com uma meta. Pode gerar atividades no apontamento.
+
+### 8.3 Metas
+Objetivo com prazo, progresso mensurável (manual ou calculado a partir de demandas,
+atividades e treinamentos vinculados) e status. Não confundir com a "meta diária de horas",
+que continua pertencendo ao módulo de Apontamento.
+
+### 8.4 Relatórios
+Status diário, semanal e mensal exportável (Markdown/PDF), no formato do acompanhamento
+original: demanda, status, linha do tempo resumida e impedimentos. Inclui o indicador de
+demandas intempestivas (quanto do tempo foi consumido por trabalho não planejado).
+
+### 8.5 Importador do texto legado
+Converte o formato antigo (`SCTASK… [status]` seguido de bullets com data entre parênteses)
+em demandas e eventos. Pré-visualização antes de gravar; dados reais nunca versionados.
+
+### 8.6 Validações novas
+Concluído com impedimento aberto · IDs duplicados · demanda sem eventos há N dias ·
+prazo vencido sem conclusão. Os avisos aparecem no sino e em Lembretes, sem poluir o painel.
+
+### 8.7 Política para o legado
+- O módulo de Apontamento não será removido nem expandido; novas telas partem do domínio da seção 0.
+- Renomear tabelas ou rotas públicas só com migração e aprovação explícita.
+- Decisões de escopo e arquitetura novas vão para `docs/decisions/` (um arquivo por decisão).
+
+### Fora de escopo (atualizado)
+Azure (códigos e apontamento automático), login/múltiplos usuários (roda localmente),
+folha de pagamento, cobrança a clientes, controle de ponto oficial.

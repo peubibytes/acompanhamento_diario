@@ -41,6 +41,11 @@ export function addDays(iso: ISODate, days: number): ISODate {
   return toISO(new Date(toDate(iso).getTime() + days * DAY_MS));
 }
 
+/** Dias corridos de `from` até `to` (negativo se `to` for anterior). */
+export function daysBetween(from: ISODate, to: ISODate): number {
+  return Math.round((toDate(to).getTime() - toDate(from).getTime()) / DAY_MS);
+}
+
 /** 0 = domingo … 6 = sábado. */
 export function weekdayOf(iso: ISODate): number {
   return toDate(iso).getUTCDay();

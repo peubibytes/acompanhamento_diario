@@ -1,31 +1,78 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { formatDuration, WORKDAYS_PER_CYCLE, type CycleSummary } from '@acomp/shared';
 import { useCycle, useDemands } from '../api/client';
 import { dayStyle, toneStyle, type DayTone } from '../components/Badges';
-import { CycleBanner } from '../components/CycleBanner';
 import { CycleNav } from '../components/CycleNav';
 import { DailyChart } from '../components/DailyChart';
 import { DayBreakdownChart } from '../components/DayBreakdownChart';
-import { DeadlineAlert } from '../components/DeadlineAlert';
 import { DemandsChart } from '../components/DemandsChart';
 import { GoalSelector } from '../components/GoalSelector';
-import { IrregularAlert } from '../components/IrregularAlert';
-import { ChevronDown, PlusIcon } from '../components/icons';
+import { BarChartIcon, ChevronDown, PieIcon, PlusIcon, TargetIcon } from '../components/icons';
 import { ProgressRing } from '../components/ProgressRing';
 import { ErrorState, Skeleton } from '../components/States';
 import { useRefDate, withDate } from '../hooks';
 
+type View = 'semana' | 'distribuicao' | 'demandas';
+
+/** As visões do painel: o usuário vê uma de cada vez, a que escolher. */
+const VIEWS: { id: View; label: string; short: string; description: string; icon: ReactNode }[] = [
+  {
+    id: 'semana',
+    label: 'Acompanhamento por dia útil',
+    short: 'Dia útil',
+    description: 'Horas apontadas, meta semanal, total realizado e dias conformes',
+    icon: <BarChartIcon size={18} />,
+  },
+  {
+    id: 'distribuicao',
+    label: 'Distribuição do dia',
+    short: 'Distribuição',
+    description: 'Quais demandas ocuparam mais tempo em um dia',
+    icon: <PieIcon size={18} />,
+  },
+  {
+    id: 'demandas',
+    label: 'Demandas em andamento',
+    short: 'Demandas',
+    description: 'Horas apontadas × meta de cada demanda ativa',
+    icon: <TargetIcon size={18} />,
+  },
+];
+
+// A visão escolhida é uma preferência local: lembrada entre visitas, sem ir ao servidor.
+const VIEW_KEY = 'painel:visao';
+
+function storedView(): View {
+  try {
+    const saved = localStorage.getItem(VIEW_KEY);
+    if (VIEWS.some((v) => v.id === saved)) return saved as View;
+  } catch {
+    // Armazenamento indisponível: começa pela visão padrão.
+  }
+  return 'semana';
+}
+
 export function Dashboard() {
   const [date, setDate] = useRefDate();
   const cycle = useCycle(date);
+  const [view, setView] = useState<View>(storedView);
+
+  const choose = (next: View) => {
+    setView(next);
+    try {
+      localStorage.setItem(VIEW_KEY, next);
+    } catch {
+      // Sem armazenamento, a escolha vale só nesta sessão.
+    }
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">Painel da semana</h1>
-          <p className="mt-1 text-sm text-ink-2">Preencha suas horas até quinta: a meta é 100%.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">Painel</h1>
+          <p className="mt-1 text-sm text-ink-2">Escolha o que analisar; o resto fica fora do caminho.</p>
         </div>
         <Link
           to={withDate('/atividades', date)}
@@ -35,54 +82,125 @@ export function Dashboard() {
         </Link>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <CycleNav date={date} onChange={setDate} />
-        {cycle.data && <GoalSelector date={date} dailyGoal={cycle.data.dailyGoal} />}
-      </div>
+      <div className="grid items-start gap-6 lg:grid-cols-[14rem_minmax(0,1fr)] xl:grid-cols-[16rem_minmax(0,1fr)]">
+        <MetricsNav view={view} onChange={choose} />
 
-      {cycle.isPending ? (
-        <DashboardSkeleton />
-      ) : cycle.isError ? (
-        <ErrorState message={cycle.error.message} onRetry={() => cycle.refetch()} />
-      ) : (
-        <DashboardContent summary={cycle.data} date={date} />
-      )}
+        <div id="painel-visao" role="tabpanel" aria-label={VIEWS.find((v) => v.id === view)!.label} className="min-w-0 space-y-5">
+          {view === 'demandas' ? (
+            <DemandsView />
+          ) : (
+            <>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <CycleNav date={date} onChange={setDate} />
+                {view === 'semana' && cycle.data && <GoalSelector date={date} dailyGoal={cycle.data.dailyGoal} />}
+              </div>
+              {cycle.isPending ? (
+                <Skeleton className="h-96" />
+              ) : cycle.isError ? (
+                <ErrorState message={cycle.error.message} onRetry={() => cycle.refetch()} />
+              ) : view === 'semana' ? (
+                <WeekView summary={cycle.data} date={date} />
+              ) : (
+                // A chave reinicia o dia escolhido ao trocar de ciclo.
+                <DayBreakdownChart key={cycle.data.start} summary={cycle.data} />
+              )}
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
-function DashboardContent({ summary, date }: { summary: CycleSummary; date: string }) {
+/** Coluna de métricas (desktop) ou controle segmentado (celular): uma visão por vez. */
+function MetricsNav({ view, onChange }: { view: View; onChange: (v: View) => void }) {
+  return (
+    <>
+      <nav className="card hidden p-2 lg:sticky lg:top-24 lg:block" aria-label="Métricas do painel">
+        <p className="px-3 pt-2 pb-2 text-[11px] font-semibold tracking-wider text-ink-3 uppercase">Métricas</p>
+        <div role="tablist" aria-orientation="vertical" className="space-y-1">
+          {VIEWS.map((v) => {
+            const on = v.id === view;
+            return (
+              <button
+                key={v.id}
+                role="tab"
+                aria-selected={on}
+                aria-controls="painel-visao"
+                onClick={() => onChange(v.id)}
+                className={`relative flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition ${
+                  on ? 'bg-accent-soft' : 'hover:bg-surface-2'
+                }`}
+              >
+                {on && <span className="absolute inset-y-2 left-0 w-1 rounded-full bg-accent" aria-hidden="true" />}
+                <span className={`mt-0.5 shrink-0 ${on ? 'text-accent' : 'text-ink-3'}`}>{v.icon}</span>
+                <span className="min-w-0">
+                  <span className={`block text-sm font-semibold ${on ? 'text-accent' : 'text-ink'}`}>{v.label}</span>
+                  <span className="mt-0.5 block text-xs leading-snug text-ink-3">{v.description}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
+      <div
+        role="tablist"
+        aria-label="Métricas do painel"
+        className="grid grid-cols-3 gap-1 rounded-2xl bg-surface-2 p-1 lg:hidden"
+      >
+        {VIEWS.map((v) => {
+          const on = v.id === view;
+          return (
+            <button
+              key={v.id}
+              role="tab"
+              aria-selected={on}
+              aria-controls="painel-visao"
+              onClick={() => onChange(v.id)}
+              className={`flex flex-col items-center gap-1 rounded-xl px-1 py-2 text-xs font-medium transition ${
+                on ? 'bg-surface text-accent shadow-sm' : 'text-ink-2 hover:text-ink'
+              }`}
+            >
+              {v.icon}
+              {v.short}
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+function DemandsView() {
+  const demands = useDemands('ativa');
+  if (demands.isPending) return <Skeleton className="h-96" />;
+  if (demands.isError) return <ErrorState message={demands.error.message} onRetry={() => demands.refetch()} />;
+  return <DemandsChart demands={demands.data} />;
+}
+
+/** Acompanhamento por dia útil: as métricas da semana, que se leem melhor juntas. */
+function WeekView({ summary, date }: { summary: CycleSummary; date: string }) {
   const { week, days, dailyGoal } = summary;
   const missing = Math.max(0, week.goal - week.total);
-  const demands = useDemands('ativa');
 
   return (
     <>
-      <IrregularAlert days={days} dailyGoal={dailyGoal} />
-      {demands.data && <DeadlineAlert demands={demands.data} />}
-      <CycleBanner summary={summary} />
+      {/* Um cartão só: % de horas apontadas em destaque e os indicadores da semana ao lado. */}
+      <section className="card rise flex flex-col items-center gap-6 p-5 sm:p-6 md:flex-row md:items-stretch">
+        <div className="flex shrink-0 flex-col items-center text-center md:w-56 md:justify-center">
+          <ProgressRing percent={week.fillPercent} exceeded={week.diff > 0} size={168} />
+          <p className="mt-3 text-sm font-semibold text-ink">Horas apontadas</p>
+          <p className={`mt-0.5 text-xs ${week.diff > 0 ? 'font-medium text-critical-text' : 'text-ink-2'}`}>
+            {week.diff > 0
+              ? `Excedeu a meta semanal em ${formatDuration(week.diff)}. Reajuste os apontamentos.`
+              : week.diff === 0
+                ? 'Meta semanal atingida. Excelente!'
+                : `Faltam ${formatDuration(missing)} para fechar a semana.`}
+          </p>
+        </div>
 
-      <div className="grid gap-4 lg:grid-cols-5">
-        {/* Destaque: % preenchido */}
-        <section className="card rise flex flex-col items-center gap-6 p-6 sm:flex-row lg:col-span-2">
-          <ProgressRing percent={week.fillPercent} exceeded={week.diff > 0} />
-          <div className="text-center sm:text-left">
-            <p className="text-sm font-medium text-ink-2">Horas apontadas</p>
-            <p className="tabular mt-1 text-2xl font-bold text-ink">
-              {formatDuration(week.total)}
-              <span className="text-base font-medium text-ink-3"> / {formatDuration(week.goal)}</span>
-            </p>
-            <p className={`mt-3 text-sm ${week.diff > 0 ? 'font-medium text-critical-text' : 'text-ink-2'}`}>
-              {week.diff > 0
-                ? `Excedeu a meta semanal em ${formatDuration(week.diff)}. Reajuste os apontamentos.`
-                : week.diff === 0
-                  ? 'Meta semanal atingida. Excelente!'
-                  : `Faltam ${formatDuration(missing)} para fechar a semana.`}
-            </p>
-          </div>
-        </section>
-
-        <div className="grid gap-4 sm:grid-cols-3 lg:col-span-3">
+        <div className="grid w-full flex-1 grid-cols-1 divide-y divide-line sm:grid-cols-3 sm:divide-x sm:divide-y-0 md:border-l md:border-line">
           <Kpi label="Meta semanal" value={formatDuration(week.goal)} delay={60}>
             {WORKDAYS_PER_CYCLE} dias × {formatDuration(dailyGoal)}
           </Kpi>
@@ -125,7 +243,7 @@ function DashboardContent({ summary, date }: { summary: CycleSummary; date: stri
             </div>
           </Kpi>
         </div>
-      </div>
+      </section>
 
       <section className="card rise p-5 sm:p-6" style={{ animationDelay: '200ms' }}>
         <div className="mb-8 flex flex-wrap items-baseline justify-between gap-2">
@@ -138,19 +256,7 @@ function DashboardContent({ summary, date }: { summary: CycleSummary; date: stri
         <DailyChart days={days} goal={dailyGoal} />
       </section>
 
-      <div className="grid items-start gap-4 lg:grid-cols-2">
-        {/* A chave reinicia o dia escolhido ao trocar de ciclo. */}
-        <DayBreakdownChart key={summary.start} summary={summary} />
-        {demands.isPending ? (
-          <Skeleton className="h-80" />
-        ) : demands.isError ? (
-          <ErrorState message={demands.error.message} onRetry={() => demands.refetch()} />
-        ) : (
-          <DemandsChart demands={demands.data} />
-        )}
-      </div>
-
-      <div className="flex justify-center pt-2 pb-4">
+      <div className="flex justify-center pt-1 pb-4">
         <Link
           to={withDate('/detalhes', date)}
           className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-5 py-2.5 text-sm font-semibold text-ink shadow-sm transition hover:bg-surface-2"
@@ -162,13 +268,14 @@ function DashboardContent({ summary, date }: { summary: CycleSummary; date: stri
   );
 }
 
+/** Indicador dentro do cartão da semana (colunas separadas por linhas finas). */
 function Kpi({ label, value, delay, children }: { label: string; value: ReactNode; delay: number; children: ReactNode }) {
   return (
-    <section className="card rise flex flex-col p-5" style={{ animationDelay: `${delay}ms` }}>
+    <div className="rise flex flex-col px-1 py-4 sm:px-5 sm:py-1" style={{ animationDelay: `${delay}ms` }}>
       <p className="text-xs font-semibold tracking-wider text-ink-3 uppercase">{label}</p>
       <p className="tabular mt-2 text-3xl font-bold tracking-tight text-ink">{value}</p>
       <div className="mt-auto pt-3 text-xs text-ink-2">{children}</div>
-    </section>
+    </div>
   );
 }
 
@@ -181,23 +288,6 @@ function Legend() {
           {toneStyle[c].label}
         </span>
       ))}
-    </div>
-  );
-}
-
-function DashboardSkeleton() {
-  return (
-    <div className="space-y-4">
-      <Skeleton className="h-16" />
-      <div className="grid gap-4 lg:grid-cols-5">
-        <Skeleton className="h-56 lg:col-span-2" />
-        <div className="grid gap-4 sm:grid-cols-3 lg:col-span-3">
-          <Skeleton className="h-56" />
-          <Skeleton className="h-56" />
-          <Skeleton className="h-56" />
-        </div>
-      </div>
-      <Skeleton className="h-80" />
     </div>
   );
 }

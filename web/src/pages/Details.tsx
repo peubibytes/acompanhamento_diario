@@ -3,7 +3,6 @@ import { formatDayMonth, formatDuration, formatHM, WORKDAYS_PER_CYCLE, type Cycl
 import { useCycle } from '../api/client';
 import { ConformityBadge } from '../components/Badges';
 import { CycleNav } from '../components/CycleNav';
-import { IrregularAlert } from '../components/IrregularAlert';
 import { ArrowLeft, CheckIcon, AlertIcon } from '../components/icons';
 import { ErrorState, Skeleton } from '../components/States';
 import { useRefDate, withDate } from '../hooks';
@@ -39,10 +38,7 @@ export function Details() {
       ) : cycle.isError ? (
         <ErrorState message={cycle.error.message} onRetry={() => cycle.refetch()} />
       ) : (
-        <>
-          <IrregularAlert days={cycle.data.days} dailyGoal={cycle.data.dailyGoal} />
-          <DetailTable summary={cycle.data} />
-        </>
+        <DetailTable summary={cycle.data} />
       )}
     </div>
   );
