@@ -26,6 +26,13 @@ export const CheckIcon = (p: IconProps) => (
     <path d="M5 12.5l4.5 4.5L19 7.5" />
   </Icon>
 );
+/** Cronômetro: ícone da aplicação. */
+export const StopwatchIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="12" cy="13.5" r="7.5" />
+    <path d="M10 2.75h4M12 2.75V6M17.6 7.9l1.4-1.4M12 13.5V10M12 13.5l2.5 1.5" />
+  </Icon>
+);
 export const AlertIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M12 8v5M12 16.5v.01" />

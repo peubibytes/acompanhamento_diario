@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { NavLink, Outlet } from 'react-router';
 import { useRefDate, withDate } from '../hooks';
-import { CheckIcon, GridIcon, ListIcon, TableIcon, TargetIcon } from './icons';
+import { GridIcon, ListIcon, StopwatchIcon, TableIcon, TargetIcon } from './icons';
 import { NotificationBell } from './NotificationBell';
 import { ThemeToggle } from './ThemeToggle';
 
@@ -21,7 +21,7 @@ export function Layout() {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           <NavLink to={withDate('/', date)} className="flex items-center gap-2.5">
             <span className="grid size-8 place-items-center rounded-lg bg-accent text-on-accent">
-              <CheckIcon size={18} strokeWidth={2.75} />
+              <StopwatchIcon size={19} strokeWidth={2.25} />
             </span>
             <span className="text-[15px] font-semibold tracking-tight text-ink sm:hidden lg:inline">
               Acompanhamento Diário

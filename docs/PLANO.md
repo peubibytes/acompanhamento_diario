@@ -92,10 +92,13 @@ acompanhamento_diario/
 ### Modelo de dados
 ```sql
 activities(id, date, start_minute, end_minute, project, description, notes, status,
-           created_at, updated_at)
+           demand_id → demands (ON DELETE SET NULL), created_at, updated_at)
 cycle_goals(cycle_start PRIMARY KEY, daily_goal_minutes)
 settings(key PRIMARY KEY, value)          -- default_daily_goal_minutes
+demands(id, title, description, target_minutes, start_date, due_date, status,
+        created_at, updated_at)
 ```
+O esquema evolui por migrações numeradas em `server/src/db.ts` (`PRAGMA user_version`).
 
 ### API
 | Método | Rota | Uso |
@@ -106,6 +109,11 @@ settings(key PRIMARY KEY, value)          -- default_daily_goal_minutes
 | POST | `/api/activities` | cria |
 | PUT | `/api/activities/:id` | edita |
 | DELETE | `/api/activities/:id` | remove |
+| GET | `/api/demands?status=` | demandas com métricas, das mais urgentes para as demais |
+| GET | `/api/demands/:id` | demanda com métricas e atividades vinculadas |
+| POST | `/api/demands` | cria |
+| PUT | `/api/demands/:id` | edita |
+| DELETE | `/api/demands/:id` | remove (as atividades ficam sem vínculo) |
 
 ## 3. Telas
 
