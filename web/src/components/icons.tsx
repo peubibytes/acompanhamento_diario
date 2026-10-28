@@ -161,3 +161,14 @@ export const LayersIcon = (p: IconProps) => (
     <path d="M12 4l8.5 4.5L12 13 3.5 8.5 12 4zM3.5 12.5L12 17l8.5-4.5M3.5 16.5L12 21l8.5-4.5" />
   </Icon>
 );
+export const BarChartIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 20h16M7 16v-5M12 16V6M17 16v-8" />
+  </Icon>
+);
+export const PieIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 3.5a8.5 8.5 0 108.5 8.5H12V3.5z" />
+    <path d="M15 3.8A8.5 8.5 0 0120.2 9H15V3.8z" />
+  </Icon>
+);

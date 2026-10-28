@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { NavLink, Outlet } from 'react-router';
 import { useRefDate, withDate } from '../hooks';
 import { CheckIcon, GridIcon, ListIcon, TableIcon, TargetIcon } from './icons';
+import { NotificationBell } from './NotificationBell';
 import { ThemeToggle } from './ThemeToggle';
 
 const links: { to: string; label: string; icon: ReactNode }[] = [
@@ -44,6 +45,7 @@ export function Layout() {
                 </NavLink>
               ))}
             </nav>
+            <NotificationBell />
             <ThemeToggle />
           </div>
         </div>
