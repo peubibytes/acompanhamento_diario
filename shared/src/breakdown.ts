@@ -1,12 +1,11 @@
 // Distribuição do tempo de um dia por demanda: base do gráfico de pizza do painel.
 
-import type { Demand } from './demands.ts';
 import type { Activity } from './types.ts';
 
 export interface BreakdownSlice {
   key: string;
   label: string;
-  /** Atividades vinculadas a uma demanda, ou agrupadas pelo projeto quando não há vínculo. */
+  /** Apontamentos de uma demanda, ou agrupados pelo projeto nos antigos, sem demanda. */
   kind: 'demanda' | 'projeto' | 'outros';
   demandId: number | null;
   minutes: number;
@@ -20,7 +19,7 @@ export interface DayBreakdown {
   total: number;
   /** Fatias da maior para a menor. */
   slices: BreakdownSlice[];
-  /** Houve trecho sobreposto, dividido igualmente entre as atividades simultâneas. */
+  /** Houve trecho sobreposto, dividido igualmente entre os apontamentos simultâneos. */
   overlapSplit: boolean;
 }
 
@@ -35,12 +34,12 @@ function groupOf(a: Input, titles: Map<number, string>) {
 }
 
 /**
- * Agrupa o tempo por demanda (ou por projeto, nas atividades sem demanda). Em cada trecho
- * de tempo, os minutos são divididos igualmente entre as atividades que o ocupam; assim a
+ * Agrupa o tempo por demanda (ou por projeto, nos apontamentos antigos sem demanda). Em cada
+ * trecho de tempo, os minutos são divididos igualmente entre os apontamentos que o ocupam; assim a
  * soma das fatias é exatamente o total do dia, sem contar sobreposições duas vezes.
  */
-export function dayBreakdown(activities: Input[], demands: Pick<Demand, 'id' | 'title'>[]): DayBreakdown {
-  const titles = new Map(demands.map((d) => [d.id, d.title]));
+export function dayBreakdown(activities: Input[], demands: { id: number; label: string }[]): DayBreakdown {
+  const titles = new Map(demands.map((d) => [d.id, d.label]));
   const valid = activities.filter((a) => a.endMinute > a.startMinute);
   const raw = new Map<string, ReturnType<typeof groupOf> & { minutes: number; activityCount: number }>();
   let overlapSplit = false;

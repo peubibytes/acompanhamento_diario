@@ -24,7 +24,7 @@ export function useReminders() {
 
 /** Rota de destino de um lembrete ou item da agenda. */
 export function targetHref(target: ReminderTarget): string {
-  if (target.screen === 'atividades') return `/atividades?data=${target.date}`;
+  if (target.screen === 'apontamentos') return `/apontamentos?data=${target.date}`;
   if (target.screen === 'demandas') return `/demandas#demanda-${target.demandId}`;
   return '/';
 }

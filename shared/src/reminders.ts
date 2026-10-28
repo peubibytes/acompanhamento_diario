@@ -2,7 +2,7 @@
 // pelo painel em alertas, para que o usuário veja só quando quiser.
 
 import { addDays, formatDayMonth, getCycle, WEEKDAY_SHORT, weekdayOf, type ISODate } from './cycle.ts';
-import { DEADLINE_LABEL, formatDemandHours, isOpenDemand, type DeadlineStatus, type DemandSummary } from './demands.ts';
+import { DEADLINE_LABEL, isOpenDemand, type CycleDemand, type DeadlineStatus, type DemandSummary } from './demands.ts';
 import type { CycleSummary } from './metrics.ts';
 import { formatDuration } from './time.ts';
 
@@ -10,7 +10,7 @@ export type Severity = 'critical' | 'warning' | 'info';
 
 /** Para onde o lembrete leva; a interface traduz em rota. */
 export type ReminderTarget =
-  | { screen: 'atividades'; date: ISODate }
+  | { screen: 'apontamentos'; date: ISODate }
   | { screen: 'demandas'; demandId: number }
   | { screen: 'painel' };
 
@@ -38,9 +38,15 @@ export interface AgendaItem {
 const SEVERITY_ORDER: Record<Severity, number> = { critical: 0, warning: 1, info: 2 };
 const dayLabel = (iso: ISODate) => `${WEEKDAY_SHORT[weekdayOf(iso)]} ${formatDayMonth(iso)}`;
 
+type CycleSummaryItem = DemandSummary & CycleDemand;
+
+/** Só os ciclos têm prazo; as atividades (chamados, reuniões, treinamentos) não entram aqui. */
+const openCycles = (demands: DemandSummary[]) =>
+  demands.filter((d): d is CycleSummaryItem => d.category === 'ciclo' && isOpenDemand(d));
+
 /**
  * Notificações do momento, das mais graves para as informativas:
- * dias irregulares do ciclo atual, prazos de demandas e o dia de apontamento.
+ * dias irregulares do ciclo atual, prazos dos ciclos (demandas) e o dia de apontamento.
  * `current` deve ser o resumo do ciclo que contém `today`.
  */
 export function buildNotifications(current: CycleSummary, demands: DemandSummary[], today: ISODate): AppNotification[] {
@@ -54,16 +60,16 @@ export function buildNotifications(current: CycleSummary, demands: DemandSummary
       title: `Apontamento irregular em ${dayLabel(d.date)}`,
       detail: `${d.diagnosis}.`,
       date: d.date,
-      target: { screen: 'atividades', date: d.date },
+      target: { screen: 'apontamentos', date: d.date },
     });
   }
 
-  for (const d of demands.filter((x) => isOpenDemand(x) && x.metrics.reminder)) {
+  for (const d of openCycles(demands).filter((x) => x.metrics.reminder)) {
     items.push({
       id: `demanda:${d.id}`,
-      severity: d.metrics.deadline === 'atrasada' || d.metrics.atRisk ? 'critical' : 'warning',
+      severity: d.metrics.deadline === 'atrasada' ? 'critical' : 'warning',
       kind: 'prazo_demanda',
-      title: d.title,
+      title: d.label,
       detail: d.metrics.reminder!,
       date: d.dueDate ?? today,
       target: { screen: 'demandas', demandId: d.id },
@@ -96,7 +102,7 @@ export function buildNotifications(current: CycleSummary, demands: DemandSummary
 export const attentionCount = (items: AppNotification[]) => items.filter((n) => n.severity !== 'info').length;
 
 /**
- * Agenda em ordem de data: prazos e inícios das demandas ativas e os dois próximos
+ * Agenda em ordem de data: prazos e inícios dos ciclos abertos e os dois próximos
  * dias de apontamento (quinta do ciclo atual e do seguinte).
  */
 export function buildAgenda(demands: DemandSummary[], today: ISODate): AgendaItem[] {
@@ -114,14 +120,14 @@ export function buildAgenda(demands: DemandSummary[], today: ISODate): AgendaIte
     });
   }
 
-  for (const d of demands.filter(isOpenDemand)) {
+  for (const d of openCycles(demands)) {
     if (d.dueDate) {
       items.push({
         id: `prazo:${d.id}`,
         date: d.dueDate,
         kind: 'prazo_demanda',
-        title: d.title,
-        detail: `Prazo da demanda · ${formatDemandHours(d.metrics)} · ${DEADLINE_LABEL[d.metrics.deadline]}`,
+        title: d.label,
+        detail: `Prazo do ciclo · ${formatDuration(d.metrics.logged)} apontadas · ${DEADLINE_LABEL[d.metrics.deadline]}`,
         deadline: d.metrics.deadline,
         target: { screen: 'demandas', demandId: d.id },
       });
@@ -131,8 +137,8 @@ export function buildAgenda(demands: DemandSummary[], today: ISODate): AgendaIte
         id: `inicio:${d.id}`,
         date: d.startDate,
         kind: 'inicio_demanda',
-        title: d.title,
-        detail: `Início da demanda · ${d.metrics.target === null ? 'sem meta de horas' : `meta de ${formatDuration(d.metrics.target)}`}`,
+        title: d.label,
+        detail: 'Início do ciclo',
         target: { screen: 'demandas', demandId: d.id },
       });
     }

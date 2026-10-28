@@ -115,13 +115,73 @@ const MIGRATIONS = [
   );
   CREATE INDEX idx_demand_blockers_demand ON demand_blockers(demand_id);
   `,
+  // 4 — demandas declaradas (docs/decisions/0002): quatro tipos (ciclo, chamado, reunião,
+  // treinamento) e nenhuma declaração de horas. As demandas existentes viram ciclos; a meta de
+  // horas, o progresso, os identificadores e o sistema da v0.4, quando preenchidos, são
+  // preservados no fim da descrição. A tabela é recriada com o mesmo nome.
+  `
+  CREATE TABLE demands_v4 (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    category      TEXT    NOT NULL CHECK (category IN ('ciclo', 'chamado', 'reuniao', 'treinamento')),
+    title         TEXT    NOT NULL DEFAULT '', -- ciclo: nome do projeto · treinamento: nome · reunião: assunto
+    description   TEXT    NOT NULL DEFAULT '',
+    ticket_number TEXT,                        -- chamado
+    meeting_type  TEXT,                        -- reunião
+    participants  TEXT,                        -- reunião: com quem
+    kind          TEXT    CHECK (kind IS NULL OR kind IN ('planejada', 'intempestiva', 'preventiva')),
+    priority      TEXT    CHECK (priority IS NULL OR priority IN ('baixa', 'media', 'alta', 'urgente')),
+    status        TEXT,
+    start_date    TEXT,
+    due_date      TEXT,
+    branch        TEXT    NOT NULL DEFAULT '',
+    pr_url        TEXT    NOT NULL DEFAULT '',
+    environment   TEXT    CHECK (environment IS NULL OR environment IN ('desenvolvimento', 'staging', 'producao')),
+    created_at    TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CHECK (due_date IS NULL OR start_date IS NULL OR due_date >= start_date),
+    CHECK (category <> 'ciclo' OR (
+      title <> '' AND kind IS NOT NULL AND priority IS NOT NULL AND start_date IS NOT NULL AND status IN
+      ('novo', 'em_andamento', 'aguardando_terceiro', 'em_homologacao', 'concluido', 'cancelado'))),
+    CHECK (category <> 'chamado' OR (
+      ticket_number IS NOT NULL AND status IN ('nao_iniciado', 'iniciado', 'em_andamento', 'concluido'))),
+    CHECK (category <> 'reuniao' OR (meeting_type IS NOT NULL AND participants IS NOT NULL AND title <> '')),
+    CHECK (category <> 'treinamento' OR (
+      title <> '' AND status IN ('nao_iniciado', 'iniciado', 'em_andamento', 'concluido')))
+  );
+
+  INSERT INTO demands_v4 (id, category, title, description, kind, priority, status, start_date, due_date,
+                          branch, pr_url, environment, created_at, updated_at)
+  SELECT id, 'ciclo', title,
+         CASE WHEN legacy = '' THEN description
+              WHEN description = '' THEN 'Versão anterior: ' || legacy || '.'
+              ELSE description || char(10) || char(10) || 'Versão anterior: ' || legacy || '.' END,
+         kind, priority, status, start_date, due_date, branch, pr_url, environment, created_at, updated_at
+  FROM (
+    SELECT d.*, rtrim(
+             CASE WHEN d.target_minutes IS NULL THEN ''
+                  ELSE 'meta de ' || (d.target_minutes / 60) || 'h'
+                       || CASE WHEN d.target_minutes % 60 > 0 THEN printf('%02d', d.target_minutes % 60) ELSE '' END
+                       || '; ' END
+             || CASE WHEN d.progress_percent BETWEEN 1 AND 99 THEN 'progresso de ' || d.progress_percent || '%; ' ELSE '' END
+             || CASE WHEN d.external_ids = '[]' THEN ''
+                     ELSE 'identificadores ' || (SELECT group_concat(value, ', ') FROM json_each(d.external_ids)) || '; ' END
+             || CASE WHEN d.system = '' THEN '' ELSE 'sistema ' || d.system || '; ' END,
+           '; ') AS legacy
+    FROM demands d
+  );
+
+  DROP TABLE demands;
+  ALTER TABLE demands_v4 RENAME TO demands;
+  CREATE UNIQUE INDEX idx_demands_ticket ON demands(ticket_number) WHERE category = 'chamado';
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
 
-export function migrate(db: DatabaseSync): void {
+/** Aplica as migrações pendentes até `target` (padrão: a última; os testes usam versões intermediárias). */
+export function migrate(db: DatabaseSync, target = MIGRATIONS.length): void {
   const { user_version: current } = db.prepare('PRAGMA user_version').get() as { user_version: number };
-  if (current >= MIGRATIONS.length) return;
+  if (current >= target) return;
 
   // Recriar uma tabela (DROP + RENAME) com as chaves estrangeiras ligadas dispararia o
   // ON DELETE das tabelas filhas. Elas ficam desligadas durante as migrações (o PRAGMA não
@@ -129,7 +189,7 @@ export function migrate(db: DatabaseSync): void {
   const { foreign_keys: fkOn } = db.prepare('PRAGMA foreign_keys').get() as { foreign_keys: number };
   db.exec('PRAGMA foreign_keys = OFF');
   try {
-    for (let version = current; version < MIGRATIONS.length; version++) {
+    for (let version = current; version < target; version++) {
       db.exec('BEGIN');
       try {
         db.exec(MIGRATIONS[version]);

@@ -1,7 +1,8 @@
 # 0001 — Demandas de ciclo viram chamados estendendo a tabela `demands`
 
 - **Data:** 2026-10-28
-- **Status:** aceita
+- **Status:** aceita; parcialmente substituída pela [0002](0002-demandas-declaradas-e-apontamentos.md)
+  (estas demandas viraram os Ciclos; meta de horas, % de progresso e identificadores saíram)
 - **Contexto:** PLANO.md, seção 8.1
 
 ## Contexto

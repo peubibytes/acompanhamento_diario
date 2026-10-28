@@ -1,13 +1,13 @@
 import type { ReactNode } from 'react';
 import { NavLink, Outlet } from 'react-router';
 import { useRefDate, withDate } from '../hooks';
-import { GridIcon, ListIcon, StopwatchIcon, TableIcon, TargetIcon } from './icons';
+import { ClockIcon, GridIcon, StopwatchIcon, TableIcon, TargetIcon } from './icons';
 import { NotificationBell } from './NotificationBell';
 import { ThemeToggle } from './ThemeToggle';
 
 const links: { to: string; label: string; icon: ReactNode }[] = [
   { to: '/', label: 'Painel', icon: <GridIcon size={20} /> },
-  { to: '/atividades', label: 'Atividades', icon: <ListIcon size={20} /> },
+  { to: '/apontamentos', label: 'Apontamentos', icon: <ClockIcon size={20} /> },
   { to: '/demandas', label: 'Demandas', icon: <TargetIcon size={20} /> },
   { to: '/detalhes', label: 'Detalhes', icon: <TableIcon size={20} /> },
 ];

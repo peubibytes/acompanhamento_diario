@@ -6,7 +6,7 @@ import { dayStyle, toneStyle, type DayTone } from '../components/Badges';
 import { CycleNav } from '../components/CycleNav';
 import { DailyChart } from '../components/DailyChart';
 import { DayBreakdownChart } from '../components/DayBreakdownChart';
-import { DemandsChart } from '../components/DemandsChart';
+import { CyclesChart } from '../components/CyclesChart';
 import { GoalSelector } from '../components/GoalSelector';
 import { BarChartIcon, ChevronDown, PieIcon, PlusIcon, TargetIcon } from '../components/icons';
 import { ProgressRing } from '../components/ProgressRing';
@@ -33,9 +33,9 @@ const VIEWS: { id: View; label: string; short: string; description: string; icon
   },
   {
     id: 'demandas',
-    label: 'Demandas em andamento',
-    short: 'Demandas',
-    description: 'Horas apontadas × meta de cada demanda ativa',
+    label: 'Ciclos em andamento',
+    short: 'Ciclos',
+    description: 'Horas apontadas e prazo de cada ciclo aberto',
     icon: <TargetIcon size={18} />,
   },
 ];
@@ -75,10 +75,10 @@ export function Dashboard() {
           <p className="mt-1 text-sm text-ink-2">Escolha o que analisar; o resto fica fora do caminho.</p>
         </div>
         <Link
-          to={withDate('/atividades', date)}
+          to={withDate('/apontamentos', date)}
           className="inline-flex items-center justify-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-on-accent shadow-sm transition hover:bg-accent-hover"
         >
-          <PlusIcon size={18} /> Registrar atividades
+          <PlusIcon size={18} /> Registrar apontamentos
         </Link>
       </div>
 
@@ -176,7 +176,7 @@ function DemandsView() {
   const demands = useDemands('abertas');
   if (demands.isPending) return <Skeleton className="h-96" />;
   if (demands.isError) return <ErrorState message={demands.error.message} onRetry={() => demands.refetch()} />;
-  return <DemandsChart demands={demands.data} />;
+  return <CyclesChart demands={demands.data} />;
 }
 
 /** Acompanhamento por dia útil: as métricas da semana, que se leem melhor juntas. */
@@ -249,7 +249,7 @@ function WeekView({ summary, date }: { summary: CycleSummary; date: string }) {
         <div className="mb-8 flex flex-wrap items-baseline justify-between gap-2">
           <div>
             <h2 className="text-lg font-semibold text-ink">Acompanhamento por dia útil</h2>
-            <p className="text-sm text-ink-2">Toque em um dia para registrar ou revisar atividades.</p>
+            <p className="text-sm text-ink-2">Toque em um dia para registrar ou revisar apontamentos.</p>
           </div>
           <Legend />
         </div>

@@ -33,7 +33,7 @@ export function DailyChart({ days, goal }: { days: DayMetrics[]; goal: number })
             return (
               <button
                 key={d.date}
-                onClick={() => navigate(`/atividades?data=${d.date}`)}
+                onClick={() => navigate(`/apontamentos?data=${d.date}`)}
                 className={`group relative flex h-full flex-1 flex-col items-center justify-end rounded-t-xl outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                   isToday ? 'bg-accent-soft/60' : 'hover:bg-surface-2/70'
                 }`}
@@ -98,7 +98,7 @@ function Tooltip({ day, align }: { day: DayMetrics; align: keyof typeof TOOLTIP_
         <span className="tabular text-right font-medium text-ink">{formatDuration(day.minutes)}</span>
         <span className="text-ink-3">Diferença</span>
         <span className="tabular text-right font-medium text-ink">{day.diffLabel || '—'}</span>
-        <span className="text-ink-3">Atividades</span>
+        <span className="text-ink-3">Apontamentos</span>
         <span className="tabular text-right font-medium text-ink">{day.activityCount}</span>
       </span>
       <span

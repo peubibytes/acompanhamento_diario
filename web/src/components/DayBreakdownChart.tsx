@@ -6,6 +6,7 @@ import {
   formatDayMonth,
   formatDuration,
   todayISO,
+  DEMAND_CATEGORY_LABEL,
   type BreakdownSlice,
   type CycleSummary,
   type ISODate,
@@ -61,6 +62,7 @@ export function DayBreakdownChart({ summary }: { summary: CycleSummary }) {
   const selected = summary.days.find((d) => d.date === day)!;
 
   const breakdown = activities.data && demands.data ? dayBreakdown(activities.data, demands.data) : null;
+  const categoryOf = new Map(demands.data?.map((d) => [d.id, d.category]));
   const drawn = breakdown ? colorize(foldSlices(breakdown.slices)) : [];
   const legend = [...drawn].sort((a, b) => b.minutes - a.minutes);
   const focus = drawn.find((s) => s.key === active);
@@ -78,7 +80,7 @@ export function DayBreakdownChart({ summary }: { summary: CycleSummary }) {
     <section className="card rise flex flex-col p-5 sm:p-6" style={{ animationDelay: '220ms' }}>
       <div className="mb-4">
         <h2 className="text-lg font-semibold text-ink">Distribuição do dia</h2>
-        <p className="text-sm text-ink-2">Quais demandas ocuparam mais tempo nas atividades do dia.</p>
+        <p className="text-sm text-ink-2">Quais demandas ocuparam mais tempo nos apontamentos do dia.</p>
       </div>
 
       <div className="mb-5 grid grid-cols-5 gap-1.5" role="tablist" aria-label="Dia analisado">
@@ -111,13 +113,13 @@ export function DayBreakdownChart({ summary }: { summary: CycleSummary }) {
       ) : breakdown.total === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-line px-6 py-10 text-center">
           <p className="font-semibold text-ink">
-            Nenhuma atividade em {selected.weekdayShort} {formatDayMonth(day)}
+            Nenhum apontamento em {selected.weekdayShort} {formatDayMonth(day)}
           </p>
           <Link
-            to={`/atividades?data=${day}`}
+            to={`/apontamentos?data=${day}`}
             className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:underline"
           >
-            <PlusIcon size={15} /> Registrar atividades
+            <PlusIcon size={15} /> Registrar apontamentos
           </Link>
         </div>
       ) : (
@@ -192,9 +194,13 @@ export function DayBreakdownChart({ summary }: { summary: CycleSummary }) {
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm text-ink">{s.label}</span>
                       <span className="block text-[11px] text-ink-3">
-                        {s.kind === 'demanda' ? 'Demanda' : s.kind === 'projeto' ? 'Projeto · sem demanda' : 'Demais itens'}
+                        {s.kind === 'demanda'
+                          ? DEMAND_CATEGORY_LABEL[categoryOf.get(s.demandId!) ?? 'ciclo']
+                          : s.kind === 'projeto'
+                            ? 'Sem demanda (antigo)'
+                            : 'Demais itens'}
                         {' · '}
-                        {s.activityCount} {s.activityCount === 1 ? 'atividade' : 'atividades'}
+                        {s.activityCount} {s.activityCount === 1 ? 'apontamento' : 'apontamentos'}
                       </span>
                     </span>
                     <span className="tabular shrink-0 text-right">
@@ -210,7 +216,7 @@ export function DayBreakdownChart({ summary }: { summary: CycleSummary }) {
           {breakdown.overlapSplit && (
             <p className="mt-4 flex items-start gap-2 text-xs text-ink-3">
               <LayersIcon size={14} className="mt-px shrink-0" />
-              Trechos com atividades sobrepostas foram divididos igualmente entre elas, para a soma bater com o total do dia.
+              Trechos com apontamentos sobrepostos foram divididos igualmente entre eles, para a soma bater com o total do dia.
             </p>
           )}
         </>

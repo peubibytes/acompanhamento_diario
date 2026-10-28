@@ -1,18 +1,58 @@
 import type { ReactNode } from 'react';
 import {
+  CYCLE_STATUS_LABEL,
   DEADLINE_LABEL,
+  DEMAND_CATEGORY_LABEL,
   DEMAND_KIND_LABEL,
   DEMAND_PRIORITY_LABEL,
-  DEMAND_STATUS_LABEL,
+  formatDayMonth,
   formatDuration,
+  ROUTINE_STATUS_LABEL,
+  type CycleStatus,
   type DeadlineStatus,
+  type DemandCategory,
   type DemandKind,
   type DemandMetrics,
   type DemandPriority,
-  type DemandStatus,
-  type DemandSummary,
+  type RoutineStatus,
 } from '@acomp/shared';
-import { AlertIcon, BellIcon, CalendarIcon, CheckIcon, ClockIcon, DashIcon, HourglassIcon, TargetIcon, XIcon } from './icons';
+import {
+  AlertIcon,
+  BellIcon,
+  CalendarIcon,
+  CapIcon,
+  CheckIcon,
+  ClockIcon,
+  DashIcon,
+  HourglassIcon,
+  TargetIcon,
+  TicketIcon,
+  UsersIcon,
+  XIcon,
+} from './icons';
+
+/** Ícone de cada tipo de demanda: a forma diferencia, o rótulo confirma (nunca só cor). */
+export const categoryIcon: Record<DemandCategory, (s: number) => ReactNode> = {
+  ciclo: (s) => <TargetIcon size={s} />,
+  chamado: (s) => <TicketIcon size={s} />,
+  reuniao: (s) => <UsersIcon size={s} />,
+  treinamento: (s) => <CapIcon size={s} />,
+};
+
+/** Ícone do tipo num círculo suave, para listas e cabeçalhos de grupo. */
+export function CategoryAvatar({ category, size = 32 }: { category: DemandCategory; size?: number }) {
+  return (
+    <span
+      className="grid shrink-0 place-items-center rounded-full bg-accent-soft text-accent"
+      style={{ width: size, height: size }}
+      title={DEMAND_CATEGORY_LABEL[category]}
+    >
+      {categoryIcon[category](Math.round(size * 0.5))}
+    </span>
+  );
+}
+
+const BADGE = 'inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap';
 
 export const deadlineStyle: Record<DeadlineStatus, { badge: string; icon: (s: number) => ReactNode }> = {
   sem_prazo: { badge: 'bg-neutral-soft text-ink-2', icon: (s) => <DashIcon size={s} /> },
@@ -24,8 +64,6 @@ export const deadlineStyle: Record<DeadlineStatus, { badge: string; icon: (s: nu
   cancelada: { badge: 'bg-neutral-soft text-ink-2', icon: (s) => <XIcon size={s} /> },
 };
 
-const BADGE = 'inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap';
-
 export function DeadlineBadge({ status }: { status: DeadlineStatus }) {
   const style = deadlineStyle[status];
   return (
@@ -36,7 +74,7 @@ export function DeadlineBadge({ status }: { status: DeadlineStatus }) {
   );
 }
 
-export const demandStatusStyle: Record<DemandStatus, { badge: string; icon: (s: number) => ReactNode }> = {
+export const cycleStatusStyle: Record<CycleStatus, { badge: string; icon: (s: number) => ReactNode }> = {
   novo: { badge: 'bg-neutral-soft text-ink-2', icon: (s) => <DashIcon size={s} /> },
   em_andamento: { badge: 'bg-accent-soft text-accent', icon: (s) => <ClockIcon size={s} /> },
   aguardando_terceiro: { badge: 'bg-warning-soft text-warning-text', icon: (s) => <HourglassIcon size={s} /> },
@@ -45,12 +83,29 @@ export const demandStatusStyle: Record<DemandStatus, { badge: string; icon: (s: 
   cancelado: { badge: 'bg-neutral-soft text-ink-3', icon: (s) => <XIcon size={s} /> },
 };
 
-export function DemandStatusBadge({ status }: { status: DemandStatus }) {
-  const style = demandStatusStyle[status];
+export function CycleStatusBadge({ status }: { status: CycleStatus }) {
+  const style = cycleStatusStyle[status];
   return (
     <span className={`${BADGE} ${style.badge}`}>
       {style.icon(13)}
-      {DEMAND_STATUS_LABEL[status]}
+      {CYCLE_STATUS_LABEL[status]}
+    </span>
+  );
+}
+
+export const routineStatusStyle: Record<RoutineStatus, { badge: string; icon: (s: number) => ReactNode }> = {
+  nao_iniciado: { badge: 'bg-neutral-soft text-ink-2', icon: (s) => <DashIcon size={s} /> },
+  iniciado: { badge: 'bg-accent-soft text-accent', icon: (s) => <ClockIcon size={s} /> },
+  em_andamento: { badge: 'bg-accent-soft text-accent', icon: (s) => <ClockIcon size={s} /> },
+  concluido: { badge: 'bg-good-soft text-good-text', icon: (s) => <CheckIcon size={s} /> },
+};
+
+export function RoutineStatusBadge({ status }: { status: RoutineStatus }) {
+  const style = routineStatusStyle[status];
+  return (
+    <span className={`${BADGE} ${style.badge}`}>
+      {style.icon(13)}
+      {ROUTINE_STATUS_LABEL[status]}
     </span>
   );
 }
@@ -78,73 +133,26 @@ export function DemandFlags({ kind, priority }: { kind: DemandKind; priority: De
   );
 }
 
-/** Cor da barra de horas: excedida (vermelho), atingida (verde), em risco (âmbar) ou em andamento. */
-export function progressColor(m: DemandMetrics): string {
-  if (m.progress === 'excedida') return 'var(--critical)';
-  if (m.progress === 'atingida') return 'var(--good)';
-  if (m.atRisk) return 'var(--warning)';
-  return 'var(--accent)';
-}
-
-type ProgressSource = Pick<DemandSummary, 'metrics' | 'progressPercent'>;
-
-/**
- * Com meta de horas: horas apontadas sobre a meta (acima de 100% a barra fica cheia e vermelha).
- * Sem meta: o % de progresso informado pelo usuário.
- */
-export function DemandProgressBar({ demand, height = 8 }: { demand: ProgressSource; height?: number }) {
-  const m = demand.metrics;
-  const byHours = m.target !== null && m.percent !== null;
-  const percent = byHours ? m.percent! : demand.progressPercent;
-  return (
-    <div
-      className="overflow-hidden rounded-full bg-grid"
-      style={{ height }}
-      role="progressbar"
-      aria-valuemin={0}
-      aria-valuemax={byHours ? m.target! : 100}
-      aria-valuenow={byHours ? m.logged : percent}
-      aria-valuetext={
-        byHours
-          ? `${formatDuration(m.logged)} de ${formatDuration(m.target!)} (${percent}%)`
-          : `Progresso informado: ${percent}%`
-      }
-    >
-      <div
-        className="h-full rounded-full transition-[width] duration-700 ease-out"
-        style={{ width: `${Math.min(100, percent)}%`, background: byHours ? progressColor(m) : 'var(--accent)' }}
-      />
-    </div>
-  );
-}
-
-/** "12h de 40h" e o que falta (ou excedeu), em texto — a cor nunca carrega a informação sozinha. */
-export function DemandHoursCaption({ demand }: { demand: ProgressSource }) {
-  const m = demand.metrics;
-  if (m.target === null) {
-    return (
-      <p className="tabular flex flex-wrap items-baseline gap-x-1.5 text-xs">
-        <span className="font-semibold text-ink">{demand.progressPercent}%</span>
-        <span className="text-ink-3">concluído</span>
-        <span className="text-ink-3">·</span>
-        <span className="text-ink-2">{formatDuration(m.logged)} apontadas, sem meta de horas</span>
-      </p>
-    );
+/** "3h20 apontadas · 4 apontamentos em 3 dias · último em 28/10" (ou o convite a apontar). */
+export function LoggedSummary({ metrics: m, compact = false }: { metrics: DemandMetrics; compact?: boolean }) {
+  if (m.activityCount === 0) {
+    return <span className="text-xs text-ink-3">Nenhum apontamento ainda</span>;
   }
-  const tail =
-    m.progress === 'excedida'
-      ? { text: `excedeu ${formatDuration(m.excess)}`, tone: 'text-critical-text font-medium' }
-      : m.progress === 'atingida'
-        ? { text: 'meta atingida', tone: 'text-good-text font-medium' }
-        : { text: `faltam ${formatDuration(m.remaining)}`, tone: 'text-ink-2' };
   return (
-    <p className="tabular flex flex-wrap items-baseline gap-x-1.5 text-xs">
-      <span className="font-semibold text-ink">{formatDuration(m.logged)}</span>
-      <span className="text-ink-3">de {formatDuration(m.target)}</span>
+    <span className="tabular flex flex-wrap items-baseline gap-x-1.5 text-xs text-ink-2">
+      <strong className="text-sm font-semibold text-ink">{formatDuration(m.logged)}</strong>
+      <span>apontadas</span>
       <span className="text-ink-3">·</span>
-      <span className="text-ink-2">{m.percent}%</span>
-      <span className="text-ink-3">·</span>
-      <span className={tail.tone}>{tail.text}</span>
-    </p>
+      <span>
+        {m.activityCount === 1 ? '1 apontamento' : `${m.activityCount} apontamentos`}
+        {m.dayCount > 1 && ` em ${m.dayCount} dias`}
+      </span>
+      {!compact && m.lastActivityDate && (
+        <>
+          <span className="text-ink-3">·</span>
+          <span>último em {formatDayMonth(m.lastActivityDate)}</span>
+        </>
+      )}
+    </span>
   );
 }

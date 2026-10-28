@@ -3,7 +3,7 @@ import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import { after, before, beforeEach, describe, it } from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
-import type { CycleSummary, DemandSummary } from '@acomp/shared';
+import type { Activity, CycleSummary, DemandSummary } from '@acomp/shared';
 import { createApp } from '../src/app.ts';
 import { migrate, openDb, SCHEMA_VERSION } from '../src/db.ts';
 import { createRepo } from '../src/repo.ts';
@@ -11,19 +11,6 @@ import { createRepo } from '../src/repo.ts';
 let server: Server;
 let base = '';
 let today = '2026-10-27'; // terça-feira, ciclo 23/10 → 29/10
-
-before(async () => {
-  const repo = createRepo(openDb(':memory:'));
-  server = createApp({ repo, today: () => today }).listen(0);
-  await new Promise((resolve) => server.once('listening', resolve));
-  base = `http://localhost:${(server.address() as AddressInfo).port}/api`;
-});
-
-after(() => server.close());
-
-beforeEach(() => {
-  today = '2026-10-27';
-});
 
 async function api(method: string, path: string, body?: unknown) {
   const res = await fetch(base + path, {
@@ -35,26 +22,50 @@ async function api(method: string, path: string, body?: unknown) {
   return { status: res.status, data: text ? JSON.parse(text) : null };
 }
 
+/** Apontamento de exemplo, feito sobre a reunião declarada no `before`. */
 const sample = {
   date: '2026-10-26',
   startMinute: 480,
   endMinute: 525,
-  project: 'Projeto Exemplo',
+  demandId: 0,
   description: 'Leitura da documentação',
   notes: 'Resumo enviado',
   status: 'concluido',
 };
 
-describe('API de atividades e ciclos', () => {
-  it('cria, lista, edita e remove uma atividade', async () => {
+before(async () => {
+  const repo = createRepo(openDb(':memory:'));
+  server = createApp({ repo, today: () => today }).listen(0);
+  await new Promise((resolve) => server.once('listening', resolve));
+  base = `http://localhost:${(server.address() as AddressInfo).port}/api`;
+
+  const meeting = await api('POST', '/demands', {
+    category: 'reuniao',
+    meetingType: 'Daily',
+    participants: 'Equipe Exemplo',
+    subject: 'Status do dia',
+  });
+  sample.demandId = meeting.data.id;
+});
+
+after(() => server.close());
+
+beforeEach(() => {
+  today = '2026-10-27';
+});
+
+describe('API de apontamentos e ciclos', () => {
+  it('cria, lista, edita e remove um apontamento sobre uma demanda', async () => {
     const created = await api('POST', '/activities', sample);
     assert.equal(created.status, 201);
     assert.deepEqual(created.data.warnings, []);
     const id = created.data.activity.id;
+    // O "projeto" da planilha passa a ser o nome da demanda.
+    assert.equal(created.data.activity.project, 'Daily · Status do dia');
 
     const list = await api('GET', '/activities?date=2026-10-26');
     assert.equal(list.data.length, 1);
-    assert.equal(list.data[0].project, 'Projeto Exemplo');
+    assert.equal(list.data[0].demandId, sample.demandId);
 
     const edited = await api('PUT', `/activities/${id}`, { ...sample, status: 'pendente_aprovacao' });
     assert.equal(edited.status, 200);
@@ -64,13 +75,23 @@ describe('API de atividades e ciclos', () => {
     assert.equal((await api('DELETE', `/activities/${id}`)).status, 404);
   });
 
-  it('valida horários, dias úteis, status e projeto', async () => {
+  it('só aponta o que foi declarado', async () => {
+    const { demandId: _, ...withoutDemand } = sample;
+    const missing = await api('POST', '/activities', withoutDemand);
+    assert.equal(missing.status, 400);
+    assert.match(missing.data.error, /Escolha a demanda/);
+
+    const unknown = await api('POST', '/activities', { ...sample, demandId: 9999 });
+    assert.equal(unknown.status, 400);
+    assert.match(unknown.data.error, /Demanda não encontrada/);
+  });
+
+  it('valida horários, dias úteis e status', async () => {
     const cases: [object, RegExp][] = [
       [{ ...sample, endMinute: 480 }, /fim deve ser depois/],
       [{ ...sample, date: '2026-10-24' }, /dias úteis/],
       [{ ...sample, date: '2026-13-01' }, /Data inválida/],
       [{ ...sample, status: 'em_andamento' }, /Status inválido/],
-      [{ ...sample, project: '  ' }, /projeto/],
     ];
     for (const [body, message] of cases) {
       const res = await api('POST', '/activities', body);
@@ -84,7 +105,7 @@ describe('API de atividades e ciclos', () => {
     const second = await api('POST', '/activities', { ...sample, date: '2026-10-28', startMinute: 570, endMinute: 630 });
     assert.equal(second.status, 201);
     assert.equal(second.data.warnings.length, 1);
-    assert.match(second.data.warnings[0], /09:00–10:00/);
+    assert.match(second.data.warnings[0], /Daily · Status do dia" \(09:00–10:00\)/);
 
     // Encostar no fim da anterior não é sobreposição.
     const third = await api('POST', '/activities', { ...sample, date: '2026-10-28', startMinute: 630, endMinute: 660 });
@@ -113,7 +134,7 @@ describe('API de atividades e ciclos', () => {
   });
 
   it('meta definida no ciclo atual vale para os próximos e não altera o passado', async () => {
-    // Ciclo passado com atividade, ainda seguindo a meta padrão (5h30).
+    // Ciclo passado com apontamento, ainda seguindo a meta padrão (5h30).
     await api('POST', '/activities', { ...sample, date: '2026-10-16' });
 
     const res = await api('PUT', '/cycles/2026-10-27/goal', { dailyGoalMinutes: 528 });
@@ -157,144 +178,54 @@ describe('sobreposição de horários no resumo', () => {
   });
 });
 
-describe('API de demandas', () => {
-  const demandBody = { title: 'Migração de relatórios', targetMinutes: 600, dueDate: '2026-10-29' };
-
-  it('cria, vincula atividades e calcula horas, prazo e lembrete', async () => {
-    const created = await api('POST', '/demands', demandBody);
-    assert.equal(created.status, 201);
-    const d = created.data as DemandSummary;
-    assert.equal(d.startDate, '2026-10-27'); // padrão: hoje
-    assert.equal(d.status, 'novo');
-    assert.equal(d.metrics.progress, 'nao_iniciada');
-
-    const link = { ...sample, demandId: d.id };
-    const acts = [
-      await api('POST', '/activities', { ...link, date: '2026-10-26', startMinute: 480, endMinute: 720 }),
-      await api('POST', '/activities', { ...link, date: '2026-10-27', startMinute: 540, endMinute: 660 }),
-      await api('POST', '/activities', { ...link, date: '2026-10-27', startMinute: 600, endMinute: 720 }),
-    ];
-    assert.equal(acts[0].data.activity.demandId, d.id);
-
-    const { data: detail } = await api('GET', `/demands/${d.id}`);
-    assert.equal(detail.metrics.logged, 420); // 4h + união(09–11, 10–12) = 3h
-    assert.equal(detail.metrics.remaining, 180);
-    assert.equal(detail.metrics.percent, 70);
-    assert.equal(detail.metrics.deadline, 'proxima');
-    assert.match(detail.metrics.reminder, /^Vence em 2 dias úteis \(29\/10\)\. Faltam 3h/);
-    assert.equal(detail.activities.length, 3);
-    assert.equal(detail.activities[0].date, '2026-10-27'); // mais recentes primeiro
-
-    for (const r of acts) await api('DELETE', `/activities/${r.data.activity.id}`);
-    await api('DELETE', `/demands/${d.id}`);
-  });
-
-  it('valida título, meta, prazo e vínculo inexistente', async () => {
-    const cases: [object, RegExp][] = [
-      [{ ...demandBody, title: ' ' }, /título/],
-      [{ ...demandBody, targetMinutes: 0 }, /maior que zero/],
-      [{ ...demandBody, targetMinutes: 1000 * 60 }, /999h59/],
-      [{ ...demandBody, startDate: '2026-10-30', dueDate: '2026-10-29' }, /anterior ao início/],
-      [{ ...demandBody, status: 'pausada' }, /Status inválido/],
-    ];
-    for (const [body, message] of cases) {
-      const res = await api('POST', '/demands', body);
-      assert.equal(res.status, 400);
-      assert.match(res.data.error, message);
-    }
-    const res = await api('POST', '/activities', { ...sample, demandId: 9999 });
-    assert.equal(res.status, 400);
-    assert.match(res.data.error, /Demanda não encontrada/);
-  });
-
-  it('edita, conclui, filtra por status e ordena por urgência', async () => {
-    const lateBody = { ...demandBody, title: 'Atrasada', startDate: '2026-10-01', dueDate: '2026-10-20' };
-    const late = (await api('POST', '/demands', lateBody)).data;
-    const free = (await api('POST', '/demands', { ...demandBody, title: 'Sem prazo', dueDate: null })).data;
-
-    const list = (await api('GET', '/demands')).data as DemandSummary[];
-    assert.deepEqual(
-      list.map((d) => d.title),
-      ['Atrasada', 'Sem prazo'],
-    );
-    assert.equal(list[0].metrics.deadline, 'atrasada');
-
-    const done = await api('PUT', `/demands/${late.id}`, { ...lateBody, status: 'concluido' });
-    assert.equal(done.data.metrics.deadline, 'concluida');
-    assert.equal(done.data.metrics.reminder, null);
-
-    const titles = async (query: string) =>
-      ((await api('GET', `/demands${query}`)).data as DemandSummary[]).map((d) => d.title);
-    assert.deepEqual(await titles('?status=abertas'), ['Sem prazo']);
-    assert.deepEqual(await titles('?status=concluido'), ['Atrasada']);
-    assert.equal((await api('GET', '/demands?status=xyz')).status, 400);
-
-    // Sem startDate no corpo, a edição mantém a data de início original.
-    const edited = await api('PUT', `/demands/${free.id}`, { ...demandBody, title: 'Renomeada', dueDate: null });
-    assert.equal(edited.data.startDate, free.startDate);
-    assert.equal((await api('PUT', '/demands/9999', demandBody)).status, 404);
-
-    for (const d of [late, free]) await api('DELETE', `/demands/${d.id}`);
-  });
-
-  it('excluir a demanda mantém as atividades, sem vínculo', async () => {
-    const d = (await api('POST', '/demands', demandBody)).data;
-    const act = (await api('POST', '/activities', { ...sample, date: '2026-11-03', demandId: d.id })).data.activity;
-
-    assert.equal((await api('DELETE', `/demands/${d.id}`)).status, 204);
-    assert.equal((await api('DELETE', `/demands/${d.id}`)).status, 404);
-    const [kept] = (await api('GET', '/activities?date=2026-11-03')).data;
-    assert.equal(kept.id, act.id);
-    assert.equal(kept.demandId, null);
-    await api('DELETE', `/activities/${act.id}`);
-  });
-});
-
-describe('API de demandas como chamados', () => {
-  const ticket = {
-    title: 'Ajuste no relatório de vendas',
-    externalIds: ['sctask0000001', ' RITM0000002 ', 'SCTASK0000001'],
-    system: 'Sistema Exemplo',
-    kind: 'intempestiva',
-    priority: 'alta',
-    progressPercent: 40,
-    targetMinutes: null,
-    dueDate: '2026-11-06',
-    status: 'em_andamento',
-    branch: 'feature/ajuste-relatorio',
-    prUrl: 'https://exemplo.invalid/pr/1',
-    environment: 'staging',
+describe('API de demandas: declaração', () => {
+  const cycleBody = { category: 'ciclo', title: 'Migração de relatórios', dueDate: '2026-11-06' };
+  const ticketBody = {
+    category: 'chamado',
+    ticketNumber: ' sctask0000001 ',
+    description: 'Erro ao gerar o relatório mensal. Solicitado pela área financeira.',
   };
+  const trainingBody = { category: 'treinamento', title: 'Curso de SQL' };
 
-  it('grava os campos de chamado e aceita demanda sem meta de horas', async () => {
-    const created = await api('POST', '/demands', ticket);
-    assert.equal(created.status, 201);
-    const d = created.data as DemandSummary;
-    assert.deepEqual(d.externalIds, ['SCTASK0000001', 'RITM0000002']);
-    assert.equal(d.kind, 'intempestiva');
-    assert.equal(d.priority, 'alta');
-    assert.equal(d.progressPercent, 40);
-    assert.equal(d.targetMinutes, null);
-    assert.equal(d.metrics.target, null);
-    assert.equal(d.environment, 'staging');
-    assert.deepEqual(d.tracking, { eventCount: 0, lastEventDate: null, openBlockers: 0, waitingWorkdays: 0 });
+  it('declara os quatro tipos, sem nenhum campo de horas', async () => {
+    const cycle = (await api('POST', '/demands', { ...cycleBody, targetMinutes: 600 })).data as DemandSummary;
+    assert.equal(cycle.category, 'ciclo');
+    assert.equal(cycle.label, 'Migração de relatórios');
+    assert.equal(cycle.category === 'ciclo' && cycle.startDate, '2026-10-27'); // padrão: hoje
+    assert.equal(cycle.category === 'ciclo' && cycle.status, 'novo');
+    assert.equal('targetMinutes' in cycle, false); // campo de horas é ignorado
 
-    // Só com o essencial, os campos novos recebem os padrões.
-    const minimal = (await api('POST', '/demands', { title: 'Mínima' })).data as DemandSummary;
-    assert.equal(minimal.kind, 'planejada');
-    assert.equal(minimal.priority, 'media');
-    assert.deepEqual(minimal.externalIds, []);
+    const ticket = (await api('POST', '/demands', ticketBody)).data as DemandSummary;
+    assert.equal(ticket.category === 'chamado' && ticket.ticketNumber, 'SCTASK0000001');
+    assert.equal(ticket.category === 'chamado' && ticket.status, 'nao_iniciado');
+    assert.equal(ticket.subtitle, 'Erro ao gerar o relatório mensal. Solicitado pela área financeira.');
 
-    for (const x of [d, minimal]) await api('DELETE', `/demands/${x.id}`);
+    const training = (await api('POST', '/demands', trainingBody)).data as DemandSummary;
+    assert.equal(training.label, 'Curso de SQL');
+
+    const meeting = (await api('GET', `/demands/${sample.demandId}`)).data as DemandSummary;
+    assert.equal(meeting.label, 'Daily · Status do dia');
+    assert.equal(meeting.subtitle, 'com Equipe Exemplo');
+
+    for (const d of [cycle, ticket, training]) await api('DELETE', `/demands/${d.id}`);
   });
 
-  it('valida identificadores, progresso, PR e ambiente', async () => {
+  it('valida os campos de cada tipo', async () => {
     const cases: [object, RegExp][] = [
-      [{ ...ticket, externalIds: ['com espaço'] }, /Identificador externo inválido/],
-      [{ ...ticket, progressPercent: 101 }, /entre 0 e 100/],
-      [{ ...ticket, prUrl: 'pr-1' }, /Link do PR inválido/],
-      [{ ...ticket, environment: 'qa' }, /Ambiente inválido/],
-      [{ ...ticket, kind: 'urgente' }, /Tipo inválido/],
+      [{ ...cycleBody, title: ' ' }, /nome do projeto/],
+      [{ ...cycleBody, startDate: '2026-11-10' }, /anterior ao início/],
+      [{ ...cycleBody, status: 'iniciado' }, /Status inválido/],
+      [{ ...cycleBody, prUrl: 'pr-1' }, /Link do PR inválido/],
+      [{ ...ticketBody, ticketNumber: '' }, /número do chamado/],
+      [{ ...ticketBody, ticketNumber: 'com espaço' }, /Número do chamado inválido/],
+      [{ category: 'chamado', ticketNumber: 'INC1' }, /Descreva o chamado/],
+      [{ ...ticketBody, status: 'cancelado' }, /Status inválido/],
+      [{ category: 'reuniao', meetingType: 'Daily', subject: 'Status' }, /com quem/],
+      [{ category: 'reuniao', participants: 'Equipe', subject: 'Status' }, /tipo da reunião/],
+      [{ category: 'reuniao', meetingType: 'Daily', participants: 'Equipe' }, /assunto/],
+      [{ category: 'treinamento' }, /nome do treinamento/],
+      [{ category: 'outro', title: 'x' }, /Tipo de demanda inválido/],
+      [{ title: 'Sem categoria' }, /Tipo de demanda inválido/],
     ];
     for (const [body, message] of cases) {
       const res = await api('POST', '/demands', body);
@@ -303,8 +234,116 @@ describe('API de demandas como chamados', () => {
     }
   });
 
+  it('não declara duas vezes o mesmo chamado nem a mesma reunião', async () => {
+    const ticket = (await api('POST', '/demands', ticketBody)).data;
+    const again = await api('POST', '/demands', { ...ticketBody, ticketNumber: 'SCTASK0000001' });
+    assert.equal(again.status, 409);
+    assert.match(again.data.error, /SCTASK0000001 já está declarado/);
+
+    const other = (await api('POST', '/demands', { ...ticketBody, ticketNumber: 'INC0000002' })).data;
+    const clash = await api('PUT', `/demands/${other.id}`, ticketBody);
+    assert.equal(clash.status, 409);
+    // Editar o próprio chamado mantendo o número não é duplicidade.
+    assert.equal((await api('PUT', `/demands/${ticket.id}`, { ...ticketBody, status: 'iniciado' })).status, 200);
+
+    const meeting = await api('POST', '/demands', {
+      category: 'reuniao',
+      meetingType: 'daily',
+      participants: 'equipe exemplo',
+      subject: 'STATUS DO DIA',
+    });
+    assert.equal(meeting.status, 409);
+
+    for (const d of [ticket, other]) await api('DELETE', `/demands/${d.id}`);
+  });
+
+  it('edita sem mudar o tipo e atualiza o nome gravado nos apontamentos', async () => {
+    const training = (await api('POST', '/demands', trainingBody)).data;
+    const act = (await api('POST', '/activities', { ...sample, date: '2026-11-03', demandId: training.id })).data.activity;
+    assert.equal(act.project, 'Curso de SQL');
+
+    const renamed = await api('PUT', `/demands/${training.id}`, { ...trainingBody, title: 'Curso de SQL avançado' });
+    assert.equal(renamed.data.label, 'Curso de SQL avançado');
+    const [after] = (await api('GET', '/activities?date=2026-11-03')).data as Activity[];
+    assert.equal(after.project, 'Curso de SQL avançado');
+
+    const changed = await api('PUT', `/demands/${training.id}`, { ...ticketBody });
+    assert.equal(changed.status, 400);
+    assert.match(changed.data.error, /tipo de uma demanda não muda/);
+    assert.equal((await api('PUT', '/demands/9999', trainingBody)).status, 404);
+
+    await api('DELETE', `/activities/${act.id}`);
+    await api('DELETE', `/demands/${training.id}`);
+  });
+
+  it('só exclui a demanda que não tem apontamentos', async () => {
+    const training = (await api('POST', '/demands', trainingBody)).data;
+    const act = (await api('POST', '/activities', { ...sample, date: '2026-11-03', demandId: training.id })).data.activity;
+
+    const blocked = await api('DELETE', `/demands/${training.id}`);
+    assert.equal(blocked.status, 409);
+    assert.match(blocked.data.error, /1 apontamento/);
+
+    await api('DELETE', `/activities/${act.id}`);
+    assert.equal((await api('DELETE', `/demands/${training.id}`)).status, 204);
+    assert.equal((await api('DELETE', `/demands/${training.id}`)).status, 404);
+  });
+
+  it('filtra por status e categoria, e ordena por categoria', async () => {
+    const open = (await api('POST', '/demands', ticketBody)).data;
+    const done = (await api('POST', '/demands', { ...ticketBody, ticketNumber: 'INC9', status: 'concluido' })).data;
+    const cycle = (await api('POST', '/demands', cycleBody)).data;
+
+    const labels = async (query: string) =>
+      ((await api('GET', `/demands${query}`)).data as DemandSummary[]).map((d) => d.label);
+    assert.deepEqual(await labels(''), ['Migração de relatórios', 'SCTASK0000001', 'INC9', 'Daily · Status do dia']);
+    assert.deepEqual(await labels('?category=chamado&status=abertas'), ['SCTASK0000001']);
+    assert.deepEqual(await labels('?status=encerradas'), ['INC9']);
+    assert.equal((await api('GET', '/demands?status=ativa')).status, 400);
+    assert.equal((await api('GET', '/demands?category=xyz')).status, 400);
+
+    for (const d of [open, done, cycle]) await api('DELETE', `/demands/${d.id}`);
+  });
+});
+
+describe('API de demandas: ciclos', () => {
+  const cycleBody = {
+    category: 'ciclo',
+    title: 'Ajuste no relatório de vendas',
+    kind: 'intempestiva',
+    priority: 'alta',
+    status: 'em_andamento',
+    dueDate: '2026-10-29',
+    branch: 'feature/ajuste-relatorio',
+    prUrl: 'https://exemplo.invalid/pr/1',
+    environment: 'staging',
+  };
+
+  it('calcula horas apontadas, prazo e lembrete a partir dos apontamentos', async () => {
+    const d = (await api('POST', '/demands', cycleBody)).data as DemandSummary;
+    assert.equal(d.category === 'ciclo' && d.environment, 'staging');
+
+    const link = { ...sample, demandId: d.id };
+    const acts = [
+      await api('POST', '/activities', { ...link, date: '2026-10-26', startMinute: 480, endMinute: 720 }),
+      await api('POST', '/activities', { ...link, date: '2026-10-27', startMinute: 540, endMinute: 660 }),
+      await api('POST', '/activities', { ...link, date: '2026-10-27', startMinute: 600, endMinute: 720 }),
+    ];
+
+    const { data: detail } = await api('GET', `/demands/${d.id}`);
+    assert.equal(detail.metrics.logged, 420); // 4h + união(09–11, 10–12) = 3h
+    assert.equal(detail.metrics.dayCount, 2);
+    assert.equal(detail.metrics.deadline, 'proxima');
+    assert.equal(detail.metrics.reminder, 'Vence em 2 dias úteis (29/10). 7h apontadas até agora.');
+    assert.equal(detail.activities.length, 3);
+    assert.equal(detail.activities[0].date, '2026-10-27'); // mais recentes primeiro
+
+    for (const r of acts) await api('DELETE', `/activities/${r.data.activity.id}`);
+    await api('DELETE', `/demands/${d.id}`);
+  });
+
   it('registra linha do tempo e impedimentos, separando a espera', async () => {
-    const d = (await api('POST', '/demands', ticket)).data as DemandSummary;
+    const d = (await api('POST', '/demands', cycleBody)).data as DemandSummary;
 
     const e1 = await api('POST', `/demands/${d.id}/events`, { date: '2026-10-23', kind: 'decisao', text: 'Escopo definido' });
     assert.equal(e1.status, 201);
@@ -337,17 +376,24 @@ describe('API de demandas como chamados', () => {
     assert.equal(detail.tracking.openBlockers, 0);
     assert.equal(detail.tracking.waitingWorkdays, 1);
 
-    // Itens de outra demanda ou inexistentes não são encontrados.
+    // Itens inexistentes ou de demanda inexistente não são encontrados.
     assert.equal((await api('PUT', `/demands/${d.id}/events/9999`, { text: 'x' })).status, 404);
     assert.equal((await api('POST', '/demands/9999/events', { text: 'x' })).status, 404);
     assert.equal((await api('DELETE', `/demands/${d.id}/events/${e2.data.id}`)).status, 204);
     assert.equal((await api('DELETE', `/demands/${d.id}/events/${e2.data.id}`)).status, 404);
 
-    // Excluir a demanda leva junto a linha do tempo e os impedimentos.
+    // Excluir o ciclo leva junto a linha do tempo e os impedimentos.
     await api('DELETE', `/demands/${d.id}`);
-    const again = (await api('POST', '/demands', ticket)).data as DemandSummary;
+    const again = (await api('POST', '/demands', cycleBody)).data as DemandSummary;
     assert.deepEqual(again.tracking, { eventCount: 0, lastEventDate: null, openBlockers: 0, waitingWorkdays: 0 });
     await api('DELETE', `/demands/${again.id}`);
+  });
+
+  it('atividades de rotina não têm linha do tempo nem impedimentos', async () => {
+    const res = await api('POST', `/demands/${sample.demandId}/events`, { text: 'x' });
+    assert.equal(res.status, 400);
+    assert.match(res.data.error, /só nos ciclos/);
+    assert.equal((await api('POST', `/demands/${sample.demandId}/blockers`, { owner: 'x' })).status, 400);
   });
 });
 
@@ -371,44 +417,62 @@ describe('migração do banco', () => {
     assert.equal(version, SCHEMA_VERSION);
     const repo = createRepo(db);
     const [row] = repo.listActivities('2026-10-26', '2026-10-26');
+    // Apontamentos antigos, sem demanda, são mantidos como estavam.
     assert.equal(row.project, 'Antiga');
     assert.equal(row.demandId, null);
     assert.deepEqual(repo.listDemands(), []);
   });
 
-  it('converte as demandas da v0.2 em chamados sem perder o vínculo das atividades', () => {
+  it('converte as demandas da v0.2 em ciclos sem perder o vínculo dos apontamentos', () => {
     const db = new DatabaseSync(':memory:');
     db.exec('PRAGMA foreign_keys = ON');
-    migrate(db);
-    // Volta o esquema de demandas para o da versão 2 e grava dados nele.
+    migrate(db, 2);
     db.exec(`
-      PRAGMA foreign_keys = OFF;
-      DROP TABLE demand_events; DROP TABLE demand_blockers; DROP TABLE demands;
-      CREATE TABLE demands (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
-        target_minutes INTEGER NOT NULL CHECK (target_minutes > 0), start_date TEXT NOT NULL, due_date TEXT,
-        status TEXT NOT NULL DEFAULT 'ativa' CHECK (status IN ('ativa', 'concluida')),
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
-      PRAGMA foreign_keys = ON;
       INSERT INTO demands (title, target_minutes, start_date, status) VALUES ('Aberta', 600, '2026-10-01', 'ativa');
-      INSERT INTO demands (title, target_minutes, start_date, status) VALUES ('Fechada', 300, '2026-10-01', 'concluida');
+      INSERT INTO demands (title, description, target_minutes, start_date, status)
+        VALUES ('Fechada', 'Escopo combinado', 270, '2026-10-01', 'concluida');
       INSERT INTO activities (date, start_minute, end_minute, project, status, demand_id)
         VALUES ('2026-10-26', 480, 525, 'Vinculada', 'concluido', 1);
-      PRAGMA user_version = 2;
     `);
 
     migrate(db);
 
     const repo = createRepo(db);
     const [open, closed] = repo.listDemands();
-    assert.equal(open.status, 'em_andamento');
-    assert.equal(open.targetMinutes, 600);
-    assert.equal(open.kind, 'planejada');
-    assert.equal(closed.status, 'concluido');
-    assert.equal(closed.progressPercent, 100);
+    assert.equal(open.category, 'ciclo');
+    assert.equal(open.category === 'ciclo' && open.status, 'em_andamento');
+    assert.equal(open.category === 'ciclo' && open.description, 'Versão anterior: meta de 10h.');
+    assert.equal(closed.category === 'ciclo' && closed.status, 'concluido');
+    assert.equal(closed.category === 'ciclo' && closed.description, 'Escopo combinado\n\nVersão anterior: meta de 4h30.');
     const [act] = repo.listActivities('2026-10-26', '2026-10-26');
-    assert.equal(act.demandId, 1); // o DROP da tabela antiga não apagou o vínculo
+    assert.equal(act.demandId, 1); // o DROP das tabelas antigas não apagou o vínculo
     const fk = db.prepare('PRAGMA foreign_keys').get() as { foreign_keys: number };
     assert.equal(fk.foreign_keys, 1);
+  });
+
+  it('preserva na descrição os campos da v0.4 que deixaram de existir', () => {
+    const db = new DatabaseSync(':memory:');
+    migrate(db, 3);
+    db.exec(`
+      INSERT INTO demands (title, external_ids, system, kind, priority, progress_percent, target_minutes,
+                           start_date, due_date, status)
+        VALUES ('Chamado antigo', '["SCTASK0000001","RITM0000002"]', 'Sistema Exemplo', 'intempestiva', 'alta',
+                40, 450, '2026-10-01', '2026-11-01', 'aguardando_terceiro');
+      INSERT INTO demands (title, start_date) VALUES ('Sem extras', '2026-10-01');
+      INSERT INTO demand_events (demand_id, date, kind, text) VALUES (1, '2026-10-02', 'acao', 'Contato feito');
+    `);
+
+    migrate(db);
+
+    const repo = createRepo(db);
+    const [old, plain] = repo.listDemands();
+    assert.equal(old.category === 'ciclo' && old.kind, 'intempestiva');
+    assert.equal(old.category === 'ciclo' && old.dueDate, '2026-11-01');
+    assert.equal(
+      old.category === 'ciclo' && old.description,
+      'Versão anterior: meta de 7h30; progresso de 40%; identificadores SCTASK0000001, RITM0000002; sistema Sistema Exemplo.',
+    );
+    assert.equal(plain.category === 'ciclo' && plain.description, '');
+    assert.equal(repo.listDemandEvents(1).length, 1);
   });
 });

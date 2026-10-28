@@ -1,9 +1,11 @@
 import type { DatabaseSync } from 'node:sqlite';
 import {
   DEFAULT_DAILY_GOAL,
+  demandLabel,
   getCycle,
   type Activity,
   type ActivityInput,
+  type CycleDemand,
   type Demand,
   type DemandBlocker,
   type DemandBlockerInput,
@@ -25,22 +27,23 @@ interface ActivityRow {
   demand_id: number | null;
 }
 
+/** Uma linha por demanda; as colunas que não pertencem à categoria ficam nulas ou vazias. */
 interface DemandRow {
   id: number;
+  category: Demand['category'];
   title: string;
   description: string;
-  external_ids: string;
-  system: string;
-  kind: Demand['kind'];
-  priority: Demand['priority'];
-  progress_percent: number;
-  target_minutes: number | null;
-  start_date: string;
+  ticket_number: string | null;
+  meeting_type: string | null;
+  participants: string | null;
+  kind: CycleDemand['kind'] | null;
+  priority: CycleDemand['priority'] | null;
+  status: string | null;
+  start_date: string | null;
   due_date: string | null;
-  status: Demand['status'];
   branch: string;
   pr_url: string;
-  environment: Demand['environment'];
+  environment: CycleDemand['environment'];
 }
 
 interface EventRow {
@@ -72,41 +75,86 @@ const toActivity = (r: ActivityRow): Activity => ({
   demandId: r.demand_id,
 });
 
-const toDemand = (r: DemandRow): Demand => ({
-  id: r.id,
-  title: r.title,
-  description: r.description,
-  externalIds: JSON.parse(r.external_ids) as string[],
-  system: r.system,
-  kind: r.kind,
-  priority: r.priority,
-  progressPercent: r.progress_percent,
-  targetMinutes: r.target_minutes,
-  startDate: r.start_date,
-  dueDate: r.due_date,
-  status: r.status,
-  branch: r.branch,
-  prUrl: r.pr_url,
-  environment: r.environment,
-});
+function toDemand(r: DemandRow): Demand {
+  // Os CHECKs da migração 4 garantem os campos obrigatórios de cada categoria.
+  switch (r.category) {
+    case 'ciclo':
+      return {
+        id: r.id,
+        category: 'ciclo',
+        title: r.title,
+        description: r.description,
+        kind: r.kind!,
+        status: r.status as CycleDemand['status'],
+        priority: r.priority!,
+        startDate: r.start_date!,
+        dueDate: r.due_date,
+        branch: r.branch,
+        prUrl: r.pr_url,
+        environment: r.environment,
+      };
+    case 'chamado':
+      return {
+        id: r.id,
+        category: 'chamado',
+        ticketNumber: r.ticket_number!,
+        description: r.description,
+        status: r.status as Extract<Demand, { category: 'chamado' }>['status'],
+      };
+    case 'reuniao':
+      return { id: r.id, category: 'reuniao', meetingType: r.meeting_type!, participants: r.participants!, subject: r.title };
+    case 'treinamento':
+      return {
+        id: r.id,
+        category: 'treinamento',
+        title: r.title,
+        description: r.description,
+        status: r.status as Extract<Demand, { category: 'treinamento' }>['status'],
+      };
+  }
+}
 
-/** Parâmetros nomeados de INSERT/UPDATE de demandas (a lista de IDs vai como JSON). */
-const demandParams = (d: DemandInput) => ({
-  title: d.title,
-  description: d.description,
-  externalIds: JSON.stringify(d.externalIds),
-  system: d.system,
-  kind: d.kind,
-  priority: d.priority,
-  progressPercent: d.progressPercent,
-  targetMinutes: d.targetMinutes,
-  startDate: d.startDate,
-  dueDate: d.dueDate,
-  status: d.status,
-  branch: d.branch,
-  prUrl: d.prUrl,
-  environment: d.environment,
-});
+/** Parâmetros nomeados de INSERT/UPDATE: todas as colunas, vazias fora da categoria. */
+function demandParams(d: DemandInput) {
+  const none = {
+    category: d.category,
+    title: '',
+    description: '',
+    ticketNumber: null as string | null,
+    meetingType: null as string | null,
+    participants: null as string | null,
+    kind: null as string | null,
+    priority: null as string | null,
+    status: null as string | null,
+    startDate: null as string | null,
+    dueDate: null as string | null,
+    branch: '',
+    prUrl: '',
+    environment: null as string | null,
+  };
+  switch (d.category) {
+    case 'ciclo':
+      return {
+        ...none,
+        title: d.title,
+        description: d.description,
+        kind: d.kind,
+        priority: d.priority,
+        status: d.status,
+        startDate: d.startDate,
+        dueDate: d.dueDate,
+        branch: d.branch,
+        prUrl: d.prUrl,
+        environment: d.environment,
+      };
+    case 'chamado':
+      return { ...none, ticketNumber: d.ticketNumber, description: d.description, status: d.status };
+    case 'reuniao':
+      return { ...none, title: d.subject, meetingType: d.meetingType, participants: d.participants };
+    case 'treinamento':
+      return { ...none, title: d.title, description: d.description, status: d.status };
+  }
+}
 
 const toEvent = (r: EventRow): DemandEvent => ({
   id: r.id,
@@ -165,16 +213,22 @@ export function createRepo(db: DatabaseSync) {
     demands: db.prepare('SELECT * FROM demands ORDER BY id'),
     demandById: db.prepare('SELECT * FROM demands WHERE id = ?'),
     insertDemand: db.prepare(`
-      INSERT INTO demands (title, description, external_ids, system, kind, priority, progress_percent,
-        target_minutes, start_date, due_date, status, branch, pr_url, environment)
-      VALUES (:title, :description, :externalIds, :system, :kind, :priority, :progressPercent,
-        :targetMinutes, :startDate, :dueDate, :status, :branch, :prUrl, :environment)`),
+      INSERT INTO demands (category, title, description, ticket_number, meeting_type, participants, kind,
+        priority, status, start_date, due_date, branch, pr_url, environment)
+      VALUES (:category, :title, :description, :ticketNumber, :meetingType, :participants, :kind,
+        :priority, :status, :startDate, :dueDate, :branch, :prUrl, :environment)`),
+    // A categoria não muda depois de declarada (faz parte do WHERE).
     updateDemand: db.prepare(`
-      UPDATE demands SET title = :title, description = :description, external_ids = :externalIds,
-        system = :system, kind = :kind, priority = :priority, progress_percent = :progressPercent,
-        target_minutes = :targetMinutes, start_date = :startDate, due_date = :dueDate, status = :status,
-        branch = :branch, pr_url = :prUrl, environment = :environment, updated_at = CURRENT_TIMESTAMP
-      WHERE id = :id`),
+      UPDATE demands SET title = :title, description = :description, ticket_number = :ticketNumber,
+        meeting_type = :meetingType, participants = :participants, kind = :kind, priority = :priority,
+        status = :status, start_date = :startDate, due_date = :dueDate, branch = :branch, pr_url = :prUrl,
+        environment = :environment, updated_at = CURRENT_TIMESTAMP
+      WHERE id = :id AND category = :category`),
+    ticketByNumber: db.prepare(
+      "SELECT id FROM demands WHERE category = 'chamado' AND ticket_number = ? AND id <> ?",
+    ),
+    countOfDemand: db.prepare('SELECT COUNT(*) AS n FROM activities WHERE demand_id = ?'),
+    relabelActivities: db.prepare('UPDATE activities SET project = ? WHERE demand_id = ?'),
     removeDemand: db.prepare('DELETE FROM demands WHERE id = ?'),
     linkedActivities: db.prepare(
       'SELECT * FROM activities WHERE demand_id IS NOT NULL ORDER BY date, start_minute, id',
@@ -222,12 +276,13 @@ export function createRepo(db: DatabaseSync) {
       return row && toActivity(row);
     },
 
-    createActivity(input: ActivityInput): Activity {
+    /** Grava o apontamento; `project` é o nome da demanda, mantido como na planilha. */
+    createActivity(input: ActivityInput & { project: string }): Activity {
       const { lastInsertRowid } = q.insert.run({ ...input });
       return this.getActivity(Number(lastInsertRowid))!;
     },
 
-    updateActivity(id: number, input: ActivityInput): Activity | undefined {
+    updateActivity(id: number, input: ActivityInput & { project: string }): Activity | undefined {
       const { changes } = q.update.run({ ...input, id });
       return changes ? this.getActivity(id) : undefined;
     },
@@ -257,25 +312,37 @@ export function createRepo(db: DatabaseSync) {
       return this.getDemand(Number(lastInsertRowid))!;
     },
 
+    /** Atualiza a demanda e o nome gravado nos seus apontamentos (coluna "projeto"). */
     updateDemand(id: number, input: DemandInput): Demand | undefined {
       const { changes } = q.updateDemand.run({ ...demandParams(input), id });
-      return changes ? this.getDemand(id) : undefined;
+      if (!changes) return undefined;
+      q.relabelActivities.run(demandLabel(input), id);
+      return this.getDemand(id);
+    },
+
+    /** Outro chamado já declarado com o mesmo número (normalizado). */
+    findTicketNumber(ticketNumber: string, ignoreId = 0): boolean {
+      return q.ticketByNumber.get(ticketNumber, ignoreId) !== undefined;
+    },
+
+    countDemandActivities(id: number): number {
+      return (q.countOfDemand.get(id) as { n: number }).n;
     },
 
     /**
-     * Remove a demanda; as atividades vinculadas permanecem, sem vínculo (ON DELETE SET NULL),
-     * e a linha do tempo e os impedimentos vão junto (ON DELETE CASCADE).
+     * Remove a demanda, com a linha do tempo e os impedimentos (ON DELETE CASCADE). A API só
+     * permite excluir demandas sem apontamentos; o ON DELETE SET NULL fica como salvaguarda.
      */
     deleteDemand(id: number): boolean {
       return q.removeDemand.run(id).changes > 0;
     },
 
-    /** Todas as atividades vinculadas a alguma demanda (para calcular as horas de cada uma). */
+    /** Todos os apontamentos com demanda (para calcular as horas de cada uma). */
     listLinkedActivities(): Activity[] {
       return (q.linkedActivities.all() as unknown as ActivityRow[]).map(toActivity);
     },
 
-    /** Atividades de uma demanda, das mais recentes para as mais antigas. */
+    /** Apontamentos de uma demanda, dos mais recentes para os mais antigos. */
     listDemandActivities(id: number): Activity[] {
       return (q.activitiesOfDemand.all(id) as unknown as ActivityRow[]).map(toActivity);
     },

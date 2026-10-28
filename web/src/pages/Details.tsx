@@ -69,7 +69,7 @@ function DetailTable({ summary }: { summary: CycleSummary }) {
               <th className={`${th} text-right!`}>Meta</th>
               <th className={`${th} text-right!`}>Horas apontadas</th>
               <th className={`${th} text-right!`}>Diferença</th>
-              <th className={`${th} text-right!`}>Atividades</th>
+              <th className={`${th} text-right!`}>Apontamentos</th>
               <th className={th}>Conformidade</th>
               <th className={th}>Diagnóstico</th>
             </tr>
@@ -78,9 +78,9 @@ function DetailTable({ summary }: { summary: CycleSummary }) {
             {days.map((d) => (
               <tr
                 key={d.date}
-                onClick={() => navigate(`/atividades?data=${d.date}`)}
+                onClick={() => navigate(`/apontamentos?data=${d.date}`)}
                 className="cursor-pointer transition hover:bg-surface-2/60"
-                title="Abrir atividades do dia"
+                title="Abrir apontamentos do dia"
               >
                 <td className={`${td} font-semibold text-ink`}>{formatDayMonth(d.date)}</td>
                 <td className={`${td} text-ink-2 [font-variant-numeric:normal]`}>{d.weekdayLong}</td>
@@ -128,7 +128,7 @@ function DetailTable({ summary }: { summary: CycleSummary }) {
         <span>
           Semana {week.fillPercent}% preenchida · {formatDuration(week.total)} de {formatDuration(week.goal)}
         </span>
-        <span>Clique em um dia para editar as atividades.</span>
+        <span>Clique em um dia para editar os apontamentos.</span>
       </div>
     </div>
   );

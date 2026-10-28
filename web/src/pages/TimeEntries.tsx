@@ -1,47 +1,76 @@
 import { useRef, useState, type ReactNode } from 'react';
+import { Link } from 'react-router';
 import {
+  DEMAND_CATEGORY_LABEL,
   durationOf,
   formatDayMonth,
   formatDuration,
   formatHM,
   getCycle,
   todayISO,
+  unionMinutesByDay,
   type Activity,
   type DayMetrics,
+  type DemandSummary,
   type ISODate,
 } from '@acomp/shared';
-import { Link } from 'react-router';
 import { useCycle, useDayActivities, useDeleteActivity, useDemands } from '../api/client';
-import { ActivityForm } from '../components/ActivityForm';
 import { ConformityBadge, dayStyle, StatusBadge } from '../components/Badges';
 import { CycleNav } from '../components/CycleNav';
-import { ClockIcon, LayersIcon, PencilIcon, PlusIcon, TargetIcon, TrashIcon, TrendUpIcon } from '../components/icons';
+import { IconButton } from '../components/DemandHistory';
+import { CategoryAvatar } from '../components/DemandVisuals';
+import { AlertIcon, ClockIcon, LayersIcon, ListIcon, PencilIcon, PlusIcon, TrashIcon, TrendUpIcon } from '../components/icons';
+import { Segmented } from '../components/Segmented';
 import { ErrorState, Skeleton } from '../components/States';
+import { TimeEntryForm } from '../components/TimeEntryForm';
 import { useToast } from '../components/Toast';
 import { useRefDate } from '../hooks';
 
 const DEFAULT_START = '08:00';
 
-/** Fins de semana não têm lançamentos: cai no último dia útil do ciclo até a data. */
+type View = 'horario' | 'demanda';
+
+// A visão escolhida é uma preferência local: lembrada entre visitas, sem ir ao servidor.
+const VIEW_KEY = 'apontamentos:visao';
+
+function storedView(): View {
+  try {
+    return localStorage.getItem(VIEW_KEY) === 'demanda' ? 'demanda' : 'horario';
+  } catch {
+    return 'horario';
+  }
+}
+
+/** Fins de semana não têm apontamentos: cai no último dia útil do ciclo até a data. */
 function resolveWorkday(date: ISODate): ISODate {
   const { workdays } = getCycle(date);
   return workdays.filter((d) => d <= date).at(-1) ?? workdays[0];
 }
 
-export function Activities() {
+export function TimeEntries() {
   const [refDate, setRefDate] = useRefDate();
   const day = resolveWorkday(refDate);
   const cycle = useCycle(day);
   const activities = useDayActivities(day);
   const demands = useDemands();
-  const demandTitle = new Map(demands.data?.map((d) => [d.id, d.title]));
+  const byId = new Map(demands.data?.map((d) => [d.id, d]));
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [view, setView] = useState<View>(storedView);
   const formRef = useRef<HTMLElement>(null);
 
   const metrics = cycle.data?.days.find((d) => d.date === day);
   const list = activities.data ?? [];
   const editing = list.find((a) => a.id === editingId);
   const lastEnd = list.length ? formatHM(Math.max(...list.map((a) => a.endMinute))) : DEFAULT_START;
+
+  const chooseView = (next: View) => {
+    setView(next);
+    try {
+      localStorage.setItem(VIEW_KEY, next);
+    } catch {
+      // Sem armazenamento, a escolha vale só nesta sessão.
+    }
+  };
 
   const selectDay = (d: ISODate) => {
     setEditingId(null);
@@ -55,12 +84,17 @@ export function Activities() {
     selectDay(getCycle(d).workdays[index]);
   };
 
+  const edit = (id: number) => {
+    setEditingId(id);
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">Atividades</h1>
-          <p className="mt-1 text-sm text-ink-2">Escolha o dia e registre o que foi feito.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">Apontamentos</h1>
+          <p className="mt-1 text-sm text-ink-2">Escolha o dia e registre o tempo gasto em cada demanda declarada.</p>
         </div>
         <CycleNav date={day} onChange={changeCycle} />
       </div>
@@ -75,6 +109,19 @@ export function Activities() {
         <section className="space-y-4 lg:col-span-3">
           {metrics && <DaySummary metrics={metrics} />}
 
+          {list.length > 1 && (
+            <Segmented
+              label="Organizar apontamentos"
+              size="sm"
+              value={view}
+              onChange={chooseView}
+              options={[
+                { value: 'horario', label: 'Por horário', icon: <ClockIcon size={13} /> },
+                { value: 'demanda', label: 'Por demanda', icon: <ListIcon size={13} /> },
+              ]}
+            />
+          )}
+
           {activities.isPending ? (
             <div className="space-y-3">
               <Skeleton className="h-24" />
@@ -84,18 +131,23 @@ export function Activities() {
             <ErrorState message={activities.error.message} onRetry={() => activities.refetch()} />
           ) : list.length === 0 ? (
             <EmptyDay />
+          ) : view === 'demanda' && list.length > 1 ? (
+            <ByDemand
+              activities={list}
+              demands={byId}
+              editingId={editingId}
+              onEdit={edit}
+              onDeleted={(id) => id === editingId && setEditingId(null)}
+            />
           ) : (
             <ul className="space-y-3">
               {list.map((a) => (
-                <ActivityItem
+                <EntryItem
                   key={a.id}
                   activity={a}
-                  demandTitle={a.demandId ? demandTitle.get(a.demandId) : undefined}
+                  demand={a.demandId ? byId.get(a.demandId) : undefined}
                   isEditing={a.id === editingId}
-                  onEdit={() => {
-                    setEditingId(a.id);
-                    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                  }}
+                  onEdit={() => edit(a.id)}
                   onDeleted={() => a.id === editingId && setEditingId(null)}
                 />
               ))}
@@ -106,14 +158,14 @@ export function Activities() {
         <aside ref={formRef} className="card scroll-mt-24 p-5 sm:p-6 lg:sticky lg:top-24 lg:col-span-2">
           <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-ink">
             {editing ? <PencilIcon size={17} /> : <PlusIcon size={17} />}
-            {editing ? 'Editar atividade' : 'Nova atividade'}
+            {editing ? 'Editar apontamento' : 'Novo apontamento'}
           </h2>
-          {activities.isPending ? (
+          {activities.isPending || demands.isPending ? (
             <Skeleton className="h-96" />
           ) : (
-            // A chave remonta o formulário ao trocar de dia ou de atividade em edição,
+            // A chave remonta o formulário ao trocar de dia ou de apontamento em edição,
             // e só depois de a lista carregar, para sugerir o início a partir do último fim.
-            <ActivityForm
+            <TimeEntryForm
               key={`${day}-${editing?.id ?? 'new'}`}
               date={day}
               editing={editing}
@@ -197,7 +249,8 @@ function DaySummary({ metrics }: { metrics: DayMetrics }) {
         </div>
       ) : (
         <p className="mt-2 text-sm text-ink-2">
-          {metrics.diagnosis} · {metrics.activityCount} {metrics.activityCount === 1 ? 'atividade' : 'atividades'}
+          {metrics.diagnosis} · {metrics.activityCount}{' '}
+          {metrics.activityCount === 1 ? 'apontamento' : 'apontamentos'}
         </p>
       )}
       {metrics.overlapMinutes > 0 && (
@@ -214,19 +267,77 @@ function DaySummary({ metrics }: { metrics: DayMetrics }) {
   );
 }
 
-function ActivityItem({
+/** Nome da demanda apontada; nos apontamentos antigos, o projeto com o aviso para vincular. */
+function DemandHeading({ activity: a, demand }: { activity: Activity; demand?: DemandSummary }) {
+  if (!demand) {
+    return (
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <h3 className="font-semibold text-ink">{a.project}</h3>
+        <span className="inline-flex items-center gap-1 rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-medium text-warning-text">
+          <AlertIcon size={12} /> Sem demanda · edite para escolher
+        </span>
+      </div>
+    );
+  }
+  return (
+    <Link to={`/demandas#demanda-${demand.id}`} className="group flex min-w-0 items-center gap-2.5" title="Ver a demanda">
+      <CategoryAvatar category={demand.category} size={28} />
+      <span className="min-w-0">
+        <span className="block truncate font-semibold text-ink group-hover:text-accent">{demand.label}</span>
+        <span className="block truncate text-xs text-ink-3">
+          {DEMAND_CATEGORY_LABEL[demand.category]}
+          {demand.subtitle && ` · ${demand.subtitle}`}
+        </span>
+      </span>
+    </Link>
+  );
+}
+
+function EntryItem({
   activity: a,
-  demandTitle,
+  demand,
   isEditing,
   onEdit,
   onDeleted,
 }: {
   activity: Activity;
-  demandTitle?: string;
+  demand?: DemandSummary;
   isEditing: boolean;
   onEdit: () => void;
   onDeleted: () => void;
 }) {
+  return (
+    <li className={`card rise p-4 transition sm:p-5 ${isEditing ? 'ring-2 ring-accent' : ''}`}>
+      <div className="flex items-start gap-4">
+        <div className="hidden w-16 shrink-0 text-center sm:block">
+          <p className="tabular text-sm font-semibold text-ink">{formatHM(a.startMinute)}</p>
+          <div className="mx-auto my-1 h-4 w-px bg-baseline" />
+          <p className="tabular text-sm text-ink-3">{formatHM(a.endMinute)}</p>
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <DemandHeading activity={a} demand={demand} />
+            <span className="tabular inline-flex shrink-0 items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-ink-2">
+              <ClockIcon size={12} />
+              <span className="sm:hidden">
+                {formatHM(a.startMinute)}–{formatHM(a.endMinute)} ·{' '}
+              </span>
+              {formatDuration(durationOf(a))}
+            </span>
+          </div>
+          {a.description && <p className="mt-2 text-sm whitespace-pre-line text-ink-2">{a.description}</p>}
+          {a.notes && <p className="mt-1 text-sm text-ink-3">↳ {a.notes}</p>}
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <StatusBadge value={a.status} />
+            <EntryActions activity={a} onEdit={onEdit} onDeleted={onDeleted} />
+          </div>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function EntryActions({ activity: a, onEdit, onDeleted }: { activity: Activity; onEdit: () => void; onDeleted: () => void }) {
   const remove = useDeleteActivity();
   const toast = useToast();
   const [confirming, setConfirming] = useState(false);
@@ -235,104 +346,114 @@ function ActivityItem({
     remove.mutate(a.id, {
       onSuccess: () => {
         onDeleted();
-        toast('Atividade excluída.');
+        toast('Apontamento excluído.');
       },
       onError: (err) => toast(err.message, 'error'),
     });
 
   return (
-    <li className={`card rise p-4 transition sm:p-5 ${isEditing ? 'ring-2 ring-accent' : ''}`}>
-      <div className="flex items-start gap-4">
-        <div className="hidden w-20 shrink-0 text-center sm:block">
-          <p className="tabular text-sm font-semibold text-ink">{formatHM(a.startMinute)}</p>
-          <div className="mx-auto my-1 h-4 w-px bg-baseline" />
-          <p className="tabular text-sm text-ink-3">{formatHM(a.endMinute)}</p>
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-semibold text-ink">{a.project}</h3>
-            <span className="tabular inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-ink-2">
-              <ClockIcon size={12} />
-              <span className="sm:hidden">
-                {formatHM(a.startMinute)}–{formatHM(a.endMinute)} ·{' '}
-              </span>
-              {formatDuration(durationOf(a))}
-            </span>
-          </div>
-          {a.description && <p className="mt-1 text-sm whitespace-pre-line text-ink-2">{a.description}</p>}
-          {a.notes && <p className="mt-1 text-sm text-ink-3">↳ {a.notes}</p>}
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusBadge value={a.status} />
-              {a.demandId && demandTitle && (
-                <Link
-                  to={`/demandas#demanda-${a.demandId}`}
-                  className="inline-flex max-w-56 items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent hover:brightness-95"
-                  title="Demanda"
-                >
-                  <TargetIcon size={13} className="shrink-0" />
-                  <span className="truncate">{demandTitle}</span>
-                </Link>
-              )}
-            </div>
-            <div className="flex items-center gap-1">
-              {confirming ? (
-                <>
-                  <span className="mr-1 text-xs text-ink-2">Excluir?</span>
-                  <button
-                    onClick={doRemove}
-                    disabled={remove.isPending}
-                    className="rounded-full bg-critical px-3 py-1 text-xs font-semibold text-white hover:brightness-110"
-                  >
-                    Sim
-                  </button>
-                  <button
-                    onClick={() => setConfirming(false)}
-                    className="rounded-full px-3 py-1 text-xs font-semibold text-ink-2 hover:bg-surface-2"
-                  >
-                    Não
-                  </button>
-                </>
-              ) : (
-                <>
-                  <IconButton label="Editar atividade" onClick={onEdit}>
-                    <PencilIcon size={16} />
-                  </IconButton>
-                  <IconButton label="Excluir atividade" onClick={() => setConfirming(true)}>
-                    <TrashIcon size={16} />
-                  </IconButton>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </li>
+    <div className="flex items-center gap-1">
+      {confirming ? (
+        <>
+          <span className="mr-1 text-xs text-ink-2">Excluir?</span>
+          <button
+            onClick={doRemove}
+            disabled={remove.isPending}
+            className="rounded-full bg-critical px-3 py-1 text-xs font-semibold text-white hover:brightness-110"
+          >
+            Sim
+          </button>
+          <button
+            onClick={() => setConfirming(false)}
+            className="rounded-full px-3 py-1 text-xs font-semibold text-ink-2 hover:bg-surface-2"
+          >
+            Não
+          </button>
+        </>
+      ) : (
+        <>
+          <IconButton label="Editar apontamento" onClick={onEdit}>
+            <PencilIcon size={16} />
+          </IconButton>
+          <IconButton label="Excluir apontamento" onClick={() => setConfirming(true)}>
+            <TrashIcon size={16} />
+          </IconButton>
+        </>
+      )}
+    </div>
   );
 }
 
-function IconButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
+/**
+ * A mesma demanda feita em horários diferentes, reunida: cada grupo mostra o total do dia
+ * (sobreposições contadas uma vez) e os horários em que ela aconteceu.
+ */
+function ByDemand({
+  activities,
+  demands,
+  editingId,
+  onEdit,
+  onDeleted,
+}: {
+  activities: Activity[];
+  demands: Map<number, DemandSummary>;
+  editingId: number | null;
+  onEdit: (id: number) => void;
+  onDeleted: (id: number) => void;
+}) {
+  const groups = [
+    ...Map.groupBy(activities, (a) => (a.demandId !== null ? `d${a.demandId}` : `p${a.project}`)).values(),
+  ]
+    .map((items) => ({ items, total: unionMinutesByDay(items) }))
+    .sort((x, y) => y.total - x.total);
+
   return (
-    <button
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className="grid size-8 place-items-center rounded-full text-ink-3 transition hover:bg-surface-2 hover:text-ink"
-    >
-      {children}
-    </button>
+    <ul className="space-y-3">
+      {groups.map(({ items, total }) => {
+        const first = items[0];
+        const demand = first.demandId ? demands.get(first.demandId) : undefined;
+        return (
+          <li key={first.id} className="card rise p-4 sm:p-5">
+            <div className="flex items-start justify-between gap-3">
+              <DemandHeading activity={first} demand={demand} />
+              <span className="tabular shrink-0 text-right">
+                <span className="block text-base font-bold text-ink">{formatDuration(total)}</span>
+                <span className="block text-[11px] text-ink-3">
+                  {items.length === 1 ? '1 horário' : `${items.length} horários`}
+                </span>
+              </span>
+            </div>
+            <ul className="mt-3 divide-y divide-line rounded-xl border border-line">
+              {items.map((a) => (
+                <li
+                  key={a.id}
+                  className={`flex items-center gap-3 px-3 py-2 text-sm ${a.id === editingId ? 'bg-accent-soft' : ''}`}
+                >
+                  <span className="tabular w-24 shrink-0 font-medium text-ink">
+                    {formatHM(a.startMinute)}–{formatHM(a.endMinute)}
+                  </span>
+                  <span className="tabular w-12 shrink-0 text-ink-3">{formatDuration(durationOf(a))}</span>
+                  <span className="min-w-0 flex-1 truncate text-ink-2">{a.description || '—'}</span>
+                  <EntryActions activity={a} onEdit={() => onEdit(a.id)} onDeleted={() => onDeleted(a.id)} />
+                </li>
+              ))}
+            </ul>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
-function EmptyDay() {
+function EmptyDay(): ReactNode {
   return (
     <div className="card flex flex-col items-center px-6 py-12 text-center">
       <span className="grid size-12 place-items-center rounded-full bg-accent-soft text-accent">
         <ClockIcon size={22} />
       </span>
-      <p className="mt-3 font-semibold text-ink">Nenhuma atividade neste dia</p>
+      <p className="mt-3 font-semibold text-ink">Nenhum apontamento neste dia</p>
       <p className="mt-1 max-w-xs text-sm text-ink-2">
-        Use o formulário para registrar o que foi feito, com horário de início e fim.
+        No formulário, escolha a demanda declarada e registre o horário de início e fim.
       </p>
     </div>
   );

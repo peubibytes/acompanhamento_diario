@@ -97,8 +97,8 @@ function relative(today: ISODate, date: ISODate): string {
 }
 
 const kindStyle: Record<AgendaItem['kind'], { icon: ReactNode; tag: string }> = {
-  prazo_demanda: { icon: <TargetIcon size={15} />, tag: 'Prazo' },
-  inicio_demanda: { icon: <CalendarIcon size={15} />, tag: 'Início' },
+  prazo_demanda: { icon: <TargetIcon size={15} />, tag: 'Prazo do ciclo' },
+  inicio_demanda: { icon: <CalendarIcon size={15} />, tag: 'Início do ciclo' },
   apontamento: { icon: <SendIcon size={15} />, tag: 'Apontamento' },
 };
 

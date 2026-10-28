@@ -14,19 +14,26 @@ metas e relatórios de prestação de contas (daily, 1:1, relatório mensal).
 ### Módulos
 | Módulo | Situação | Descrição |
 |---|---|---|
-| Apontamento de horas | Existente (seções 1–7) | Ciclo sex→qui, meta, atividades, métricas, conformidade |
-| Demandas | Existente, a expandir (seção 6 e 8) | Passa a cobrir chamados: identificadores, status, %, linha do tempo, impedimentos |
-| Treinamentos | Novo (seção 8) | Capacitações planejadas e realizadas |
+| Apontamento de horas | Existente (seções 1–7 e 9) | Ciclo sex→qui, meta, apontamentos sobre demandas, métricas, conformidade |
+| Demandas | Existente (seções 6, 8.1 e 9) | Declarações: Atividades (chamados, reuniões, treinamentos) e Ciclos (prazo, linha do tempo, impedimentos) |
+| Treinamentos | Existente como Atividade (seção 9) | Nome, descrição e status; as horas de estudo são apontadas |
 | Metas | Novo (seção 8) | Objetivos com prazo e progresso, ligados a atividades/demandas/treinamentos |
 | Relatórios | Novo (seção 8) | Status diário/semanal/mensal exportável |
 | Integração Azure | Futuro | Fora de escopo por enquanto |
 
 ### Glossário
-- **Atividade:** unidade de trabalho diária (início, fim, projeto, status).
-- **Apontamento:** registro de tempo gasto; é o conjunto de atividades do ciclo.
-- **Demanda / Chamado:** trabalho acompanhado ao longo do tempo (pode ter SCTASK, RITM, user story).
-- **Evento:** linha datada na linha do tempo de uma demanda.
-- **Impedimento:** bloqueio com responsável externo e data de início.
+- **Demanda:** o que o colaborador declara que faz. Não tem horas. Duas famílias: Atividades e Ciclo.
+- **Atividade:** demanda de rotina: **chamado**, **reunião** ou **treinamento**.
+- **Chamado:** número do chamado (único), descrição (problema, solicitante, contexto) e status.
+- **Reunião:** tipo (ex.: Daily, Semanal, Planejamento), com quem e assunto; declarada uma vez,
+  apontada a cada ocorrência.
+- **Treinamento:** nome, descrição e status.
+- **Ciclo (demanda):** trabalho longo, com tipo, status, prioridade, início, prazo opcional, linha do
+  tempo e impedimentos. Não confundir com o **ciclo de apontamento** (sexta → quinta, seção 1).
+- **Apontamento:** intervalo de tempo (data, início, fim) gasto em uma demanda declarada. Só é
+  feito na tela Apontamentos. No código e no banco mantém o nome histórico `activity`.
+- **Evento:** linha datada na linha do tempo de um ciclo.
+- **Impedimento:** bloqueio de um ciclo, com responsável externo e data de início.
 - **Intempestiva:** demanda não planejada, que interrompe o planejado.
 - **Meta:** diária/semanal (horas) ou objetivo de acompanhamento (progresso e prazo).
 
@@ -49,9 +56,9 @@ metas e relatórios de prestação de contas (daily, 1:1, relatório mensal).
 - A meta fica gravada por ciclo: alterar a meta vale para o ciclo atual e para os próximos,
   sem reescrever o histórico de ciclos anteriores.
 
-### Atividade
-- Campos: data, início, fim, duração (calculada), projeto/demanda, descrição,
-  observações/entregáveis, status.
+### Apontamento
+- Campos: data, início, fim, duração (calculada), **demanda (obrigatória)**, o que foi feito,
+  observações/entregáveis, status. O "projeto" da planilha é o nome da demanda.
 - `duração = fim − início`, com `fim > início`.
 - Status: **Concluído, Não concluído, Pendente de aprovação, Não iniciado**.
 - Horários sobrepostos no mesmo dia geram aviso (não bloqueiam).
@@ -61,7 +68,7 @@ metas e relatórios de prestação de contas (daily, 1:1, relatório mensal).
 |---|---|
 | Horas apontadas | soma das durações do dia |
 | Diferença | vazio se 0h · `00:00` se igual à meta · `+hh:mm` se excedeu · `-hh:mm` se faltou |
-| Qtd atividades | atividades do dia com duração > 0 |
+| Qtd apontamentos | apontamentos do dia com duração > 0 |
 | Conformidade | **Pendente** (0h) · **Conforme** (= meta) · **Não conforme** (≠ meta) |
 | Diagnóstico | "Sem apontamento" · "Meta atingida" · "Faltam hh:mm" · "Excedeu em hh:mm" |
 
@@ -91,12 +98,18 @@ acompanhamento_diario/
 
 ### Modelo de dados
 ```sql
+-- activities = apontamentos (nome histórico). project = nome da demanda, mantido em dia.
 activities(id, date, start_minute, end_minute, project, description, notes, status,
-           demand_id → demands (ON DELETE SET NULL), created_at, updated_at)
+           demand_id → demands (ON DELETE SET NULL; nulo só nos anteriores à v0.5),
+           created_at, updated_at)
 cycle_goals(cycle_start PRIMARY KEY, daily_goal_minutes)
 settings(key PRIMARY KEY, value)          -- default_daily_goal_minutes
-demands(id, title, description, external_ids (JSON), system, kind, priority, progress_percent,
-        target_minutes (opcional), start_date, due_date, status, branch, pr_url, environment,
+-- uma linha por demanda; colunas fora da categoria ficam nulas/vazias (CHECKs por categoria)
+demands(id, category ('ciclo'|'chamado'|'reuniao'|'treinamento'),
+        title (ciclo: nome do projeto · treinamento: nome · reunião: assunto), description,
+        ticket_number (chamado, único), meeting_type, participants (reunião),
+        kind, priority, start_date, due_date, branch, pr_url, environment (ciclo),
+        status (ciclo: 6 estados · chamado/treinamento: 4 estados · reunião: nulo),
         created_at, updated_at)
 demand_events(id, demand_id → demands (ON DELETE CASCADE), date, kind, text, created_at)
 demand_blockers(id, demand_id → demands (ON DELETE CASCADE), owner, description, since,
@@ -109,29 +122,30 @@ O esquema evolui por migrações numeradas em `server/src/db.ts` (`PRAGMA user_v
 |---|---|---|
 | GET | `/api/cycles/:date` | ciclo da data: 5 dias com métricas + totais |
 | PUT | `/api/cycles/:date/goal` | define a meta diária do ciclo (e o padrão dos próximos) |
-| GET | `/api/activities?date=` | atividades de um dia |
-| POST | `/api/activities` | cria |
+| GET | `/api/activities?date=` | apontamentos de um dia |
+| POST | `/api/activities` | aponta (exige `demandId` de uma demanda declarada) |
 | PUT | `/api/activities/:id` | edita |
 | DELETE | `/api/activities/:id` | remove |
-| GET | `/api/demands?status=` | demandas com métricas e resumo do acompanhamento, das mais urgentes para as demais; `status` aceita um status, `abertas` ou `encerradas` |
-| GET | `/api/demands/:id` | demanda com métricas, atividades vinculadas, eventos e impedimentos |
-| POST | `/api/demands` | cria |
-| PUT | `/api/demands/:id` | edita |
-| DELETE | `/api/demands/:id` | remove (as atividades ficam sem vínculo; eventos e impedimentos vão junto) |
-| POST/PUT/DELETE | `/api/demands/:id/events[/:eventId]` | linha do tempo da demanda |
-| POST/PUT/DELETE | `/api/demands/:id/blockers[/:blockerId]` | impedimentos da demanda |
+| GET | `/api/demands?status=&category=` | demandas com nome, métricas (horas apontadas, prazo) e acompanhamento; `status` = `abertas` ou `encerradas` |
+| GET | `/api/demands/:id` | demanda com métricas, apontamentos, eventos e impedimentos |
+| POST | `/api/demands` | declara (corpo por `category`; chamado ou reunião repetidos → 409) |
+| PUT | `/api/demands/:id` | edita (a categoria não muda; o nome é atualizado nos apontamentos) |
+| DELETE | `/api/demands/:id` | remove; com apontamentos → 409 (eventos e impedimentos vão junto) |
+| POST/PUT/DELETE | `/api/demands/:id/events[/:eventId]` | linha do tempo (só ciclos) |
+| POST/PUT/DELETE | `/api/demands/:id/blockers[/:blockerId]` | impedimentos (só ciclos) |
 
 ## 3. Telas
 
 1. **Painel (`/`)** — visual: KPIs (meta semanal, total realizado, dias conformes,
    % preenchido em anel), gráfico por dia útil com a linha de meta, faixa de status do
    ciclo (na quinta: "Hoje é dia de apontamento"), seletor de meta, navegação entre
-   semanas, botão "Registrar atividades" e, mais abaixo, "Mostrar mais".
-2. **Atividades (`/atividades`)** — abas Sex/Seg/Ter/Qua/Qui; mostra só o dia escolhido:
-   resumo do dia, lista editável e formulário (início, fim, duração ao vivo, projeto,
-   descrição, observações, status).
-3. **Detalhamento (`/detalhes`)** — tabela fiel à planilha: data, dia, meta, horas,
-   diferença, qtd atividades, conformidade, diagnóstico e linha de total geral.
+   semanas, botão "Registrar apontamentos" e, mais abaixo, "Mostrar mais".
+2. **Apontamentos (`/apontamentos`; `/atividades` redireciona)** — abas Sex/Seg/Ter/Qua/Qui;
+   mostra só o dia escolhido: resumo do dia, lista (por horário ou por demanda) e formulário
+   (demanda, início, fim, duração ao vivo, o que foi feito, observações, status). Ver seção 9.
+3. **Demandas (`/demandas`)** — declaração de Atividades e Ciclos. Ver seção 9.
+4. **Detalhamento (`/detalhes`)** — tabela fiel à planilha: data, dia, meta, horas,
+   diferença, qtd apontamentos, conformidade, diagnóstico e linha de total geral.
 
 ## 4. Fases
 
@@ -170,7 +184,8 @@ npm start       # build do front + servidor único em :3001
 
 - **Demandas de ciclo:** trabalhos longos, feitos em vários dias, com meta de horas totais
   (até 999h59), data de início e data de conclusão opcional. Status: ativa ou concluída
-  (substituído na v0.4 pelos 6 status da seção 8.1; a meta de horas passou a ser opcional).
+  (substituído na v0.4 pelos 6 status da seção 8.1; na v0.5 a meta de horas deixou de existir:
+  as demandas não declaram horas, ver seção 9).
 - **Vínculo:** cada atividade pode ser atribuída a uma demanda (campo "Demanda").
   As horas da demanda são a soma das atividades vinculadas. Excluir a demanda mantém as
   atividades, sem vínculo.
@@ -213,7 +228,11 @@ Objetivo: transformar o app, de controlador de apontamentos, em organizador comp
 do colaborador, incorporando o acompanhamento de demandas que hoje é feito em texto solto
 (chamados com status `[X]`/`[80%]` e bullets datados).
 
-### 8.1 Demandas ampliadas (estende a "Demanda de ciclo" da seção 6) — ✅ implementado
+### 8.1 Demandas ampliadas (estende a "Demanda de ciclo" da seção 6) — ✅ implementado, revisto na v0.5
+
+> Na v0.5 (seção 9) estas demandas viraram os **Ciclos**. Identificadores externos foram para os
+> **Chamados**; meta de horas, % de progresso e sistema deixaram de existir (os valores antigos
+> foram preservados no fim da descrição). O resto desta seção continua valendo para os ciclos.
 - Novos campos: identificadores externos (SCTASK, RITM, user story), sistema/projeto,
   tipo (planejada / intempestiva / preventiva), prioridade, % de progresso, prazo final.
 - Status ampliado: Novo → Em andamento → Aguardando terceiro → Em homologação → Concluído | Cancelado.
@@ -241,9 +260,10 @@ Como ficou (decisão em `docs/decisions/0001-demandas-viram-chamados.md`):
   Linha do tempo (entrada rápida: data, tipo e texto), Impedimentos (resolver com um clique) e Apontamentos.
 - **Formulário:** vínculos técnicos numa seção recolhível, aberta só se já houver algum preenchido.
 
-### 8.2 Treinamentos
-Título, tipo, data/período, carga horária, status (planejado / em curso / concluído),
-anotações e vínculo opcional com uma meta. Pode gerar atividades no apontamento.
+### 8.2 Treinamentos — ✅ como Atividade (v0.5)
+Declarados em Demandas → Atividades → Treinamentos: nome, descrição e status (não iniciado,
+iniciado, em andamento, concluído). Sem carga horária: as horas de estudo são apontadas.
+Vínculo com metas fica para a seção 8.3.
 
 ### 8.3 Metas
 Objetivo com prazo, progresso mensurável (manual ou calculado a partir de demandas,
@@ -267,6 +287,55 @@ prazo vencido sem conclusão. Os avisos aparecem no sino e em Lembretes, sem pol
 - O módulo de Apontamento não será removido nem expandido; novas telas partem do domínio da seção 0.
 - Renomear tabelas ou rotas públicas só com migração e aprovação explícita.
 - Decisões de escopo e arquitetura novas vão para `docs/decisions/` (um arquivo por decisão).
+
+## 9. Demandas declaradas e Apontamentos (v0.5)
+
+Decisão em `docs/decisions/0002-demandas-declaradas-e-apontamentos.md`.
+
+Princípio: **declarar uma vez, apontar quantas vezes acontecer.** Demandas descrevem o que o
+colaborador faz e não têm campo de horas; o tempo é registrado só na tela Apontamentos, sempre
+sobre uma demanda já declarada. Assim, a mesma coisa feita em horários diferentes (a Daily de
+cada dia, um chamado retomado à tarde) aparece reunida.
+
+### Demandas (`/demandas`)
+- Duas famílias, escolhidas em dois cartões no topo: **Atividades** e **Ciclo**.
+- **Atividades** têm três abas:
+  - **Chamados:** número do chamado (obrigatório, normalizado em maiúsculas, único), descrição
+    (obrigatória: problema, quem solicitou, outras informações) e status: Não iniciado,
+    Iniciado, Em andamento, Concluído. Troca rápida de status no próprio cartão.
+  - **Reuniões:** tipo (sugestões Daily, Semanal, Planejamento, Treinamento; aceita outro), com
+    quem e assunto, todos obrigatórios. Sem status: ficam sempre disponíveis para apontar. A
+    mesma reunião (tipo, participantes e assunto iguais) não é declarada duas vezes.
+  - **Treinamentos:** nome (obrigatório), descrição e status (os mesmos dos chamados).
+- **Ciclo:** nome do projeto, tipo (planejada, intempestiva, preventiva), status (os 6 da seção
+  8.1), prioridade, descrição, início e prazo opcional, vínculos técnicos opcionais. Mantém prazo,
+  lembretes, linha do tempo, impedimentos e espera.
+- Cada cartão mostra o que já foi apontado: horas (sobreposições contadas uma vez), quantidade de
+  apontamentos, em quantos dias e o último. Ao expandir, lista cada ocorrência.
+- Filtros por status (em aberto / concluídos / todos) em chamados, treinamentos e ciclos.
+- Uma demanda com apontamentos não pode ser excluída: primeiro exclua os apontamentos ou aponte-os
+  em outra demanda. O tipo de uma demanda não muda depois de declarado.
+
+### Apontamentos (`/apontamentos`)
+- O formulário começa pela **demanda** (obrigatória), agrupada por tipo; mostra as encerradas só
+  a pedido e oferece atalhos para as usadas recentemente. Depois: início, fim, o que foi feito,
+  observações e status do apontamento.
+- A lista do dia pode ser vista **por horário** ou **por demanda** (cada demanda com o total do dia
+  e os horários em que aconteceu). A escolha fica salva no navegador.
+- Apontamentos antigos, sem demanda, continuam valendo nas métricas e aparecem com o aviso
+  "Sem demanda"; para editá-los é preciso escolher uma demanda.
+
+### Painel e lembretes
+- A visão *Demandas em andamento* virou **Ciclos em andamento**: horas apontadas por ciclo aberto
+  (barras comparadas entre si, sem meta) e a situação do prazo.
+- Lembretes e agenda tratam só dos ciclos (únicos com prazo e início). Lembrete de prazo:
+  "Vence em N dias úteis (dd/mm). Xh apontadas até agora." e, vencido, "Conclua o ciclo ou
+  ajuste o prazo".
+
+### Banco
+- **Migração 4** recria `demands` com a coluna `category`; as demandas existentes viram ciclos.
+  Meta de horas, % de progresso, identificadores e sistema, quando preenchidos, vão para o fim da
+  descrição ("Versão anterior: …"). Os vínculos dos apontamentos são preservados.
 
 ### Fora de escopo (atualizado)
 Azure (códigos e apontamento automático), login/múltiplos usuários (roda localmente),

@@ -33,6 +33,27 @@ export const StopwatchIcon = (p: IconProps) => (
     <path d="M10 2.75h4M12 2.75V6M17.6 7.9l1.4-1.4M12 13.5V10M12 13.5l2.5 1.5" />
   </Icon>
 );
+/** Chamado. */
+export const TicketIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M3.5 7.5A1.5 1.5 0 015 6h14a1.5 1.5 0 011.5 1.5V10a2 2 0 000 4v2.5A1.5 1.5 0 0119 18H5a1.5 1.5 0 01-1.5-1.5V14a2 2 0 000-4V7.5z" />
+    <path d="M14.5 6.5v1.5M14.5 11.25v1.5M14.5 16v1.5" />
+  </Icon>
+);
+/** Reunião. */
+export const UsersIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="9" cy="8.5" r="3.5" />
+    <path d="M2.5 19.5a6.5 6.5 0 0113 0M16 5.2a3.5 3.5 0 010 6.6M18 14.3a6.5 6.5 0 013.5 5.2" />
+  </Icon>
+);
+/** Treinamento. */
+export const CapIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M2.5 9L12 4.5 21.5 9 12 13.5 2.5 9z" />
+    <path d="M6.5 11v4.5c0 1.5 2.5 3 5.5 3s5.5-1.5 5.5-3V11M21.5 9v5" />
+  </Icon>
+);
 export const AlertIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M12 8v5M12 16.5v.01" />

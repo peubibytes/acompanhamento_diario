@@ -8,8 +8,8 @@ import {
   type DemandBlockerInput,
   type DemandEvent,
   type DemandEventInput,
-  type DemandFilter,
   type DemandInput,
+  type DemandStatusGroup,
   type DemandSummary,
   type ISODate,
 } from '@acomp/shared';
@@ -41,7 +41,7 @@ interface SaveResult {
 const keys = {
   cycle: (date: ISODate) => ['cycle', getCycle(date).start] as const,
   activities: (date: ISODate) => ['activities', date] as const,
-  demands: (filter?: DemandFilter) => ['demands', 'list', filter ?? 'todas'] as const,
+  demands: (filter?: DemandStatusGroup) => ['demands', 'list', filter ?? 'todas'] as const,
   demand: (id: number) => ['demands', 'detail', id] as const,
 };
 
@@ -65,7 +65,7 @@ export function useDayActivities(date: ISODate) {
   });
 }
 
-export function useDemands(filter?: DemandFilter) {
+export function useDemands(filter?: DemandStatusGroup) {
   return useQuery({
     queryKey: keys.demands(filter),
     queryFn: () => request<DemandSummary[]>('GET', `/demands${filter ? `?status=${filter}` : ''}`),
@@ -81,8 +81,8 @@ export function useDemand(id: number, enabled = true) {
 }
 
 /**
- * Atualiza listas e métricas depois de qualquer alteração. Atividades e demandas se
- * afetam mutuamente (horas apontadas, vínculo removido ao excluir), então tudo é revalidado.
+ * Atualiza listas e métricas depois de qualquer alteração. Apontamentos e demandas se
+ * afetam mutuamente (horas apontadas, nome da demanda gravado no apontamento), então tudo é revalidado.
  */
 function useInvalidate() {
   const client = useQueryClient();

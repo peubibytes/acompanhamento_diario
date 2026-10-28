@@ -1,228 +1,417 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { Link, useLocation } from 'react-router';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import {
+  DEMAND_CATEGORIES,
+  DEMAND_CATEGORY_LABEL,
+  DEMAND_CATEGORY_PLURAL,
   DEMAND_ENVIRONMENT_LABEL,
-  DEMAND_EVENT_KINDS,
-  DEMAND_EVENT_LABEL,
-  durationOf,
+  demandInputOf,
   formatDayMonth,
   formatDuration,
-  formatHM,
   isOpenDemand,
-  matchesDemandFilter,
-  PROGRESS_LABEL,
-  todayISO,
-  waitingWorkdays,
+  ROUTINE_CATEGORIES,
+  ROUTINE_STATUS_LABEL,
+  ROUTINE_STATUSES,
   WEEKDAY_SHORT,
   weekdayOf,
-  type Demand,
-  type DemandBlocker,
-  type DemandEventKind,
-  type DemandInput,
-  type DemandStatus,
+  type CycleStatus,
+  type DemandCategory,
   type DemandSummary,
+  type RoutineCategory,
+  type RoutineStatus,
 } from '@acomp/shared';
+import { useDeleteDemand, useDemands, useSaveDemand } from '../api/client';
+import { ActivityHistory, CycleTracking, IconButton } from '../components/DemandHistory';
+import { DemandForm } from '../components/DemandForms';
 import {
-  useDeleteBlocker,
-  useDeleteDemand,
-  useDeleteEvent,
-  useDemand,
-  useDemands,
-  useSaveBlocker,
-  useSaveDemand,
-  useSaveEvent,
-  type DemandDetail,
-} from '../api/client';
-import { DemandForm } from '../components/DemandForm';
-import {
+  CategoryAvatar,
+  categoryIcon,
+  CycleStatusBadge,
   DeadlineBadge,
   DemandFlags,
-  DemandHoursCaption,
-  DemandProgressBar,
-  DemandStatusBadge,
+  LoggedSummary,
+  routineStatusStyle,
 } from '../components/DemandVisuals';
-import {
-  AlertIcon,
-  BellIcon,
-  CheckIcon,
-  ChevronDown,
-  HourglassIcon,
-  PencilIcon,
-  PlusIcon,
-  SendIcon,
-  TargetIcon,
-  TrashIcon,
-  UndoIcon,
-  XIcon,
-} from '../components/icons';
+import { BellIcon, CheckIcon, ChevronDown, ListIcon, PencilIcon, PlusIcon, TargetIcon, TrashIcon, UndoIcon } from '../components/icons';
+import { Segmented } from '../components/Segmented';
 import { ErrorState, Skeleton } from '../components/States';
 import { useToast } from '../components/Toast';
 
-type Filter = 'abertas' | 'encerradas' | 'todas';
+type StatusFilter = 'abertas' | 'encerradas' | 'todas';
 
-const FILTERS: { value: Filter; label: string }[] = [
-  { value: 'abertas', label: 'Abertas' },
-  { value: 'encerradas', label: 'Encerradas' },
-  { value: 'todas', label: 'Todas' },
-];
+const isCategory = (v: string | null): v is DemandCategory => DEMAND_CATEGORIES.includes(v as DemandCategory);
 
-const matches = (d: Demand, f: Filter) => f === 'todas' || matchesDemandFilter(d, f);
+/** Textos de cada tipo: rótulo do filtro e estado vazio. */
+const COPY: Record<DemandCategory, { open: string; closed: string; empty: string; hint: string }> = {
+  ciclo: {
+    open: 'Abertos',
+    closed: 'Encerrados',
+    empty: 'Nenhum ciclo por aqui',
+    hint: 'Declare trabalhos longos, com prazo e prioridade, e acompanhe a linha do tempo e os impedimentos.',
+  },
+  chamado: {
+    open: 'Em aberto',
+    closed: 'Concluídos',
+    empty: 'Nenhum chamado por aqui',
+    hint: 'Declare cada chamado uma vez, com número, descrição e status. O tempo gasto nele vai para Apontamentos.',
+  },
+  reuniao: {
+    open: '',
+    closed: '',
+    empty: 'Nenhuma reunião declarada',
+    hint: 'Declare as reuniões, como a Daily, uma única vez. Cada ocorrência é registrada em Apontamentos.',
+  },
+  treinamento: {
+    open: 'Em aberto',
+    closed: 'Concluídos',
+    empty: 'Nenhum treinamento por aqui',
+    hint: 'Declare os treinamentos que você faz ou vai fazer. As horas de estudo vão para Apontamentos.',
+  },
+};
 
-/** Campos editáveis da demanda, para gravá-la com uma alteração pontual (ex.: status). */
-const toInput = (d: Demand): DemandInput => ({
-  title: d.title,
-  description: d.description,
-  externalIds: d.externalIds,
-  system: d.system,
-  kind: d.kind,
-  priority: d.priority,
-  progressPercent: d.progressPercent,
-  targetMinutes: d.targetMinutes,
-  startDate: d.startDate,
-  dueDate: d.dueDate,
-  status: d.status,
-  branch: d.branch,
-  prUrl: d.prUrl,
-  environment: d.environment,
-});
+const REMOVED: Record<DemandCategory, string> = {
+  ciclo: 'Ciclo excluído.',
+  chamado: 'Chamado excluído.',
+  reuniao: 'Reunião excluída.',
+  treinamento: 'Treinamento excluído.',
+};
+
+const matches = (d: DemandSummary, f: StatusFilter) => f === 'todas' || (f === 'abertas') === isOpenDemand(d);
 
 export function Demands() {
   const demands = useDemands();
-  const [filter, setFilter] = useState<Filter>('abertas');
+  const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { hash } = useLocation();
+  const tipo = params.get('tipo');
+  const category: DemandCategory = isCategory(tipo) ? tipo : 'chamado';
+  const section = category === 'ciclo' ? 'ciclo' : 'atividades';
+
+  const [lastRoutine, setLastRoutine] = useState<RoutineCategory>(category === 'ciclo' ? 'chamado' : category);
+  const [filter, setFilter] = useState<StatusFilter>('abertas');
   const [editingId, setEditingId] = useState<number | null>(null);
   const formRef = useRef<HTMLElement>(null);
-  const { hash } = useLocation();
 
   const all = demands.data ?? [];
-  const list = all.filter((d) => matches(d, filter));
-  const editing = all.find((d) => d.id === editingId);
-  const count = (f: Filter) => all.filter((d) => matches(d, f)).length;
+  const ofCategory = all.filter((d) => d.category === category);
+  const hasStatus = category !== 'reuniao';
+  const list = hasStatus ? ofCategory.filter((d) => matches(d, filter)) : ofCategory;
+  const editing = ofCategory.find((d) => d.id === editingId);
 
-  // Links do painel (#demanda-ID) rolam até o cartão e o destacam.
+  const chooseCategory = (next: DemandCategory) => {
+    setEditingId(null);
+    setFilter('abertas');
+    if (next !== 'ciclo') setLastRoutine(next);
+    setParams(
+      (p) => {
+        p.set('tipo', next);
+        return p;
+      },
+      { replace: true },
+    );
+  };
+
+  // Links para uma demanda (#demanda-ID, vindos do painel e dos lembretes) abrem o tipo
+  // certo, mostram a demanda mesmo se encerrada e rolam até o cartão.
   useEffect(() => {
     const id = Number(/^#demanda-(\d+)$/.exec(hash)?.[1]);
-    if (!id || !demands.data) return;
-    const target = demands.data.find((d) => d.id === id);
-    if (target && !matches(target, filter)) setFilter(isOpenDemand(target) ? 'abertas' : 'encerradas');
+    const target = id ? demands.data?.find((d) => d.id === id) : undefined;
+    if (!target) return;
+    if (target.category !== category) {
+      navigate({ search: `?tipo=${target.category}`, hash }, { replace: true });
+      return;
+    }
+    if (!matches(target, filter)) setFilter('todas');
     requestAnimationFrame(() =>
       document.getElementById(`demanda-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
     );
-  }, [hash, demands.data]);
+  }, [hash, demands.data, category]);
 
-  const startEditing = (id: number | null) => {
+  const startEditing = (id: number) => {
     setEditingId(id);
     formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   };
 
+  const openCount = (cats: readonly DemandCategory[]) =>
+    all.filter((d) => cats.includes(d.category) && isOpenDemand(d)).length;
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">Demandas</h1>
-          <p className="mt-1 text-sm text-ink-2">
-            Chamados e trabalhos longos: status, linha do tempo, impedimentos, prazo e horas apontadas.
-          </p>
-        </div>
-        <div className="flex items-center rounded-full bg-surface-2 p-1" role="group" aria-label="Filtrar demandas">
-          {FILTERS.map((f) => (
-            <button
-              key={f.value}
-              onClick={() => setFilter(f.value)}
-              aria-pressed={filter === f.value}
-              className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
-                filter === f.value ? 'bg-surface text-ink shadow-sm' : 'text-ink-2 hover:text-ink'
-              }`}
-            >
-              {f.label}
-              {demands.data && <span className="tabular ml-1.5 text-xs text-ink-3">{count(f.value)}</span>}
-            </button>
-          ))}
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">Demandas</h1>
+        <p className="mt-1 text-sm text-ink-2">
+          Declare o que você faz. O tempo gasto é registrado depois, em Apontamentos.
+        </p>
+      </div>
+
+      <div role="tablist" aria-label="Família de demandas" className="grid grid-cols-2 gap-3">
+        <SectionCard
+          on={section === 'atividades'}
+          onClick={() => chooseCategory(lastRoutine)}
+          icon={<ListIcon size={20} />}
+          title="Atividades"
+          description="Chamados, reuniões e treinamentos do dia a dia"
+          count={demands.data ? `${openCount(ROUTINE_CATEGORIES)} em aberto` : undefined}
+        />
+        <SectionCard
+          on={section === 'ciclo'}
+          onClick={() => chooseCategory('ciclo')}
+          icon={<TargetIcon size={20} />}
+          title="Ciclo"
+          description="Trabalhos longos, com prazo, prioridade e acompanhamento"
+          count={demands.data ? `${openCount(['ciclo'])} abertos` : undefined}
+        />
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {section === 'atividades' ? (
+          <div className="overflow-x-auto">
+            <Segmented
+              label="Tipo de atividade"
+              value={category as RoutineCategory}
+              onChange={chooseCategory}
+              options={ROUTINE_CATEGORIES.map((c) => ({
+                value: c,
+                label: DEMAND_CATEGORY_PLURAL[c],
+                icon: categoryIcon[c](15),
+                count: demands.data ? all.filter((d) => d.category === c).length : undefined,
+              }))}
+            />
+          </div>
+        ) : (
+          <h2 className="text-lg font-semibold text-ink">Ciclos</h2>
+        )}
+        {hasStatus && (
+          <Segmented
+            label="Filtrar por status"
+            size="sm"
+            value={filter}
+            onChange={setFilter}
+            options={[
+              { value: 'abertas', label: COPY[category].open, count: ofCategory.filter((d) => isOpenDemand(d)).length },
+              { value: 'encerradas', label: COPY[category].closed, count: ofCategory.filter((d) => !isOpenDemand(d)).length },
+              { value: 'todas', label: 'Todos', count: ofCategory.length },
+            ]}
+          />
+        )}
       </div>
 
       <div className="grid items-start gap-6 lg:grid-cols-5">
-        <section className="space-y-3 lg:col-span-3">
+        <section className="space-y-3 lg:col-span-3" aria-label={DEMAND_CATEGORY_PLURAL[category]}>
           {demands.isPending ? (
             <>
-              <Skeleton className="h-48" />
-              <Skeleton className="h-48" />
+              <Skeleton className="h-36" />
+              <Skeleton className="h-36" />
             </>
           ) : demands.isError ? (
             <ErrorState message={demands.error.message} onRetry={() => demands.refetch()} />
           ) : list.length === 0 ? (
-            <EmptyList filter={filter} />
+            <EmptyList category={category} filtered={ofCategory.length > 0} />
           ) : (
             <ul className="space-y-3">
-              {list.map((d) => (
-                <DemandCard
-                  key={d.id}
-                  demand={d}
-                  highlighted={hash === `#demanda-${d.id}`}
-                  isEditing={d.id === editingId}
-                  onEdit={() => startEditing(d.id)}
-                  onDeleted={() => d.id === editingId && setEditingId(null)}
-                />
-              ))}
+              {list.map((d) =>
+                d.category === 'ciclo' ? (
+                  <CycleCard
+                    key={d.id}
+                    demand={d}
+                    highlighted={hash === `#demanda-${d.id}`}
+                    isEditing={d.id === editingId}
+                    onEdit={() => startEditing(d.id)}
+                    onDeleted={() => d.id === editingId && setEditingId(null)}
+                  />
+                ) : (
+                  <RoutineCard
+                    key={d.id}
+                    demand={d}
+                    highlighted={hash === `#demanda-${d.id}`}
+                    isEditing={d.id === editingId}
+                    onEdit={() => startEditing(d.id)}
+                    onDeleted={() => d.id === editingId && setEditingId(null)}
+                  />
+                ),
+              )}
             </ul>
           )}
         </section>
 
         <aside ref={formRef} className="card scroll-mt-24 p-5 sm:p-6 lg:sticky lg:top-24 lg:col-span-2">
-          <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-ink">
-            {editing ? <PencilIcon size={17} /> : <PlusIcon size={17} />}
-            {editing ? 'Editar demanda' : 'Nova demanda'}
+          <h2 className="mb-4 flex items-center gap-2.5 text-base font-semibold text-ink">
+            <CategoryAvatar category={category} size={30} />
+            {editing ? `Editar ${DEMAND_CATEGORY_LABEL[category].toLowerCase()}` : `Declarar ${DEMAND_CATEGORY_LABEL[category].toLowerCase()}`}
           </h2>
-          <DemandForm key={editing?.id ?? 'nova'} editing={editing} onDone={() => setEditingId(null)} />
+          <DemandForm
+            key={`${category}-${editing?.id ?? 'nova'}`}
+            category={category}
+            editing={editing}
+            onDone={() => setEditingId(null)}
+          />
         </aside>
       </div>
     </div>
   );
 }
 
-function DemandCard({
-  demand: d,
-  highlighted,
-  isEditing,
-  onEdit,
-  onDeleted,
+function SectionCard({
+  on,
+  onClick,
+  icon,
+  title,
+  description,
+  count,
 }: {
+  on: boolean;
+  onClick: () => void;
+  icon: ReactNode;
+  title: string;
+  description: string;
+  count?: string;
+}) {
+  return (
+    <button
+      role="tab"
+      aria-selected={on}
+      onClick={onClick}
+      className={`flex items-start gap-3 rounded-2xl border p-3 text-left transition sm:p-4 ${
+        on ? 'border-accent bg-surface shadow-sm ring-2 ring-accent-soft' : 'border-line bg-surface/60 hover:bg-surface'
+      }`}
+    >
+      <span
+        className={`grid size-10 shrink-0 place-items-center rounded-xl ${on ? 'bg-accent text-on-accent' : 'bg-surface-2 text-ink-2'}`}
+      >
+        {icon}
+      </span>
+      <span className="min-w-0">
+        <span className={`block font-semibold ${on ? 'text-accent' : 'text-ink'}`}>{title}</span>
+        <span className="mt-0.5 hidden text-xs leading-snug text-ink-3 sm:block">{description}</span>
+        {count && <span className="tabular mt-1 block text-xs font-medium text-ink-2">{count}</span>}
+      </span>
+    </button>
+  );
+}
+
+interface CardProps {
   demand: DemandSummary;
   highlighted: boolean;
   isEditing: boolean;
   onEdit: () => void;
   onDeleted: () => void;
-}) {
-  const save = useSaveDemand();
-  const remove = useDeleteDemand();
-  const toast = useToast();
-  const [confirming, setConfirming] = useState(false);
+}
+
+/** Chamado, reunião ou treinamento: o que é, status e quanto já foi apontado nele. */
+function RoutineCard({ demand: d, highlighted, isEditing, onEdit, onDeleted }: CardProps) {
   const [open, setOpen] = useState(false);
+  const closed = !isOpenDemand(d);
+
+  return (
+    <li
+      id={`demanda-${d.id}`}
+      className={`card rise scroll-mt-24 p-4 transition sm:p-5 ${isEditing || highlighted ? 'ring-2 ring-accent' : ''} ${
+        closed ? 'opacity-80' : ''
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <CategoryAvatar category={d.category} size={36} />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
+              {d.category === 'reuniao' && (
+                <p className="text-[11px] font-semibold tracking-wider text-accent uppercase">{d.meetingType}</p>
+              )}
+              <h3
+                className={`font-semibold text-ink ${d.category === 'chamado' ? 'tabular tracking-wide' : ''} ${
+                  closed ? 'line-through decoration-ink-3' : ''
+                }`}
+              >
+                {d.category === 'reuniao' ? d.subject : d.label}
+              </h3>
+              {d.category === 'reuniao' && <p className="text-sm text-ink-2">com {d.participants}</p>}
+            </div>
+            {(d.category === 'chamado' || d.category === 'treinamento') && (
+              <RoutineStatusSelect demand={d} status={d.status} />
+            )}
+          </div>
+          {d.category !== 'reuniao' && d.description && (
+            <p className="mt-2 line-clamp-3 text-sm whitespace-pre-line text-ink-2">{d.description}</p>
+          )}
+        </div>
+      </div>
+
+      <CardFooter demand={d} onEdit={onEdit} onDeleted={onDeleted}>
+        <button
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          disabled={d.metrics.activityCount === 0}
+          className="inline-flex min-w-0 items-center gap-1.5 text-left disabled:cursor-default"
+        >
+          {d.metrics.activityCount > 0 && (
+            <ChevronDown size={16} className={`shrink-0 text-ink-3 transition ${open ? 'rotate-180' : ''}`} />
+          )}
+          <LoggedSummary metrics={d.metrics} />
+        </button>
+      </CardFooter>
+
+      {open && <ActivityHistory id={d.id} />}
+    </li>
+  );
+}
+
+/** Troca rápida do status de chamados e treinamentos, direto no cartão. */
+function RoutineStatusSelect({ demand, status }: { demand: DemandSummary; status: RoutineStatus }) {
+  const save = useSaveDemand();
+  const toast = useToast();
+  const style = routineStatusStyle[status];
+  const change = (next: RoutineStatus) => {
+    const input = demandInputOf(demand);
+    if (input.category !== 'chamado' && input.category !== 'treinamento') return;
+    save.mutate(
+      { id: demand.id, input: { ...input, status: next } },
+      {
+        onSuccess: () => toast(`Status: ${ROUTINE_STATUS_LABEL[next]}.`),
+        onError: (err) => toast(err.message, 'error'),
+      },
+    );
+  };
+  return (
+    <label className={`relative inline-flex shrink-0 items-center gap-1.5 rounded-full py-1 pr-1 pl-2.5 text-xs font-medium ${style.badge}`}>
+      {style.icon(13)}
+      <span className="sr-only">Status</span>
+      <select
+        value={status}
+        disabled={save.isPending}
+        onChange={(e) => change(e.target.value as RoutineStatus)}
+        className="cursor-pointer appearance-none bg-transparent pr-5 font-medium outline-none [&>option]:bg-surface [&>option]:text-ink"
+      >
+        {ROUTINE_STATUSES.map((s) => (
+          <option key={s} value={s}>
+            {ROUTINE_STATUS_LABEL[s]}
+          </option>
+        ))}
+      </select>
+      <ChevronDown size={12} className="pointer-events-none absolute right-2" />
+    </label>
+  );
+}
+
+const dayLabel = (iso: string) => `${WEEKDAY_SHORT[weekdayOf(iso)]} ${formatDayMonth(iso)}`;
+
+/** Ciclo: prazo, status, prioridade, horas apontadas, espera e o acompanhamento em abas. */
+function CycleCard({ demand: d, highlighted, isEditing, onEdit, onDeleted }: CardProps) {
+  const save = useSaveDemand();
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  if (d.category !== 'ciclo') return null;
   const m = d.metrics;
   const t = d.tracking;
   const done = !isOpenDemand(d);
 
-  const setStatus = (status: DemandStatus, message: string) =>
+  const setStatus = (status: CycleStatus, message: string) => {
+    const input = demandInputOf(d);
+    if (input.category !== 'ciclo') return;
     save.mutate(
-      {
-        id: d.id,
-        input: { ...toInput(d), status, progressPercent: status === 'concluido' ? 100 : d.progressPercent },
-      },
+      { id: d.id, input: { ...input, status } },
       { onSuccess: () => toast(message), onError: (err) => toast(err.message, 'error') },
     );
-  const toggleStatus = () =>
-    done ? setStatus('em_andamento', 'Demanda reaberta.') : setStatus('concluido', 'Demanda concluída.');
-
-  const doRemove = () =>
-    remove.mutate(d.id, {
-      onSuccess: () => {
-        onDeleted();
-        toast('Demanda excluída. As atividades vinculadas foram mantidas, sem vínculo.');
-      },
-      onError: (err) => toast(err.message, 'error'),
-    });
-
-  const reminderTone =
-    m.deadline === 'atrasada' || m.atRisk ? 'bg-critical-soft text-critical-text' : 'bg-warning-soft text-warning-text';
+  };
 
   return (
     <li
@@ -231,53 +420,38 @@ function DemandCard({
         done ? 'opacity-80' : ''
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          {(d.externalIds.length > 0 || d.system) && (
-            <p className="tabular mb-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-ink-3">
-              {d.externalIds.map((id) => (
-                <span key={id} className="rounded bg-surface-2 px-1.5 py-0.5 font-medium text-ink-2">
-                  {id}
-                </span>
-              ))}
-              {d.system && <span>{d.system}</span>}
-            </p>
-          )}
-          <h3 className={`font-semibold text-ink ${done ? 'line-through decoration-ink-3' : ''}`}>{d.title}</h3>
-          {d.description && <p className="mt-0.5 line-clamp-2 text-sm text-ink-2">{d.description}</p>}
-        </div>
-        <DeadlineBadge status={m.deadline} />
-      </div>
-
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        <DemandStatusBadge status={d.status} />
-        <DemandFlags kind={d.kind} priority={d.priority} />
-        {d.environment && (
-          <span className="inline-flex items-center rounded-full bg-neutral-soft px-2.5 py-1 text-xs font-medium text-ink-2">
-            {DEMAND_ENVIRONMENT_LABEL[d.environment]}
-          </span>
-        )}
-      </div>
-
-      <div className="mt-4">
-        <DemandProgressBar demand={d} height={10} />
-        <div className="mt-1.5 flex flex-wrap items-baseline justify-between gap-2">
-          <DemandHoursCaption demand={d} />
-          {m.target !== null && <span className="text-xs text-ink-3">{PROGRESS_LABEL[m.progress]}</span>}
+      <div className="flex items-start gap-3">
+        <CategoryAvatar category="ciclo" size={36} />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <h3 className={`min-w-0 font-semibold text-ink ${done ? 'line-through decoration-ink-3' : ''}`}>{d.title}</h3>
+            <DeadlineBadge status={m.deadline} />
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <CycleStatusBadge status={d.status} />
+            <DemandFlags kind={d.kind} priority={d.priority} />
+            {d.environment && (
+              <span className="inline-flex items-center rounded-full bg-neutral-soft px-2.5 py-1 text-xs font-medium text-ink-2">
+                {DEMAND_ENVIRONMENT_LABEL[d.environment]}
+              </span>
+            )}
+          </div>
+          {d.description && <p className="mt-2 line-clamp-2 text-sm whitespace-pre-line text-ink-2">{d.description}</p>}
         </div>
       </div>
 
-      <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Stat label="Início">{dayLabel(d.startDate)}</Stat>
         <Stat label="Prazo">
           {d.dueDate ? (
             <>
-              {WEEKDAY_SHORT[weekdayOf(d.dueDate)]} {formatDayMonth(d.dueDate)}
+              {dayLabel(d.dueDate)}
               {m.deadline === 'atrasada' ? (
                 <span className="block text-xs font-medium text-critical-text">prazo vencido</span>
               ) : (
                 m.workdaysLeft !== null && (
                   <span className="block text-xs font-normal text-ink-3">
-                    {m.workdaysLeft === 1 ? '1 dia útil disponível' : `${m.workdaysLeft} dias úteis disponíveis`}
+                    {m.workdaysLeft === 1 ? '1 dia útil' : `${m.workdaysLeft} dias úteis`}
                   </span>
                 )
               )}
@@ -286,51 +460,67 @@ function DemandCard({
             <span className="text-ink-3">Sem prazo</span>
           )}
         </Stat>
-        {m.requiredPerDay ? (
-          <Stat label="Ritmo necessário">
-            {formatDuration(m.requiredPerDay)}
-            <span className="block text-xs font-normal text-ink-3">por dia útil</span>
-          </Stat>
-        ) : (
-          <Stat label="Espera">
-            {t.waitingWorkdays === 0 ? (
-              <span className="text-ink-3">—</span>
-            ) : (
-              <>
-                {t.waitingWorkdays === 1 ? '1 dia útil' : `${t.waitingWorkdays} dias úteis`}
-                <span className={`block text-xs font-normal ${t.openBlockers ? 'text-warning-text' : 'text-ink-3'}`}>
-                  {t.openBlockers === 0
-                    ? 'impedimentos resolvidos'
-                    : t.openBlockers === 1
-                      ? '1 impedimento aberto'
-                      : `${t.openBlockers} impedimentos abertos`}
-                </span>
-              </>
-            )}
-          </Stat>
-        )}
-        <Stat label="Apontamentos">
-          {m.activityCount}
-          {m.lastActivityDate && (
-            <span className="block text-xs font-normal text-ink-3">último em {formatDayMonth(m.lastActivityDate)}</span>
+        <Stat label="Apontado">
+          {m.activityCount === 0 ? (
+            <span className="text-ink-3">—</span>
+          ) : (
+            <>
+              {formatDuration(m.logged)}
+              <span className="block text-xs font-normal text-ink-3">
+                {m.activityCount === 1 ? '1 apontamento' : `${m.activityCount} apontamentos`}
+              </span>
+            </>
+          )}
+        </Stat>
+        <Stat label="Espera">
+          {t.waitingWorkdays === 0 ? (
+            <span className="text-ink-3">—</span>
+          ) : (
+            <>
+              {t.waitingWorkdays === 1 ? '1 dia útil' : `${t.waitingWorkdays} dias úteis`}
+              <span className={`block text-xs font-normal ${t.openBlockers ? 'text-warning-text' : 'text-ink-3'}`}>
+                {t.openBlockers === 0
+                  ? 'impedimentos resolvidos'
+                  : t.openBlockers === 1
+                    ? '1 impedimento aberto'
+                    : `${t.openBlockers} impedimentos abertos`}
+              </span>
+            </>
           )}
         </Stat>
       </dl>
 
       {m.reminder && (
-        <p role="alert" className={`mt-4 flex items-start gap-2 rounded-xl px-3 py-2.5 text-sm ${reminderTone}`}>
+        <p
+          role="alert"
+          className={`mt-4 flex items-start gap-2 rounded-xl px-3 py-2.5 text-sm ${
+            m.deadline === 'atrasada' ? 'bg-critical-soft text-critical-text' : 'bg-warning-soft text-warning-text'
+          }`}
+        >
           <BellIcon size={16} className="mt-0.5 shrink-0" />
           {m.reminder}
         </p>
       )}
-      {m.progress === 'excedida' && !m.reminder && (
-        <p className="mt-2 flex items-start gap-2 rounded-xl bg-critical-soft px-3 py-2.5 text-sm text-critical-text">
-          <AlertIcon size={16} className="mt-0.5 shrink-0" />
-          {m.diagnosis}.
-        </p>
-      )}
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3">
+      <CardFooter
+        demand={d}
+        onEdit={onEdit}
+        onDeleted={onDeleted}
+        extra={
+          <button
+            onClick={() =>
+              done ? setStatus('em_andamento', 'Ciclo reaberto.') : setStatus('concluido', 'Ciclo concluído.')
+            }
+            disabled={save.isPending}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+              done ? 'text-ink-2 hover:bg-surface-2' : 'bg-good-soft text-good-text hover:brightness-95'
+            }`}
+          >
+            {done ? <UndoIcon size={14} /> : <CheckIcon size={14} />}
+            {done ? 'Reabrir' : 'Concluir'}
+          </button>
+        }
+      >
         <button
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
@@ -340,10 +530,67 @@ function DemandCard({
           {open ? 'Ocultar acompanhamento' : 'Acompanhamento'}
           {t.eventCount > 0 && <span className="tabular text-xs text-ink-3">({t.eventCount})</span>}
         </button>
-        <div className="flex items-center gap-1">
-          {confirming ? (
+      </CardFooter>
+
+      {open && <CycleTracking id={d.id} />}
+    </li>
+  );
+}
+
+/**
+ * Rodapé comum: à esquerda o resumo (ou o botão de acompanhamento), à direita editar e excluir.
+ * Demanda com apontamentos não pode ser excluída: as horas ficariam sem dono.
+ */
+function CardFooter({
+  demand: d,
+  onEdit,
+  onDeleted,
+  extra,
+  children,
+}: {
+  demand: DemandSummary;
+  onEdit: () => void;
+  onDeleted: () => void;
+  extra?: ReactNode;
+  children: ReactNode;
+}) {
+  const remove = useDeleteDemand();
+  const toast = useToast();
+  const [confirming, setConfirming] = useState(false);
+  const count = d.metrics.activityCount;
+
+  const doRemove = () =>
+    remove.mutate(d.id, {
+      onSuccess: () => {
+        onDeleted();
+        toast(REMOVED[d.category]);
+      },
+      onError: (err) => {
+        setConfirming(false);
+        toast(err.message, 'error');
+      },
+    });
+
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3">
+      <div className="min-w-0">{children}</div>
+      <div className="flex items-center gap-1">
+        {confirming ? (
+          count > 0 ? (
             <>
-              <span className="mr-1 text-xs text-ink-2">Excluir a demanda?</span>
+              <span className="mr-1 max-w-56 text-xs text-ink-2">
+                Tem {count === 1 ? '1 apontamento' : `${count} apontamentos`}. Exclua-os ou aponte em outra demanda antes.
+              </span>
+              <button
+                onClick={() => setConfirming(false)}
+                className="rounded-full px-3 py-1 text-xs font-semibold text-ink-2 hover:bg-surface-2"
+              >
+                Entendi
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="mr-1 text-xs text-ink-2">Excluir?</span>
               <button
                 onClick={doRemove}
                 disabled={remove.isPending}
@@ -358,319 +605,20 @@ function DemandCard({
                 Não
               </button>
             </>
-          ) : (
-            <>
-              <button
-                onClick={toggleStatus}
-                disabled={save.isPending}
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                  done ? 'text-ink-2 hover:bg-surface-2' : 'bg-good-soft text-good-text hover:brightness-95'
-                }`}
-              >
-                {done ? <UndoIcon size={14} /> : <CheckIcon size={14} />}
-                {done ? 'Reabrir' : 'Concluir'}
-              </button>
-              <IconButton label="Editar demanda" onClick={onEdit}>
-                <PencilIcon size={16} />
-              </IconButton>
-              <IconButton label="Excluir demanda" onClick={() => setConfirming(true)}>
-                <TrashIcon size={16} />
-              </IconButton>
-            </>
-          )}
-        </div>
-      </div>
-
-      {open && <DemandTracking id={d.id} />}
-    </li>
-  );
-}
-
-type Tab = 'linha' | 'impedimentos' | 'apontamentos';
-
-/** Linha do tempo, impedimentos e apontamentos, carregados só quando o cartão é expandido. */
-function DemandTracking({ id }: { id: number }) {
-  const detail = useDemand(id);
-  const [tab, setTab] = useState<Tab>('linha');
-  if (detail.isPending) return <Skeleton className="mt-3 h-24" />;
-  if (detail.isError) return <p className="mt-3 text-sm text-critical-text">{detail.error.message}</p>;
-  const data = detail.data;
-  const tabs: { value: Tab; label: string; count: number }[] = [
-    { value: 'linha', label: 'Linha do tempo', count: data.events.length },
-    { value: 'impedimentos', label: 'Impedimentos', count: data.blockers.length },
-    { value: 'apontamentos', label: 'Apontamentos', count: data.activities.length },
-  ];
-
-  return (
-    <div className="mt-3">
-      <div className="flex rounded-full bg-surface-2 p-1" role="tablist" aria-label="Acompanhamento da demanda">
-        {tabs.map((t) => (
-          <button
-            key={t.value}
-            role="tab"
-            aria-selected={tab === t.value}
-            onClick={() => setTab(t.value)}
-            className={`flex-1 rounded-full px-2 py-1.5 text-xs font-medium transition ${
-              tab === t.value ? 'bg-surface text-ink shadow-sm' : 'text-ink-2 hover:text-ink'
-            }`}
-          >
-            {t.label}
-            <span className="tabular ml-1 text-ink-3">{t.count}</span>
-          </button>
-        ))}
-      </div>
-      <div role="tabpanel" className="mt-3">
-        {tab === 'linha' && <Timeline detail={data} />}
-        {tab === 'impedimentos' && <Blockers detail={data} />}
-        {tab === 'apontamentos' && <DemandActivities activities={data.activities} />}
+          )
+        ) : (
+          <>
+            {extra}
+            <IconButton label="Editar" onClick={onEdit}>
+              <PencilIcon size={16} />
+            </IconButton>
+            <IconButton label="Excluir" onClick={() => setConfirming(true)}>
+              <TrashIcon size={16} />
+            </IconButton>
+          </>
+        )}
       </div>
     </div>
-  );
-}
-
-const dayLabel = (iso: string) => `${WEEKDAY_SHORT[weekdayOf(iso)]} ${formatDayMonth(iso)}`;
-
-/** Linha do tempo com entrada rápida: data (hoje), tipo e texto; Enter grava. */
-function Timeline({ detail }: { detail: DemandDetail }) {
-  const save = useSaveEvent(detail.id);
-  const remove = useDeleteEvent(detail.id);
-  const toast = useToast();
-  const [date, setDate] = useState(todayISO());
-  const [kind, setKind] = useState<DemandEventKind>('acao');
-  const [text, setText] = useState('');
-
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    save.mutate(
-      { input: { date, kind, text } },
-      { onSuccess: () => setText(''), onError: (err) => toast(err.message, 'error') },
-    );
-  };
-
-  return (
-    <div className="space-y-3">
-      <form onSubmit={submit} className="flex flex-wrap gap-2">
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          aria-label="Data do evento"
-          className="field tabular w-auto! flex-none py-1.5! text-sm"
-        />
-        <select
-          value={kind}
-          onChange={(e) => setKind(e.target.value as DemandEventKind)}
-          aria-label="Tipo do evento"
-          className="field w-auto! flex-none py-1.5! text-sm"
-        >
-          {DEMAND_EVENT_KINDS.map((k) => (
-            <option key={k} value={k}>
-              {DEMAND_EVENT_LABEL[k]}
-            </option>
-          ))}
-        </select>
-        <div className="flex min-w-48 flex-1 gap-2">
-          <input
-            required
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="O que aconteceu?"
-            maxLength={2000}
-            aria-label="Descrição do evento"
-            className="field py-1.5! text-sm"
-          />
-          <button
-            type="submit"
-            disabled={save.isPending}
-            aria-label="Adicionar evento"
-            title="Adicionar evento"
-            className="grid size-9 shrink-0 place-items-center rounded-full bg-accent text-on-accent transition hover:bg-accent-hover disabled:opacity-60"
-          >
-            <SendIcon size={15} />
-          </button>
-        </div>
-      </form>
-
-      {detail.events.length === 0 ? (
-        <p className="rounded-xl bg-surface-2 px-3 py-3 text-sm text-ink-2">
-          Nenhum evento ainda. Registre ações, decisões, validações e deploys para montar o histórico.
-        </p>
-      ) : (
-        <ol className="relative space-y-2 border-l border-line pl-4">
-          {detail.events.map((ev) => (
-            <li key={ev.id} className="group relative text-sm">
-              <span className="absolute top-1.5 -left-[21px] size-2.5 rounded-full border-2 border-surface bg-accent" />
-              <div className="flex items-start gap-2">
-                <span className="tabular w-[4.5rem] shrink-0 font-medium whitespace-nowrap text-ink">{dayLabel(ev.date)}</span>
-                <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-ink-2">
-                  {DEMAND_EVENT_LABEL[ev.kind]}
-                </span>
-                <span className="min-w-0 flex-1 text-ink-2">{ev.text}</span>
-                <button
-                  onClick={() => remove.mutate(ev.id, { onError: (err) => toast(err.message, 'error') })}
-                  aria-label="Excluir evento"
-                  title="Excluir evento"
-                  className="shrink-0 text-ink-3 opacity-0 transition group-hover:opacity-100 hover:text-critical-text focus:opacity-100"
-                >
-                  <XIcon size={14} />
-                </button>
-              </div>
-            </li>
-          ))}
-        </ol>
-      )}
-    </div>
-  );
-}
-
-/** Impedimentos: quem bloqueia, desde quando e há quantos dias úteis; resolver com um clique. */
-function Blockers({ detail }: { detail: DemandDetail }) {
-  const save = useSaveBlocker(detail.id);
-  const remove = useDeleteBlocker(detail.id);
-  const toast = useToast();
-  const [owner, setOwner] = useState('');
-  const [since, setSince] = useState(todayISO());
-  const [description, setDescription] = useState('');
-  const today = todayISO();
-
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    save.mutate(
-      { input: { owner, since, description, resolvedAt: null } },
-      {
-        onSuccess: () => {
-          setOwner('');
-          setDescription('');
-          toast('Impedimento registrado.');
-        },
-        onError: (err) => toast(err.message, 'error'),
-      },
-    );
-  };
-
-  const setResolved = (b: DemandBlocker, resolvedAt: string | null) =>
-    save.mutate(
-      { id: b.id, input: { owner: b.owner, description: b.description, since: b.since, resolvedAt } },
-      {
-        onSuccess: () => toast(resolvedAt ? 'Impedimento resolvido.' : 'Impedimento reaberto.'),
-        onError: (err) => toast(err.message, 'error'),
-      },
-    );
-
-  return (
-    <div className="space-y-3">
-      {detail.blockers.length === 0 ? (
-        <p className="rounded-xl bg-surface-2 px-3 py-3 text-sm text-ink-2">
-          Nenhum impedimento. Registre aqui quando a demanda depender de outra pessoa ou equipe: o tempo de
-          espera fica separado do esforço.
-        </p>
-      ) : (
-        <ul className="divide-y divide-line rounded-xl border border-line">
-          {detail.blockers.map((b) => {
-            const open = b.resolvedAt === null;
-            const days = waitingWorkdays([b], today);
-            return (
-              <li key={b.id} className="flex items-start gap-3 px-3 py-2.5 text-sm">
-                <span className={`mt-0.5 shrink-0 ${open ? 'text-warning-text' : 'text-good-text'}`}>
-                  {open ? <HourglassIcon size={16} /> : <CheckIcon size={16} />}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className={`font-medium ${open ? 'text-ink' : 'text-ink-2'}`}>{b.owner}</p>
-                  {b.description && <p className="text-ink-2">{b.description}</p>}
-                  <p className="tabular text-xs text-ink-3">
-                    Desde {dayLabel(b.since)}
-                    {open ? '' : ` · resolvido em ${dayLabel(b.resolvedAt!)}`} ·{' '}
-                    {days === 1 ? '1 dia útil' : `${days} dias úteis`} de espera
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  <button
-                    onClick={() => setResolved(b, open ? (today < b.since ? b.since : today) : null)}
-                    disabled={save.isPending}
-                    className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
-                      open ? 'bg-good-soft text-good-text hover:brightness-95' : 'text-ink-2 hover:bg-surface-2'
-                    }`}
-                  >
-                    {open ? 'Resolver' : 'Reabrir'}
-                  </button>
-                  <IconButton
-                    label="Excluir impedimento"
-                    onClick={() => remove.mutate(b.id, { onError: (err) => toast(err.message, 'error') })}
-                  >
-                    <TrashIcon size={15} />
-                  </IconButton>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      <form onSubmit={submit} className="grid gap-2 rounded-xl border border-dashed border-line p-3 sm:grid-cols-[1fr_auto]">
-        <input
-          required
-          value={owner}
-          onChange={(e) => setOwner(e.target.value)}
-          placeholder="Responsável (pessoa ou equipe)"
-          maxLength={200}
-          aria-label="Responsável pelo impedimento"
-          className="field py-1.5! text-sm"
-        />
-        <input
-          type="date"
-          value={since}
-          onChange={(e) => setSince(e.target.value)}
-          aria-label="Desde"
-          className="field tabular py-1.5! text-sm sm:w-auto!"
-        />
-        <input
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="O que está bloqueando? (opcional)"
-          maxLength={2000}
-          aria-label="Descrição do impedimento"
-          className="field py-1.5! text-sm"
-        />
-        <button
-          type="submit"
-          disabled={save.isPending}
-          className="inline-flex items-center justify-center gap-1.5 rounded-full bg-accent px-4 py-1.5 text-sm font-semibold text-on-accent transition hover:bg-accent-hover disabled:opacity-60"
-        >
-          <PlusIcon size={15} /> Impedimento
-        </button>
-      </form>
-    </div>
-  );
-}
-
-function DemandActivities({ activities: acts }: { activities: DemandDetail['activities'] }) {
-  if (acts.length === 0) {
-    return (
-      <p className="rounded-xl bg-surface-2 px-3 py-3 text-sm text-ink-2">
-        Nenhum apontamento ainda. Ao registrar uma atividade, escolha esta demanda no campo “Demanda”.
-      </p>
-    );
-  }
-  return (
-    <ul className="divide-y divide-line rounded-xl border border-line">
-      {acts.map((a) => (
-        <li key={a.id}>
-          <Link
-            to={`/atividades?data=${a.date}`}
-            className="flex items-center gap-3 px-3 py-2 text-sm transition hover:bg-surface-2/70"
-          >
-            <span className="tabular w-16 shrink-0 font-medium text-ink">
-              {WEEKDAY_SHORT[weekdayOf(a.date)]} {formatDayMonth(a.date)}
-            </span>
-            <span className="tabular w-24 shrink-0 text-ink-3">
-              {formatHM(a.startMinute)}–{formatHM(a.endMinute)}
-            </span>
-            <span className="min-w-0 flex-1 truncate text-ink-2">{a.description || a.project}</span>
-            <span className="tabular shrink-0 font-medium text-ink">{formatDuration(durationOf(a))}</span>
-          </Link>
-        </li>
-      ))}
-    </ul>
   );
 }
 
@@ -683,32 +631,15 @@ function Stat({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function IconButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className="grid size-8 place-items-center rounded-full text-ink-3 transition hover:bg-surface-2 hover:text-ink"
-    >
-      {children}
-    </button>
-  );
-}
-
-function EmptyList({ filter }: { filter: Filter }) {
+function EmptyList({ category, filtered }: { category: DemandCategory; filtered: boolean }) {
   return (
     <div className="card flex flex-col items-center px-6 py-12 text-center">
       <span className="grid size-12 place-items-center rounded-full bg-accent-soft text-accent">
-        <TargetIcon size={22} />
+        {filtered ? <PlusIcon size={22} /> : categoryIcon[category](22)}
       </span>
-      <p className="mt-3 font-semibold text-ink">
-        {filter === 'encerradas' ? 'Nenhuma demanda encerrada' : 'Nenhuma demanda por aqui'}
-      </p>
-      <p className="mt-1 max-w-xs text-sm text-ink-2">
-        {filter === 'encerradas'
-          ? 'Demandas concluídas ou canceladas aparecem nesta lista.'
-          : 'Crie uma demanda ou chamado com os identificadores, o prazo e, se quiser, a meta de horas. Depois, vincule suas atividades a ela.'}
+      <p className="mt-3 font-semibold text-ink">{filtered ? 'Nada com este filtro' : COPY[category].empty}</p>
+      <p className="mt-1 max-w-sm text-sm text-ink-2">
+        {filtered ? 'Troque o filtro acima para ver as demais declarações.' : COPY[category].hint}
       </p>
     </div>
   );
