@@ -10,11 +10,12 @@ import {
   type DayMetrics,
   type ISODate,
 } from '@acomp/shared';
-import { useCycle, useDayActivities, useDeleteActivity } from '../api/client';
+import { Link } from 'react-router';
+import { useCycle, useDayActivities, useDeleteActivity, useDemands } from '../api/client';
 import { ActivityForm } from '../components/ActivityForm';
 import { ConformityBadge, dayStyle, StatusBadge } from '../components/Badges';
 import { CycleNav } from '../components/CycleNav';
-import { ClockIcon, PencilIcon, PlusIcon, TrashIcon, TrendUpIcon } from '../components/icons';
+import { ClockIcon, LayersIcon, PencilIcon, PlusIcon, TargetIcon, TrashIcon, TrendUpIcon } from '../components/icons';
 import { ErrorState, Skeleton } from '../components/States';
 import { useToast } from '../components/Toast';
 import { useRefDate } from '../hooks';
@@ -32,6 +33,8 @@ export function Activities() {
   const day = resolveWorkday(refDate);
   const cycle = useCycle(day);
   const activities = useDayActivities(day);
+  const demands = useDemands();
+  const demandTitle = new Map(demands.data?.map((d) => [d.id, d.title]));
   const [editingId, setEditingId] = useState<number | null>(null);
   const formRef = useRef<HTMLElement>(null);
 
@@ -87,6 +90,7 @@ export function Activities() {
                 <ActivityItem
                   key={a.id}
                   activity={a}
+                  demandTitle={a.demandId ? demandTitle.get(a.demandId) : undefined}
                   isEditing={a.id === editingId}
                   onEdit={() => {
                     setEditingId(a.id);
@@ -196,17 +200,29 @@ function DaySummary({ metrics }: { metrics: DayMetrics }) {
           {metrics.diagnosis} · {metrics.activityCount} {metrics.activityCount === 1 ? 'atividade' : 'atividades'}
         </p>
       )}
+      {metrics.overlapMinutes > 0 && (
+        <p className="mt-2 flex items-start gap-2 text-xs text-ink-2">
+          <LayersIcon size={14} className="mt-px shrink-0 text-ink-3" />
+          <span>
+            Horários sobrepostos: o trecho em comum (
+            <strong className="tabular font-semibold text-ink">{formatDuration(metrics.overlapMinutes)}</strong>) entrou uma
+            única vez no total do dia.
+          </span>
+        </p>
+      )}
     </div>
   );
 }
 
 function ActivityItem({
   activity: a,
+  demandTitle,
   isEditing,
   onEdit,
   onDeleted,
 }: {
   activity: Activity;
+  demandTitle?: string;
   isEditing: boolean;
   onEdit: () => void;
   onDeleted: () => void;
@@ -246,7 +262,19 @@ function ActivityItem({
           {a.description && <p className="mt-1 text-sm whitespace-pre-line text-ink-2">{a.description}</p>}
           {a.notes && <p className="mt-1 text-sm text-ink-3">↳ {a.notes}</p>}
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-            <StatusBadge value={a.status} />
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge value={a.status} />
+              {a.demandId && demandTitle && (
+                <Link
+                  to={`/demandas#demanda-${a.demandId}`}
+                  className="inline-flex max-w-56 items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent hover:brightness-95"
+                  title="Demanda de ciclo"
+                >
+                  <TargetIcon size={13} className="shrink-0" />
+                  <span className="truncate">{demandTitle}</span>
+                </Link>
+              )}
+            </div>
             <div className="flex items-center gap-1">
               {confirming ? (
                 <>

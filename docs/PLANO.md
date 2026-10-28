@@ -119,3 +119,27 @@ npm run dev     # API em :3001 e web em :5173
 npm test        # testes das regras e da API
 npm start       # build do front + servidor único em :3001
 ```
+
+## 6. Demandas de ciclo e correção de sobreposição (v0.2)
+
+- **Demandas de ciclo:** trabalhos longos, feitos em vários dias, com meta de horas totais
+  (até 999h59), data de início e data de conclusão opcional. Status: ativa ou concluída.
+- **Vínculo:** cada atividade pode ser atribuída a uma demanda (campo "Demanda de ciclo").
+  As horas da demanda são a soma das atividades vinculadas. Excluir a demanda mantém as
+  atividades, sem vínculo.
+- **Análise de horas:** não iniciada, em andamento, meta atingida ou meta excedida, com o
+  quanto falta ou excedeu.
+- **Prazo:** "no prazo", "prazo próximo" (até 2 dias úteis), "vence hoje" ou "atrasada".
+  Calcula o ritmo necessário por dia útil e marca "em risco" quando o que falta não cabe nos
+  dias restantes nem com a meta diária inteira. Lembretes aparecem no painel e na tela Demandas.
+- **Painel:** novo gráfico com horas apontadas × meta de cada demanda ativa.
+- **Sobreposição:** horários sobrepostos no mesmo dia contam uma única vez (união dos
+  intervalos), tanto no total do dia quanto nas horas das demandas.
+- **Banco:** migrações versionadas por `PRAGMA user_version`; bancos existentes são
+  atualizados automaticamente ao iniciar o servidor.
+- **Navegação:** no celular, barra inferior com as quatro telas.
+- **Distribuição do dia (painel):** gráfico de pizza com o tempo de um dia escolhido
+  (Sex–Qui) dividido por demanda; atividades sem demanda aparecem pelo projeto. Trechos
+  sobrepostos são divididos igualmente entre as atividades simultâneas, para a soma das
+  fatias bater com o total do dia. Até 6 fatias (o restante vira "Outros"); cores da paleta
+  categórica validada, atribuídas pela identidade e não pelo tamanho.

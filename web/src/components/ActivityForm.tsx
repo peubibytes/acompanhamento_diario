@@ -9,7 +9,7 @@ import {
   type ActivityStatus,
   type ISODate,
 } from '@acomp/shared';
-import { useSaveActivity } from '../api/client';
+import { useDemands, useSaveActivity } from '../api/client';
 import { statusStyle } from './Badges';
 import { ClockIcon } from './icons';
 import { useToast } from './Toast';
@@ -33,6 +33,21 @@ export function ActivityForm({ date, editing, suggestedStart, onDone }: Props) {
   const [description, setDescription] = useState(editing?.description ?? '');
   const [notes, setNotes] = useState(editing?.notes ?? '');
   const [status, setStatus] = useState<ActivityStatus>(editing?.status ?? 'concluido');
+  const [demandId, setDemandId] = useState<number | null>(editing?.demandId ?? null);
+
+  // Demandas ativas, mais a já vinculada (caso tenha sido concluída depois).
+  const demands = useDemands();
+  const demandOptions = (demands.data ?? [])
+    .filter((d) => d.status === 'ativa' || d.id === editing?.demandId)
+    .sort((a, b) => a.title.localeCompare(b.title, 'pt-BR'));
+
+  const chooseDemand = (value: string) => {
+    const id = value ? Number(value) : null;
+    setDemandId(id);
+    // Com o projeto ainda vazio, usa o título da demanda como ponto de partida.
+    const chosen = demandOptions.find((d) => d.id === id);
+    if (chosen && !project.trim()) setProject(chosen.title);
+  };
 
   const startMin = parseHM(start);
   const endMin = parseHM(end);
@@ -47,7 +62,7 @@ export function ActivityForm({ date, editing, suggestedStart, onDone }: Props) {
     save.mutate(
       {
         id: editing?.id,
-        input: { date, startMinute: startMin, endMinute: endMin, project, description, notes, status },
+        input: { date, startMinute: startMin, endMinute: endMin, project, description, notes, status, demandId },
       },
       {
         onSuccess: ({ activity, warnings }) => {
@@ -60,6 +75,7 @@ export function ActivityForm({ date, editing, suggestedStart, onDone }: Props) {
             setDescription('');
             setNotes('');
             setStatus('concluido');
+            setDemandId(null);
           }
           onDone(activity);
         },
@@ -97,7 +113,22 @@ export function ActivityForm({ date, editing, suggestedStart, onDone }: Props) {
         </div>
       </div>
 
-      <Field label="Projeto / demanda">
+      <Field label="Demanda de ciclo" optional>
+        <select value={demandId ?? ''} onChange={(e) => chooseDemand(e.target.value)} className="field">
+          <option value="">Nenhuma</option>
+          {demandOptions.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.title} ({formatDuration(d.metrics.logged)} de {formatDuration(d.metrics.target)})
+              {d.status === 'concluida' ? ' · concluída' : ''}
+            </option>
+          ))}
+        </select>
+        {demandOptions.length === 0 && demands.isSuccess && (
+          <span className="mt-1 block text-xs text-ink-3">Nenhuma demanda ativa. Crie uma na tela Demandas.</span>
+        )}
+      </Field>
+
+      <Field label="Projeto">
         <input
           required
           value={project}

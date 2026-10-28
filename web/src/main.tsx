@@ -7,6 +7,7 @@ import { ToastProvider } from './components/Toast';
 import './index.css';
 import { Activities } from './pages/Activities';
 import { Dashboard } from './pages/Dashboard';
+import { Demands } from './pages/Demands';
 import { Details } from './pages/Details';
 
 const queryClient = new QueryClient({
@@ -22,6 +23,7 @@ createRoot(document.getElementById('root')!).render(
             <Route element={<Layout />}>
               <Route index element={<Dashboard />} />
               <Route path="atividades" element={<Activities />} />
+              <Route path="demandas" element={<Demands />} />
               <Route path="detalhes" element={<Details />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>

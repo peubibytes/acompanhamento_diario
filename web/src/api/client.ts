@@ -1,5 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getCycle, type Activity, type ActivityInput, type CycleSummary, type ISODate } from '@acomp/shared';
+import {
+  getCycle,
+  type Activity,
+  type ActivityInput,
+  type CycleSummary,
+  type DemandInput,
+  type DemandStatus,
+  type DemandSummary,
+  type ISODate,
+} from '@acomp/shared';
 
 export class ApiError extends Error {}
 
@@ -28,7 +37,11 @@ interface SaveResult {
 const keys = {
   cycle: (date: ISODate) => ['cycle', getCycle(date).start] as const,
   activities: (date: ISODate) => ['activities', date] as const,
+  demands: (status?: DemandStatus) => ['demands', 'list', status ?? 'todas'] as const,
+  demand: (id: number) => ['demands', 'detail', id] as const,
 };
+
+export type DemandDetail = DemandSummary & { activities: Activity[] };
 
 export function useCycle(date: ISODate) {
   return useQuery({
@@ -44,13 +57,31 @@ export function useDayActivities(date: ISODate) {
   });
 }
 
-/** Atualiza a lista e as métricas depois de qualquer alteração. */
+export function useDemands(status?: DemandStatus) {
+  return useQuery({
+    queryKey: keys.demands(status),
+    queryFn: () => request<DemandSummary[]>('GET', `/demands${status ? `?status=${status}` : ''}`),
+  });
+}
+
+export function useDemand(id: number, enabled = true) {
+  return useQuery({
+    queryKey: keys.demand(id),
+    queryFn: () => request<DemandDetail>('GET', `/demands/${id}`),
+    enabled,
+  });
+}
+
+/**
+ * Atualiza listas e métricas depois de qualquer alteração. Atividades e demandas se
+ * afetam mutuamente (horas apontadas, vínculo removido ao excluir), então tudo é revalidado.
+ */
 function useInvalidate() {
   const client = useQueryClient();
-  return () => Promise.all([
-    client.invalidateQueries({ queryKey: ['cycle'] }),
-    client.invalidateQueries({ queryKey: ['activities'] }),
-  ]);
+  return () =>
+    Promise.all(
+      ['cycle', 'activities', 'demands'].map((key) => client.invalidateQueries({ queryKey: [key] })),
+    );
 }
 
 export function useSaveActivity() {
@@ -75,6 +106,25 @@ export function useSetGoal() {
   return useMutation({
     mutationFn: ({ date, minutes }: { date: ISODate; minutes: number }) =>
       request<{ appliesToNextCycles: boolean }>('PUT', `/cycles/${date}/goal`, { dailyGoalMinutes: minutes }),
+    onSuccess: invalidate,
+  });
+}
+
+export function useSaveDemand() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ id, input }: { id?: number; input: DemandInput }) =>
+      id
+        ? request<DemandSummary>('PUT', `/demands/${id}`, input)
+        : request<DemandSummary>('POST', '/demands', input),
+    onSuccess: invalidate,
+  });
+}
+
+export function useDeleteDemand() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (id: number) => request<void>('DELETE', `/demands/${id}`),
     onSuccess: invalidate,
   });
 }

@@ -17,7 +17,10 @@ export interface DayMetrics {
   weekdayShort: string;
   weekdayLong: string;
   goal: number;
+  /** Minutos apontados, contando uma única vez os períodos sobrepostos. */
   minutes: number;
+  /** Minutos em sobreposição que deixaram de ser somados. */
+  overlapMinutes: number;
   /** minutos apontados − meta */
   diff: number;
   /** Vazio quando não há apontamento, como na planilha. */
@@ -52,12 +55,38 @@ export interface CycleSummary {
   week: WeekMetrics;
 }
 
-export const durationOf = (a: Pick<Activity, 'startMinute' | 'endMinute'>) =>
-  Math.max(0, a.endMinute - a.startMinute);
+type Interval = Pick<Activity, 'startMinute' | 'endMinute'>;
+
+export const durationOf = (a: Interval) => Math.max(0, a.endMinute - a.startMinute);
+
+/**
+ * Minutos cobertos pela união dos intervalos: períodos sobrepostos contam uma única vez.
+ * Ex.: 08:00–10:00 e 09:00–11:00 → 180 min (e não 240).
+ */
+export function unionMinutes(intervals: Interval[]): number {
+  const sorted = intervals.filter((i) => durationOf(i) > 0).sort((a, b) => a.startMinute - b.startMinute);
+  let total = 0;
+  let coveredUntil = -1;
+  for (const { startMinute, endMinute } of sorted) {
+    if (endMinute <= coveredUntil) continue;
+    total += endMinute - Math.max(startMinute, coveredUntil);
+    coveredUntil = endMinute;
+  }
+  return total;
+}
+
+/** Soma da união por dia: a mesma lógica aplicada a atividades de várias datas. */
+export function unionMinutesByDay(activities: Pick<Activity, 'date' | 'startMinute' | 'endMinute'>[]): number {
+  const byDay = Map.groupBy(activities, (a) => a.date);
+  let total = 0;
+  for (const ofDay of byDay.values()) total += unionMinutes(ofDay);
+  return total;
+}
 
 export function dayMetrics(date: ISODate, activities: Activity[], goal: number): DayMetrics {
   const ofDay = activities.filter((a) => a.date === date);
-  const minutes = ofDay.reduce((sum, a) => sum + durationOf(a), 0);
+  const minutes = unionMinutes(ofDay);
+  const overlapMinutes = ofDay.reduce((sum, a) => sum + durationOf(a), 0) - minutes;
   const diff = minutes - goal;
   const wd = weekdayOf(date);
 
@@ -83,6 +112,7 @@ export function dayMetrics(date: ISODate, activities: Activity[], goal: number):
     weekdayLong: WEEKDAY_LONG[wd],
     goal,
     minutes,
+    overlapMinutes,
     diff,
     diffLabel: minutes === 0 ? '' : formatDiff(diff),
     activityCount: ofDay.filter((a) => durationOf(a) > 0).length,

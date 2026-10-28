@@ -1,8 +1,8 @@
 // Todo tempo da aplicação é representado em minutos inteiros.
 
-const HM_PATTERN = /^(\d{1,2}):([0-5]\d)$/;
+const HM_PATTERN = /^(\d{1,3}):([0-5]\d)$/;
 
-/** "08:45" → 525. Retorna null se o texto não estiver no formato hh:mm. */
+/** "08:45" → 525, "120:00" → 7200. Retorna null fora do formato h:mm (até 999h). */
 export function parseHM(text: string): number | null {
   const match = HM_PATTERN.exec(text.trim());
   if (!match) return null;

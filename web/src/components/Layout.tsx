@@ -1,12 +1,14 @@
+import type { ReactNode } from 'react';
 import { NavLink, Outlet } from 'react-router';
 import { useRefDate, withDate } from '../hooks';
-import { CheckIcon } from './icons';
+import { CheckIcon, GridIcon, ListIcon, TableIcon, TargetIcon } from './icons';
 import { ThemeToggle } from './ThemeToggle';
 
-const links = [
-  { to: '/', label: 'Painel' },
-  { to: '/atividades', label: 'Atividades' },
-  { to: '/detalhes', label: 'Detalhes' },
+const links: { to: string; label: string; icon: ReactNode }[] = [
+  { to: '/', label: 'Painel', icon: <GridIcon size={20} /> },
+  { to: '/atividades', label: 'Atividades', icon: <ListIcon size={20} /> },
+  { to: '/demandas', label: 'Demandas', icon: <TargetIcon size={20} /> },
+  { to: '/detalhes', label: 'Detalhes', icon: <TableIcon size={20} /> },
 ];
 
 export function Layout() {
@@ -20,19 +22,20 @@ export function Layout() {
             <span className="grid size-8 place-items-center rounded-lg bg-accent text-on-accent">
               <CheckIcon size={18} strokeWidth={2.75} />
             </span>
-            <span className="hidden text-[15px] font-semibold tracking-tight text-ink sm:inline">
+            <span className="text-[15px] font-semibold tracking-tight text-ink sm:hidden lg:inline">
               Acompanhamento Diário
             </span>
           </NavLink>
           <div className="flex items-center gap-2">
-            <nav className="flex items-center gap-0.5 rounded-full bg-surface-2 p-1 sm:gap-1">
+            {/* Desktop/tablet: navegação no topo */}
+            <nav className="hidden items-center gap-1 rounded-full bg-surface-2 p-1 sm:flex" aria-label="Principal">
               {links.map((l) => (
                 <NavLink
                   key={l.to}
                   to={withDate(l.to, date)}
                   end
                   className={({ isActive }) =>
-                    `rounded-full px-2.5 py-1.5 text-sm font-medium transition sm:px-4 ${
+                    `rounded-full px-4 py-1.5 text-sm font-medium transition ${
                       isActive ? 'bg-surface text-ink shadow-sm' : 'text-ink-2 hover:text-ink'
                     }`
                   }
@@ -45,9 +48,34 @@ export function Layout() {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+
+      <main className="mx-auto max-w-6xl px-4 pt-6 pb-28 sm:px-6 sm:py-8">
         <Outlet />
       </main>
+
+      {/* Celular: barra de navegação inferior, ao alcance do polegar */}
+      <nav
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:hidden"
+        aria-label="Principal"
+      >
+        <div className="grid grid-cols-4">
+          {links.map((l) => (
+            <NavLink
+              key={l.to}
+              to={withDate(l.to, date)}
+              end
+              className={({ isActive }) =>
+                `flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition ${
+                  isActive ? 'text-accent' : 'text-ink-3 hover:text-ink'
+                }`
+              }
+            >
+              {l.icon}
+              {l.label}
+            </NavLink>
+          ))}
+        </div>
+      </nav>
     </div>
   );
 }

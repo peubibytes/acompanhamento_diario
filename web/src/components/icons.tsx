@@ -120,3 +120,44 @@ export const SendIcon = (p: IconProps) => (
     <path d="M4 12l16-8-6 16-2.5-6.5L4 12z" />
   </Icon>
 );
+export const GridIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="4" y="4" width="7" height="7" rx="2" />
+    <rect x="13" y="4" width="7" height="7" rx="2" />
+    <rect x="4" y="13" width="7" height="7" rx="2" />
+    <rect x="13" y="13" width="7" height="7" rx="2" />
+  </Icon>
+);
+export const ListIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01" />
+  </Icon>
+);
+export const TableIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
+    <path d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5v10" />
+  </Icon>
+);
+export const TargetIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="12" cy="12" r="8.5" />
+    <circle cx="12" cy="12" r="4.5" />
+    <circle cx="12" cy="12" r="0.8" fill="currentColor" />
+  </Icon>
+);
+export const BellIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M6 16V11a6 6 0 1112 0v5l1.5 2h-15L6 16zM10 20.5a2 2 0 004 0" />
+  </Icon>
+);
+export const UndoIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 010 11H11" />
+  </Icon>
+);
+export const LayersIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 4l8.5 4.5L12 13 3.5 8.5 12 4zM3.5 12.5L12 17l8.5-4.5M3.5 16.5L12 21l8.5-4.5" />
+  </Icon>
+);

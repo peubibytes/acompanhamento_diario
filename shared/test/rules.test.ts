@@ -11,11 +11,12 @@ import {
   isWorkday,
   parseHM,
   remainingWorkdays,
+  unionMinutes,
   type Activity,
 } from '../src/index.ts';
 
 let nextId = 1;
-function act(date: string, start: string, end: string): Activity {
+function act(date: string, start: string, end: string, demandId: number | null = null): Activity {
   return {
     id: nextId++,
     date,
@@ -25,8 +26,64 @@ function act(date: string, start: string, end: string): Activity {
     description: '',
     notes: '',
     status: 'concluido',
+    demandId,
   };
 }
+
+describe('sobreposição de horários', () => {
+  it('períodos sobrepostos contam uma única vez', () => {
+    const d = dayMetrics(
+      '2026-10-26',
+      [act('2026-10-26', '08:00', '10:00'), act('2026-10-26', '09:00', '11:00')],
+      330,
+    );
+    assert.equal(d.minutes, 180);
+    assert.equal(d.overlapMinutes, 60);
+    assert.equal(d.activityCount, 2);
+  });
+
+  it('atividade contida em outra não soma nada', () => {
+    const d = dayMetrics(
+      '2026-10-26',
+      [act('2026-10-26', '08:00', '12:00'), act('2026-10-26', '09:00', '10:00')],
+      330,
+    );
+    assert.equal(d.minutes, 240);
+    assert.equal(d.overlapMinutes, 60);
+  });
+
+  it('intervalos que apenas se encostam somam normalmente', () => {
+    assert.equal(
+      unionMinutes([
+        { startMinute: 480, endMinute: 540 },
+        { startMinute: 540, endMinute: 600 },
+      ]),
+      120,
+    );
+  });
+
+  it('une cadeias de sobreposições em qualquer ordem', () => {
+    assert.equal(
+      unionMinutes([
+        { startMinute: 700, endMinute: 760 },
+        { startMinute: 480, endMinute: 600 },
+        { startMinute: 590, endMinute: 710 },
+        { startMinute: 900, endMinute: 930 },
+      ]),
+      310,
+    );
+  });
+
+  it('a sobreposição não torna o dia irregular por engano', () => {
+    const d = dayMetrics(
+      '2026-10-26',
+      [act('2026-10-26', '08:00', '13:30'), act('2026-10-26', '12:00', '13:00')],
+      330,
+    );
+    assert.equal(d.conformity, 'conforme');
+    assert.equal(d.exceeded, false);
+  });
+});
 
 describe('tempo', () => {
   it('converte hh:mm em minutos e volta', () => {

@@ -1,11 +1,14 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { formatDuration, WORKDAYS_PER_CYCLE, type CycleSummary } from '@acomp/shared';
-import { useCycle } from '../api/client';
+import { useCycle, useDemands } from '../api/client';
 import { dayStyle, toneStyle, type DayTone } from '../components/Badges';
 import { CycleBanner } from '../components/CycleBanner';
 import { CycleNav } from '../components/CycleNav';
 import { DailyChart } from '../components/DailyChart';
+import { DayBreakdownChart } from '../components/DayBreakdownChart';
+import { DeadlineAlert } from '../components/DeadlineAlert';
+import { DemandsChart } from '../components/DemandsChart';
 import { GoalSelector } from '../components/GoalSelector';
 import { IrregularAlert } from '../components/IrregularAlert';
 import { ChevronDown, PlusIcon } from '../components/icons';
@@ -51,10 +54,12 @@ export function Dashboard() {
 function DashboardContent({ summary, date }: { summary: CycleSummary; date: string }) {
   const { week, days, dailyGoal } = summary;
   const missing = Math.max(0, week.goal - week.total);
+  const demands = useDemands('ativa');
 
   return (
     <>
       <IrregularAlert days={days} dailyGoal={dailyGoal} />
+      {demands.data && <DeadlineAlert demands={demands.data} />}
       <CycleBanner summary={summary} />
 
       <div className="grid gap-4 lg:grid-cols-5">
@@ -132,6 +137,18 @@ function DashboardContent({ summary, date }: { summary: CycleSummary; date: stri
         </div>
         <DailyChart days={days} goal={dailyGoal} />
       </section>
+
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        {/* A chave reinicia o dia escolhido ao trocar de ciclo. */}
+        <DayBreakdownChart key={summary.start} summary={summary} />
+        {demands.isPending ? (
+          <Skeleton className="h-80" />
+        ) : demands.isError ? (
+          <ErrorState message={demands.error.message} onRetry={() => demands.refetch()} />
+        ) : (
+          <DemandsChart demands={demands.data} />
+        )}
+      </div>
 
       <div className="flex justify-center pt-2 pb-4">
         <Link

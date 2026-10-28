@@ -25,6 +25,8 @@ export interface Activity {
   description: string;
   notes: string;
   status: ActivityStatus;
+  /** Demanda de ciclo à qual as horas são atribuídas (opcional). */
+  demandId: number | null;
 }
 
 export type ActivityInput = Omit<Activity, 'id'>;

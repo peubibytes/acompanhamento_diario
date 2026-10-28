@@ -4,6 +4,8 @@ import {
   getCycle,
   type Activity,
   type ActivityInput,
+  type Demand,
+  type DemandInput,
   type ISODate,
 } from '@acomp/shared';
 
@@ -16,6 +18,17 @@ interface ActivityRow {
   description: string;
   notes: string;
   status: Activity['status'];
+  demand_id: number | null;
+}
+
+interface DemandRow {
+  id: number;
+  title: string;
+  description: string;
+  target_minutes: number;
+  start_date: string;
+  due_date: string | null;
+  status: Demand['status'];
 }
 
 const toActivity = (r: ActivityRow): Activity => ({
@@ -26,6 +39,17 @@ const toActivity = (r: ActivityRow): Activity => ({
   project: r.project,
   description: r.description,
   notes: r.notes,
+  status: r.status,
+  demandId: r.demand_id,
+});
+
+const toDemand = (r: DemandRow): Demand => ({
+  id: r.id,
+  title: r.title,
+  description: r.description,
+  targetMinutes: r.target_minutes,
+  startDate: r.start_date,
+  dueDate: r.due_date,
   status: r.status,
 });
 
@@ -40,12 +64,12 @@ export function createRepo(db: DatabaseSync) {
     ),
     byId: db.prepare('SELECT * FROM activities WHERE id = ?'),
     insert: db.prepare(`
-      INSERT INTO activities (date, start_minute, end_minute, project, description, notes, status)
-      VALUES (:date, :startMinute, :endMinute, :project, :description, :notes, :status)`),
+      INSERT INTO activities (date, start_minute, end_minute, project, description, notes, status, demand_id)
+      VALUES (:date, :startMinute, :endMinute, :project, :description, :notes, :status, :demandId)`),
     update: db.prepare(`
       UPDATE activities SET date = :date, start_minute = :startMinute, end_minute = :endMinute,
         project = :project, description = :description, notes = :notes, status = :status,
-        updated_at = CURRENT_TIMESTAMP
+        demand_id = :demandId, updated_at = CURRENT_TIMESTAMP
       WHERE id = :id`),
     remove: db.prepare('DELETE FROM activities WHERE id = ?'),
     overlaps: db.prepare(`
@@ -65,6 +89,23 @@ export function createRepo(db: DatabaseSync) {
       'INSERT OR IGNORE INTO cycle_goals (cycle_start, daily_goal_minutes) VALUES (?, ?)',
     ),
     clearLaterGoals: db.prepare('DELETE FROM cycle_goals WHERE cycle_start > ?'),
+
+    demands: db.prepare('SELECT * FROM demands ORDER BY id'),
+    demandById: db.prepare('SELECT * FROM demands WHERE id = ?'),
+    insertDemand: db.prepare(`
+      INSERT INTO demands (title, description, target_minutes, start_date, due_date, status)
+      VALUES (:title, :description, :targetMinutes, :startDate, :dueDate, :status)`),
+    updateDemand: db.prepare(`
+      UPDATE demands SET title = :title, description = :description, target_minutes = :targetMinutes,
+        start_date = :startDate, due_date = :dueDate, status = :status, updated_at = CURRENT_TIMESTAMP
+      WHERE id = :id`),
+    removeDemand: db.prepare('DELETE FROM demands WHERE id = ?'),
+    linkedActivities: db.prepare(
+      'SELECT * FROM activities WHERE demand_id IS NOT NULL ORDER BY date, start_minute, id',
+    ),
+    activitiesOfDemand: db.prepare(
+      'SELECT * FROM activities WHERE demand_id = ? ORDER BY date DESC, start_minute DESC, id DESC',
+    ),
   };
 
   const defaultGoal = (): number => {
@@ -101,6 +142,40 @@ export function createRepo(db: DatabaseSync) {
       return (q.overlaps.all(a.date, a.endMinute, a.startMinute, ignoreId) as unknown as ActivityRow[]).map(
         toActivity,
       );
+    },
+
+    listDemands(): Demand[] {
+      return (q.demands.all() as unknown as DemandRow[]).map(toDemand);
+    },
+
+    getDemand(id: number): Demand | undefined {
+      const row = q.demandById.get(id) as DemandRow | undefined;
+      return row && toDemand(row);
+    },
+
+    createDemand(input: DemandInput): Demand {
+      const { lastInsertRowid } = q.insertDemand.run({ ...input });
+      return this.getDemand(Number(lastInsertRowid))!;
+    },
+
+    updateDemand(id: number, input: DemandInput): Demand | undefined {
+      const { changes } = q.updateDemand.run({ ...input, id });
+      return changes ? this.getDemand(id) : undefined;
+    },
+
+    /** Remove a demanda; as atividades vinculadas permanecem, sem vínculo (ON DELETE SET NULL). */
+    deleteDemand(id: number): boolean {
+      return q.removeDemand.run(id).changes > 0;
+    },
+
+    /** Todas as atividades vinculadas a alguma demanda (para calcular as horas de cada uma). */
+    listLinkedActivities(): Activity[] {
+      return (q.linkedActivities.all() as unknown as ActivityRow[]).map(toActivity);
+    },
+
+    /** Atividades de uma demanda, das mais recentes para as mais antigas. */
+    listDemandActivities(id: number): Activity[] {
+      return (q.activitiesOfDemand.all(id) as unknown as ActivityRow[]).map(toActivity);
     },
 
     defaultGoal,
