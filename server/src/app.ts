@@ -3,7 +3,6 @@ import { join } from 'node:path';
 import express, { type ErrorRequestHandler, type Response } from 'express';
 import { z } from 'zod';
 import {
-  ACTIVITY_STATUSES,
   buildCycleSummary,
   buildDemandSummary,
   compareDemands,
@@ -39,7 +38,6 @@ const activitySchema = z
     demandId: z.int('Escolha a demanda apontada.').positive('Escolha a demanda apontada.'),
     description: z.string().trim().max(2000).default(''),
     notes: z.string().trim().max(2000).default(''),
-    status: z.enum(ACTIVITY_STATUSES, 'Status inválido.'),
   })
   .refine((a) => a.endMinute > a.startMinute, {
     message: 'O horário de fim deve ser depois do início.',

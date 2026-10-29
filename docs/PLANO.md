@@ -58,9 +58,10 @@ metas e relatórios de prestação de contas (daily, 1:1, relatório mensal).
 
 ### Apontamento
 - Campos: data, início, fim, duração (calculada), **demanda (obrigatória)**, o que foi feito,
-  observações/entregáveis, status. O "projeto" da planilha é o nome da demanda.
+  observações/entregáveis. O "projeto" da planilha é o nome da demanda.
 - `duração = fim − início`, com `fim > início`.
-- Status: **Concluído, Não concluído, Pendente de aprovação, Não iniciado**.
+- O apontamento **não tem status**: o andamento é da demanda (v0.7, `docs/decisions/0003`). O formulário
+  mostra o status da demanda escolhida, só para leitura, com o atalho "Alterar em Demandas".
 - Horários sobrepostos no mesmo dia geram aviso (não bloqueiam).
 
 ### Métricas por dia (replicadas da planilha)
@@ -99,7 +100,7 @@ acompanhamento_diario/
 ### Modelo de dados
 ```sql
 -- activities = apontamentos (nome histórico). project = nome da demanda, mantido em dia.
-activities(id, date, start_minute, end_minute, project, description, notes, status,
+activities(id, date, start_minute, end_minute, project, description, notes,
            demand_id → demands (ON DELETE SET NULL; nulo só nos anteriores à v0.5),
            created_at, updated_at)
 cycle_goals(cycle_start PRIMARY KEY, daily_goal_minutes)
@@ -292,8 +293,8 @@ em destaque, um título, uma ação principal e um filtro por tela.
   - **Abas dos dias:** dia, horas, ícone de status e uma barrinha; a meta saiu da aba.
   - **Resumo do dia em uma linha:** apontado · meta · situação (selo + diferença); o diagnóstico, o
     aviso de irregular e o de horários sobrepostos estão no ⓘ.
-  - **Itens compactos:** horário, demanda e duração em destaque, com o ícone de status. A
-    descrição, as observações e o status completo aparecem ao expandir a linha; editar e excluir
+  - **Itens compactos:** horário, demanda e duração em destaque, em destaque. A
+    descrição e as observações aparecem ao expandir a linha; editar e excluir
     aparecem ao passar o mouse (no celular, dentro da linha expandida).
 
 - **Fase 4 — Demandas (pronta):**
@@ -430,7 +431,7 @@ cada dia, um chamado retomado à tarde) aparece reunida.
 ### Apontamentos (`/apontamentos`)
 - O formulário começa pela **demanda** (obrigatória), agrupada por tipo; mostra as encerradas só
   a pedido e oferece atalhos para as usadas recentemente. Depois: início, fim, o que foi feito,
-  observações e status do apontamento.
+  e observações. O status da demanda aparece só para leitura (ele se altera em Demandas).
 - A lista do dia pode ser vista **por horário** ou **por demanda** (cada demanda com o total do dia
   e os horários em que aconteceu). A escolha fica salva no navegador.
 - Apontamentos antigos, sem demanda, continuam valendo nas métricas e aparecem com o aviso

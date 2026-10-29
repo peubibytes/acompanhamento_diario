@@ -5,6 +5,7 @@ import {
   DEMAND_CATEGORY_LABEL,
   formatDayMonth,
   formatDuration,
+  ROUTINE_STATUS_LABEL,
   type CycleStatus,
   type DeadlineStatus,
   type DemandCategory,
@@ -94,6 +95,16 @@ export const routineStatusStyle: Record<RoutineStatus, { badge: string; icon: (s
   em_andamento: { badge: 'bg-accent-soft text-accent', icon: (s) => <ClockIcon size={s} /> },
   concluido: { badge: 'bg-good-soft text-good-text', icon: (s) => <CheckIcon size={s} /> },
 };
+
+export function RoutineStatusBadge({ status }: { status: RoutineStatus }) {
+  const style = routineStatusStyle[status];
+  return (
+    <span className={`${BADGE} ${style.badge}`}>
+      {style.icon(13)}
+      {ROUTINE_STATUS_LABEL[status]}
+    </span>
+  );
+}
 
 /** "3h20 apontadas · 4 apontamentos em 3 dias · último em 28/10" (ou o convite a apontar). */
 export function LoggedSummary({ metrics: m, compact = false }: { metrics: DemandMetrics; compact?: boolean }) {

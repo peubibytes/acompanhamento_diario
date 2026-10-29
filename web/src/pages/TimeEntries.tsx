@@ -7,7 +7,6 @@ import {
   formatDuration,
   formatHM,
   getCycle,
-  STATUS_LABEL,
   todayISO,
   unionMinutesByDay,
   type Activity,
@@ -16,7 +15,7 @@ import {
   type ISODate,
 } from '@acomp/shared';
 import { useCycle, useDayActivities, useDeleteActivity, useDemands } from '../api/client';
-import { ConformityBadge, dayStyle, StatusBadge, statusStyle } from '../components/Badges';
+import { ConformityBadge, dayStyle } from '../components/Badges';
 import { CycleNav } from '../components/CycleNav';
 import { IconButton } from '../components/DemandHistory';
 import { CategoryAvatar, categoryIcon } from '../components/DemandVisuals';
@@ -297,13 +296,12 @@ interface RowProps {
 }
 
 /**
- * Uma linha: horário, demanda e duração. A descrição, as observações e o status completo
+ * Uma linha: horário, demanda e duração. A descrição e as observações
  * aparecem ao expandir; editar e excluir aparecem ao passar o mouse (no celular, dentro da linha expandida).
  */
 function EntryRow({ grouped = false, ...row }: RowProps & { grouped?: boolean }) {
   const { activity: a, demand, expanded, onToggle } = row;
   const detailId = useId();
-  const status = statusStyle[a.status];
 
   return (
     <li className="group">
@@ -329,10 +327,6 @@ function EntryRow({ grouped = false, ...row }: RowProps & { grouped?: boolean })
             </span>
           )}
           <span className="tabular shrink-0 text-sm font-semibold text-ink">{formatDuration(durationOf(a))}</span>
-          <span className={`hidden shrink-0 sm:block ${status.text}`} title={STATUS_LABEL[a.status]}>
-            {status.icon(15)}
-            <span className="sr-only">{STATUS_LABEL[a.status]}</span>
-          </span>
           <ChevronDown size={15} className={`shrink-0 text-ink-3 transition ${expanded ? 'rotate-180' : ''}`} />
         </button>
         <EntryActions
@@ -358,7 +352,6 @@ function EntryRow({ grouped = false, ...row }: RowProps & { grouped?: boolean })
           {a.notes && <p className="text-sm text-ink-3">↳ {a.notes}</p>}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="flex flex-wrap items-center gap-3">
-              <StatusBadge value={a.status} />
               {demand && (
                 <Link to={`/demandas#demanda-${demand.id}`} className="text-xs font-medium text-ink-2 hover:text-ink hover:underline">
                   Ver demanda

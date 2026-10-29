@@ -174,6 +174,19 @@ const MIGRATIONS = [
   ALTER TABLE demands_v4 RENAME TO demands;
   CREATE UNIQUE INDEX idx_demands_ticket ON demands(ticket_number) WHERE category = 'chamado';
   `,
+  // 5 — o status passa a existir só na demanda (docs/decisions/0003). Os status do apontamento
+  // diferentes de 'Concluído' (o padrão do formulário) são preservados no fim das observações.
+  `
+  UPDATE activities
+  SET notes = CASE WHEN notes = '' THEN '' ELSE notes || char(10) END
+              || 'Status anterior: ' || CASE status
+                   WHEN 'nao_concluido' THEN 'Não concluído'
+                   WHEN 'pendente_aprovacao' THEN 'Pendente de aprovação'
+                   ELSE 'Não iniciado' END || '.'
+  WHERE status <> 'concluido';
+
+  ALTER TABLE activities DROP COLUMN status;
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

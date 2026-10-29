@@ -30,7 +30,6 @@ const sample = {
   demandId: 0,
   description: 'Leitura da documentação',
   notes: 'Resumo enviado',
-  status: 'concluido',
 };
 
 before(async () => {
@@ -67,9 +66,11 @@ describe('API de apontamentos e ciclos', () => {
     assert.equal(list.data.length, 1);
     assert.equal(list.data[0].demandId, sample.demandId);
 
-    const edited = await api('PUT', `/activities/${id}`, { ...sample, status: 'pendente_aprovacao' });
+    // O status existe só na demanda: o apontamento não o tem, e um status enviado é ignorado.
+    const edited = await api('PUT', `/activities/${id}`, { ...sample, notes: 'Revisado', status: 'pendente_aprovacao' });
     assert.equal(edited.status, 200);
-    assert.equal(edited.data.activity.status, 'pendente_aprovacao');
+    assert.equal(edited.data.activity.notes, 'Revisado');
+    assert.equal('status' in edited.data.activity, false);
 
     assert.equal((await api('DELETE', `/activities/${id}`)).status, 204);
     assert.equal((await api('DELETE', `/activities/${id}`)).status, 404);
@@ -86,12 +87,11 @@ describe('API de apontamentos e ciclos', () => {
     assert.match(unknown.data.error, /Demanda não encontrada/);
   });
 
-  it('valida horários, dias úteis e status', async () => {
+  it('valida horários e dias úteis', async () => {
     const cases: [object, RegExp][] = [
       [{ ...sample, endMinute: 480 }, /fim deve ser depois/],
       [{ ...sample, date: '2026-10-24' }, /dias úteis/],
       [{ ...sample, date: '2026-13-01' }, /Data inválida/],
-      [{ ...sample, status: 'em_andamento' }, /Status inválido/],
     ];
     for (const [body, message] of cases) {
       const res = await api('POST', '/activities', body);
@@ -398,6 +398,26 @@ describe('API de demandas: ciclos', () => {
 });
 
 describe('migração do banco', () => {
+  it('remove o status do apontamento e preserva o que não era o padrão nas observações', () => {
+    const db = new DatabaseSync(':memory:');
+    migrate(db, 4);
+    db.exec(`
+      INSERT INTO activities (date, start_minute, end_minute, project, notes, status) VALUES
+        ('2026-10-26', 480, 525, 'A', '', 'concluido'),
+        ('2026-10-26', 540, 600, 'B', '', 'pendente_aprovacao'),
+        ('2026-10-26', 600, 660, 'C', 'Resumo enviado', 'nao_concluido');
+    `);
+
+    migrate(db);
+
+    const columns = (db.prepare('PRAGMA table_info(activities)').all() as { name: string }[]).map((c) => c.name);
+    assert.equal(columns.includes('status'), false);
+    const [a, b, c] = createRepo(db).listActivities('2026-10-26', '2026-10-26');
+    assert.equal(a.notes, '');
+    assert.equal(b.notes, 'Status anterior: Pendente de aprovação.');
+    assert.equal(c.notes, 'Resumo enviado\nStatus anterior: Não concluído.');
+  });
+
   it('atualiza um banco da versão inicial sem perder dados', () => {
     const db = new DatabaseSync(':memory:');
     db.exec(`

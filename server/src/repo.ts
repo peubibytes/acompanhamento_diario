@@ -23,7 +23,6 @@ interface ActivityRow {
   project: string;
   description: string;
   notes: string;
-  status: Activity['status'];
   demand_id: number | null;
 }
 
@@ -71,7 +70,6 @@ const toActivity = (r: ActivityRow): Activity => ({
   project: r.project,
   description: r.description,
   notes: r.notes,
-  status: r.status,
   demandId: r.demand_id,
 });
 
@@ -184,11 +182,11 @@ export function createRepo(db: DatabaseSync) {
     ),
     byId: db.prepare('SELECT * FROM activities WHERE id = ?'),
     insert: db.prepare(`
-      INSERT INTO activities (date, start_minute, end_minute, project, description, notes, status, demand_id)
-      VALUES (:date, :startMinute, :endMinute, :project, :description, :notes, :status, :demandId)`),
+      INSERT INTO activities (date, start_minute, end_minute, project, description, notes, demand_id)
+      VALUES (:date, :startMinute, :endMinute, :project, :description, :notes, :demandId)`),
     update: db.prepare(`
       UPDATE activities SET date = :date, start_minute = :startMinute, end_minute = :endMinute,
-        project = :project, description = :description, notes = :notes, status = :status,
+        project = :project, description = :description, notes = :notes,
         demand_id = :demandId, updated_at = CURRENT_TIMESTAMP
       WHERE id = :id`),
     remove: db.prepare('DELETE FROM activities WHERE id = ?'),
