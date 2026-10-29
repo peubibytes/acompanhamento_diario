@@ -3,8 +3,8 @@ import { describe, it } from 'node:test';
 import { dayBreakdown, foldSlices, parseHM } from '../src/index.ts';
 
 const demands = [
-  { id: 1, title: 'Migração dos relatórios' },
-  { id: 2, title: 'Documentação da API' },
+  { id: 1, label: 'Migração dos relatórios' },
+  { id: 2, label: 'Documentação da API' },
 ];
 
 const act = (start: string, end: string, demandId: number | null, project = 'Projeto') => ({

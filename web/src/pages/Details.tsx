@@ -3,35 +3,37 @@ import { formatDayMonth, formatDuration, formatHM, WORKDAYS_PER_CYCLE, type Cycl
 import { useCycle } from '../api/client';
 import { ConformityBadge } from '../components/Badges';
 import { CycleNav } from '../components/CycleNav';
-import { ArrowLeft, CheckIcon, AlertIcon } from '../components/icons';
+import { AlertIcon, CheckIcon } from '../components/icons';
+import { PageHeader } from '../components/PageHeader';
 import { ErrorState, Skeleton } from '../components/States';
-import { useRefDate, withDate } from '../hooks';
+import { useRefDate } from '../hooks';
 
-/** Acompanhamento diário detalhado — espelha a primeira tabela da planilha. */
+/** Detalhes do ciclo, dia a dia — espelha a primeira tabela da planilha. */
 export function Details() {
   const [date, setDate] = useRefDate();
   const cycle = useCycle(date);
 
   return (
-    <div className="space-y-6">
-      <Link
-        to={withDate('/', date)}
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-2 transition hover:text-ink"
-      >
-        <ArrowLeft size={16} /> Voltar ao painel
-      </Link>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">Acompanhamento diário</h1>
-          <p className="mt-1 text-sm text-ink-2">
-            {cycle.data
-              ? `Meta diária de ${formatDuration(cycle.data.dailyGoal)} · ciclo de ${WORKDAYS_PER_CYCLE} dias úteis`
-              : 'Detalhamento por dia útil'}
-          </p>
-        </div>
-        <CycleNav date={date} onChange={setDate} />
-      </div>
+    <div className="space-y-section">
+      <PageHeader
+        title="Detalhes"
+        hint={
+          <>
+            <span className="block">
+              O acompanhamento diário do ciclo, como na planilha
+              {cycle.data && `: meta diária de ${formatDuration(cycle.data.dailyGoal)}, ${WORKDAYS_PER_CYCLE} dias úteis`}.
+            </span>
+            {cycle.data && (
+              <span className="mt-1.5 block">
+                Semana {cycle.data.week.fillPercent}% preenchida: {formatDuration(cycle.data.week.total)} de{' '}
+                {formatDuration(cycle.data.week.goal)}.
+              </span>
+            )}
+            <span className="mt-1.5 block">Clique em um dia para editar os apontamentos.</span>
+          </>
+        }
+        action={<CycleNav date={date} onChange={setDate} />}
+      />
 
       {cycle.isPending ? (
         <Skeleton className="h-96" />
@@ -55,34 +57,45 @@ function DetailTable({ summary }: { summary: CycleSummary }) {
   const { days, week } = summary;
   const allConform = week.conformDays === WORKDAYS_PER_CYCLE;
 
-  const th = 'px-4 py-3 text-left text-[11px] font-semibold tracking-wider text-ink-3 uppercase whitespace-nowrap';
+  // Cabeçalho fixo dentro da área rolável (que também rola na horizontal no celular).
+  const th =
+    'sticky top-0 z-10 bg-surface px-4 py-3 text-left text-2xs font-semibold tracking-wider whitespace-nowrap text-ink-3 uppercase shadow-[inset_0_-1px_0_var(--border)]';
   const td = 'px-4 py-3.5 whitespace-nowrap';
 
   return (
     <div className="card rise overflow-hidden">
-      <div className="overflow-x-auto">
+      <div className="max-h-[calc(100dvh-13rem)] overflow-auto">
         <table className="tabular w-full text-sm">
-          <thead className="border-b border-line bg-surface-2/60">
+          <thead>
             <tr>
               <th className={th}>Data</th>
               <th className={th}>Dia da semana</th>
               <th className={`${th} text-right!`}>Meta</th>
               <th className={`${th} text-right!`}>Horas apontadas</th>
               <th className={`${th} text-right!`}>Diferença</th>
-              <th className={`${th} text-right!`}>Atividades</th>
+              <th className={`${th} text-right!`}>Apontamentos</th>
               <th className={th}>Conformidade</th>
               <th className={th}>Diagnóstico</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-line">
+          <tbody>
             {days.map((d) => (
               <tr
                 key={d.date}
-                onClick={() => navigate(`/atividades?data=${d.date}`)}
-                className="cursor-pointer transition hover:bg-surface-2/60"
-                title="Abrir atividades do dia"
+                onClick={(e) => {
+                  // O link da data já navega; sem isto, o clique nele navegaria duas vezes.
+                  if (!(e.target as HTMLElement).closest('a')) navigate(`/apontamentos?data=${d.date}`);
+                }}
+                className="cursor-pointer transition even:bg-surface-2/50 hover:bg-surface-2"
               >
-                <td className={`${td} font-semibold text-ink`}>{formatDayMonth(d.date)}</td>
+                <td className={td}>
+                  <Link
+                    to={`/apontamentos?data=${d.date}`}
+                    className="rounded font-semibold text-ink outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent"
+                  >
+                    {formatDayMonth(d.date)}
+                  </Link>
+                </td>
                 <td className={`${td} text-ink-2 [font-variant-numeric:normal]`}>{d.weekdayLong}</td>
                 <td className={`${td} text-right text-ink-2`}>{formatHM(d.goal)}</td>
                 <td className={`${td} text-right font-semibold text-ink`}>{formatHM(d.minutes)}</td>
@@ -99,8 +112,8 @@ function DetailTable({ summary }: { summary: CycleSummary }) {
               </tr>
             ))}
           </tbody>
-          <tfoot className="border-t-2 border-line bg-surface-2/60">
-            <tr className="font-semibold">
+          <tfoot>
+            <tr className="bg-surface-2 font-semibold">
               <td className={`${td} text-ink`}>Total geral</td>
               <td className={`${td} text-ink-2`}>{WORKDAYS_PER_CYCLE} dias</td>
               <td className={`${td} text-right text-ink`}>{formatHM(week.goal)}</td>
@@ -123,12 +136,6 @@ function DetailTable({ summary }: { summary: CycleSummary }) {
             </tr>
           </tfoot>
         </table>
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-3 text-xs text-ink-3">
-        <span>
-          Semana {week.fillPercent}% preenchida · {formatDuration(week.total)} de {formatDuration(week.goal)}
-        </span>
-        <span>Clique em um dia para editar as atividades.</span>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 /** `exceeded`: horas acima da meta — o anel fica vermelho (irregular) em vez de verde. */
-export function ProgressRing({ percent, exceeded = false, size = 184 }: { percent: number; exceeded?: boolean; size?: number }) {
-  const stroke = 14;
+export function ProgressRing({ percent, exceeded = false, size = 72 }: { percent: number; exceeded?: boolean; size?: number }) {
+  const stroke = Math.max(5, Math.round(size / 10));
   const r = (size - stroke) / 2;
   const circumference = 2 * Math.PI * r;
   const shown = Math.min(percent, 100);
@@ -30,14 +30,11 @@ export function ProgressRing({ percent, exceeded = false, size = 184 }: { percen
           style={{ transition: 'stroke-dashoffset 0.8s cubic-bezier(.2,.8,.2,1)' }}
         />
       </svg>
-      <div className="absolute inset-0 grid place-items-center text-center">
-        <div>
-          <p className="tabular text-5xl font-bold tracking-tight text-ink">
-            {percent}
-            <span className="text-2xl font-semibold text-ink-3">%</span>
-          </p>
-          <p className="mt-0.5 text-xs font-medium tracking-wider text-ink-3 uppercase">preenchido</p>
-        </div>
+      <div className="absolute inset-0 grid place-items-center">
+        <p className="tabular text-lg font-bold tracking-tight text-ink">
+          {percent}
+          <span className="text-xs font-semibold text-ink-3">%</span>
+        </p>
       </div>
     </div>
   );

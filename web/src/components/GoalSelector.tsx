@@ -1,10 +1,20 @@
-import { useEffect, useState, type FormEvent } from 'react';
-import { formatHM, GOAL_PRESETS, parseHM, type ISODate } from '@acomp/shared';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { formatDuration, formatHM, GOAL_PRESETS, parseHM, type ISODate } from '@acomp/shared';
 import { useSetGoal } from '../api/client';
+import { PencilIcon } from './icons';
 import { useToast } from './Toast';
 
 /** Meta diária: 5h30, 8h48 ou "Outro" (valor livre em hh:mm). */
-export function GoalSelector({ date, dailyGoal }: { date: ISODate; dailyGoal: number }) {
+export function GoalSelector({
+  date,
+  dailyGoal,
+  onSaved,
+}: {
+  date: ISODate;
+  dailyGoal: number;
+  /** Chamado depois que a meta é gravada (ex.: para fechar o painel que contém o seletor). */
+  onSaved?: () => void;
+}) {
   const setGoal = useSetGoal();
   const toast = useToast();
   const isPreset = GOAL_PRESETS.some((p) => p.minutes === dailyGoal);
@@ -21,12 +31,14 @@ export function GoalSelector({ date, dailyGoal }: { date: ISODate; dailyGoal: nu
     setGoal.mutate(
       { date, minutes },
       {
-        onSuccess: (r) =>
+        onSuccess: (r) => {
           toast(
             r.appliesToNextCycles
               ? `Meta diária de ${formatHM(minutes)} definida para este ciclo e os próximos.`
               : `Meta diária de ${formatHM(minutes)} definida apenas para este ciclo.`,
-          ),
+          );
+          onSaved?.();
+        },
         onError: (err) => toast(err.message, 'error'),
       },
     );
@@ -87,6 +99,81 @@ export function GoalSelector({ date, dailyGoal }: { date: ISODate; dailyGoal: nu
             Aplicar
           </button>
         </form>
+      )}
+    </div>
+  );
+}
+
+/**
+ * "Meta semanal" que, ao ser tocada, abre o seletor da meta diária: a meta é um ajuste raro,
+ * então não ocupa uma linha de controles na tela. O painel é posicionado pelo ancestral
+ * `relative` mais próximo (no Painel, a faixa de indicadores), para não vazar no celular.
+ */
+export function GoalPopover({
+  date,
+  dailyGoal,
+  weekGoal,
+  className = '',
+}: {
+  date: ISODate;
+  dailyGoal: number;
+  weekGoal: number;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const button = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const id = useId();
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (!panel.current?.contains(target) && !button.current?.contains(target)) setOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setOpen(false);
+      button.current?.focus();
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div className={className}>
+      <button
+        ref={button}
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls={open ? id : undefined}
+        onClick={() => setOpen((o) => !o)}
+        title="Alterar a meta diária"
+        className="group -m-1 rounded-lg p-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      >
+        <span className="flex items-center gap-1 text-2xs font-semibold tracking-wider text-ink-3 uppercase">
+          Meta semanal
+          <PencilIcon size={11} className="transition group-hover:text-ink" />
+        </span>
+        <span className="tabular mt-1 block text-2xl font-semibold tracking-tight text-ink sm:text-display sm:font-bold">
+          {formatDuration(weekGoal)}
+        </span>
+      </button>
+      {open && (
+        <div
+          ref={panel}
+          id={id}
+          role="dialog"
+          aria-label="Meta diária"
+          className="tip-surface hint-in absolute inset-x-0 top-full z-30 mt-2 p-4 sm:left-auto sm:w-[26rem]"
+        >
+          <GoalSelector date={date} dailyGoal={dailyGoal} onSaved={() => setOpen(false)} />
+        </div>
       )}
     </div>
   );

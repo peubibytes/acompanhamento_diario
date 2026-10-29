@@ -54,14 +54,14 @@ export function NotificationBell() {
         aria-label={label}
         aria-haspopup="true"
         aria-expanded={open}
-        className={`relative grid size-9 place-items-center rounded-full transition ${
-          onPage ? 'bg-accent-soft text-accent' : 'bg-surface-2 text-ink-2 hover:text-ink'
+        className={`relative grid size-9 place-items-center rounded-full outline-none transition focus-visible:ring-2 focus-visible:ring-accent ${
+          onPage ? 'bg-surface-2 text-ink' : 'text-ink-2 hover:bg-surface-2 hover:text-ink'
         }`}
       >
         <BellIcon size={18} />
         {attention > 0 && (
           <span
-            className={`tabular absolute -top-1 -right-1 grid h-[18px] min-w-[18px] place-items-center rounded-full px-1 text-[10px] font-bold ring-2 ring-bg ${
+            className={`tabular absolute -top-1 -right-1 grid h-[18px] min-w-[18px] place-items-center rounded-full px-1 text-2xs font-bold ring-2 ring-bg ${
               critical ? 'bg-critical text-white' : 'bg-warning text-[#0b0b0b]'
             }`}
             aria-hidden="true"

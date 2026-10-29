@@ -9,6 +9,7 @@ import {
   daysBetween,
   parseHM,
   type Activity,
+  type CycleDemand,
   type Demand,
 } from '../src/index.ts';
 
@@ -30,19 +31,30 @@ function act(date: string, start: string, end: string, demandId: number | null =
   };
 }
 
-function demand(id: number, o: Partial<Demand>, acts: Activity[] = [], today = TODAY) {
-  const d: Demand = {
+function demand(id: number, o: Partial<CycleDemand>, acts: Activity[] = [], today = TODAY) {
+  const d: CycleDemand = {
     id,
+    category: 'ciclo',
     title: `Demanda ${id}`,
     description: '',
-    targetMinutes: 600,
+    kind: 'planejada',
+    status: 'em_andamento',
+    priority: 'media',
     startDate: '2026-10-20',
     dueDate: null,
-    status: 'ativa',
+    branch: '',
+    prUrl: '',
+    environment: null,
     ...o,
   };
-  return buildDemandSummary(d, acts, today, GOAL);
+  return buildDemandSummary(d, acts, today);
 }
+
+/** Atividades (rotina) não têm prazo nem início: nunca entram em lembretes ou agenda. */
+const routine: Demand[] = [
+  { id: 90, category: 'chamado', ticketNumber: 'INC0001', description: 'Teste', status: 'em_andamento' },
+  { id: 91, category: 'reuniao', meetingType: 'Daily', participants: 'Equipe', subject: 'Status' },
+];
 
 describe('notificações do sino', () => {
   const acts = [act('2026-10-23', '08:00', '13:30'), act('2026-10-26', '08:00', '14:00')];
@@ -65,7 +77,7 @@ describe('notificações do sino', () => {
       ],
     );
     assert.equal(items[1].detail, 'Excedeu a meta de 5h30 em 00:30. Reajuste o apontamento.');
-    assert.deepEqual(items[1].target, { screen: 'atividades', date: '2026-10-26' });
+    assert.deepEqual(items[1].target, { screen: 'apontamentos', date: '2026-10-26' });
     assert.equal(items[3].detail, 'Semana 41% preenchida, faltam 16h.');
     assert.equal(attentionCount(items), 3);
   });
@@ -87,8 +99,12 @@ describe('notificações do sino', () => {
     assert.equal(attentionCount(items), 0);
   });
 
-  it('demandas concluídas não notificam', () => {
-    const items = buildNotifications(cycle, [demand(1, { dueDate: '2026-10-20', status: 'concluida' })], TODAY);
+  it('ciclos concluídos e atividades de rotina não notificam', () => {
+    const items = buildNotifications(
+      cycle,
+      [demand(1, { dueDate: '2026-10-20', status: 'concluido' }), ...routine.map((d) => buildDemandSummary(d, [], TODAY))],
+      TODAY,
+    );
     assert.equal(items.filter((n) => n.kind === 'prazo_demanda').length, 0);
   });
 });
@@ -99,7 +115,8 @@ describe('agenda', () => {
       [
         demand(1, { title: 'Relatórios', dueDate: '2026-10-29' }, [act('2026-10-26', '08:00', '11:00', 1)]),
         demand(2, { title: 'Futura', startDate: '2026-11-02', dueDate: '2026-11-20' }),
-        demand(3, { title: 'Concluída', dueDate: '2026-10-28', status: 'concluida' }),
+        demand(3, { title: 'Concluída', dueDate: '2026-10-28', status: 'concluido' }),
+        ...routine.map((d) => buildDemandSummary(d, [], TODAY)),
       ],
       TODAY,
     );
@@ -113,7 +130,8 @@ describe('agenda', () => {
         ['2026-11-20', 'prazo_demanda', 'Futura'],
       ],
     );
-    assert.equal(items[0].detail, 'Prazo da demanda · 3h de 10h · Prazo próximo');
+    assert.equal(items[0].detail, 'Prazo do ciclo · 3h apontadas · Prazo próximo');
+    assert.equal(items[2].detail, 'Início do ciclo');
     assert.equal(items[1].detail, 'Fechamento do ciclo Sex 23/10 → Qui 29/10');
   });
 

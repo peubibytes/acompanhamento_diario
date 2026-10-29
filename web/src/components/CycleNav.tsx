@@ -16,7 +16,7 @@ export function CycleNav({ date, onChange }: { date: ISODate; onChange: (date: I
         <ChevronLeft />
       </button>
       <div className="min-w-0 px-1 text-center sm:text-left">
-        <p className="text-[11px] font-semibold tracking-wider text-ink-3 uppercase">{tag}</p>
+        <p className="text-2xs font-semibold tracking-wider text-ink-3 uppercase">{tag}</p>
         <p className="tabular text-base font-semibold whitespace-nowrap text-ink">
           Sex {formatDayMonth(cycle.start)} <span className="text-ink-3">→</span> Qui {formatDayMonth(cycle.end)}
         </p>

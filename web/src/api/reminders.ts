@@ -3,12 +3,12 @@ import { useCycle, useDemands } from './client';
 
 /**
  * Lembretes e agenda do momento. Usa sempre o ciclo de hoje (não o ciclo navegado no
- * painel) e as demandas ativas; os dados vêm do mesmo cache das outras telas.
+ * painel) e as demandas abertas; os dados vêm do mesmo cache das outras telas.
  */
 export function useReminders() {
   const today = todayISO();
   const cycle = useCycle(today);
-  const demands = useDemands('ativa');
+  const demands = useDemands('abertas');
   const notifications = cycle.data && demands.data ? buildNotifications(cycle.data, demands.data, today) : [];
 
   return {
@@ -24,7 +24,7 @@ export function useReminders() {
 
 /** Rota de destino de um lembrete ou item da agenda. */
 export function targetHref(target: ReminderTarget): string {
-  if (target.screen === 'atividades') return `/atividades?data=${target.date}`;
+  if (target.screen === 'apontamentos') return `/apontamentos?data=${target.date}`;
   if (target.screen === 'demandas') return `/demandas#demanda-${target.demandId}`;
   return '/';
 }

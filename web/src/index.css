@@ -1,32 +1,82 @@
 @import 'tailwindcss';
 
+/*
+ * Tokens visuais
+ * ──────────────
+ * Escalas (iguais nos dois temas), em @theme static:
+ *   tipografia  text-2xs · xs · sm · base · lg · 2xl · display   (nenhum tamanho solto no código)
+ *   raios       rounded-control (campos, botões) · rounded-card · rounded-full (pílulas)
+ *   espaço      passos de 4px do Tailwind (1, 2, 3, 4, 6, 8, 12, 16) e três nomes de layout:
+ *               px-gutter (margem da página), gap-section / space-y-section (entre blocos),
+ *               max-w-page (largura do conteúdo)
+ * Cores (por tema), em :root e nos dois blocos escuros:
+ *   uma única cor de destaque (--accent), usada na ação principal e no foco; o resto é neutro.
+ *   Cores de status (good/warning/critical) nunca carregam significado sozinhas: sempre com
+ *   ícone ou rótulo. --series-* é a paleta categórica dos gráficos.
+ *   Contraste conferido (WCAG AA): texto ≥ 4,5:1; bordas de campos, foco e barras ≥ 3:1.
+ */
+@theme static {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.5rem;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 2rem;
+  /* Números de destaque (KPIs). */
+  --text-display: 2.25rem;
+  --text-display--line-height: 1;
+
+  --radius-control: 0.75rem;
+  --radius-card: 1rem;
+
+  --container-page: 72rem;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.06);
+}
+
 :root {
+  /* Margem lateral da página e espaço entre blocos crescem juntos a partir de 640px. */
+  --gutter: 1rem;
+  --section: 1.5rem;
+
   color-scheme: light;
-  --bg: #f6f6f3;
-  --surface: #ffffff;
-  --surface-2: #f1f0ec;
-  --border: rgba(11, 11, 11, 0.08);
+  --bg: #f6f6f4;
+  --surface: #fcfcfb;
+  --surface-2: #f0f0ed;
+  /* Divisórias e bordas de cartões: quase invisíveis. Campos usam --border-strong (3:1). */
+  --border: rgba(26, 26, 24, 0.07);
+  --border-strong: rgba(26, 26, 24, 0.5);
   --text: #1a1a18;
-  --text-2: #52514e;
-  --text-3: #85847e;
+  --text-2: #55544f;
+  --text-3: #6a6963;
   --accent: #4f46e5;
   --accent-hover: #4338ca;
   --accent-soft: #eef0ff;
   --on-accent: #ffffff;
-  --grid: #e1e0d9;
+  --grid: #e6e5e0;
   --baseline: #c3c2b7;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04);
+  --shadow-pop: 0 10px 28px -10px rgb(0 0 0 / 0.22), 0 2px 6px rgb(0 0 0 / 0.06);
 
   /* Status: nunca carregam significado sozinhos — sempre acompanhados de ícone + rótulo. */
   --good: #0ca30c;
   --good-text: #006300;
   --good-soft: #e7f6e7;
-  --warning: #fab219;
+  --warning: #c47d00;
   --warning-text: #8a5a00;
   --warning-soft: #fdf3dc;
   --critical: #d03b3b;
   --critical-text: #b42323;
   --critical-soft: #fbe9e9;
-  --neutral: #b4b3ab;
+  --neutral: #8f8e86;
   --neutral-soft: #efeee9;
 
   /* Paleta categórica (validada para daltonismo); ordem fixa dos slots, nunca ciclada. */
@@ -38,29 +88,40 @@
   --series-other: #a8a79f;
 }
 
+@media (min-width: 40rem) {
+  :root {
+    --gutter: 1.5rem;
+    --section: 2rem;
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
     --bg: #121211;
-    --surface: #1a1a19;
-    --surface-2: #242422;
-    --border: rgba(255, 255, 255, 0.08);
-    --text: #f0efec;
-    --text-2: #c3c2b7;
-    --text-3: #8f8e88;
+    --surface: #171716;
+    --surface-2: #212120;
+    --border: rgba(255, 255, 255, 0.07);
+    --border-strong: rgba(255, 255, 255, 0.4);
+    --text: #ecebe8;
+    --text-2: #bdbcb3;
+    --text-3: #95948d;
     --accent: #818cf8;
     --accent-hover: #a5b4fc;
-    --accent-soft: #23243a;
+    --accent-soft: #212238;
     --on-accent: #111122;
-    --grid: #2c2c2a;
+    --grid: #292927;
     --baseline: #383835;
+    --shadow-card: 0 0 0 transparent;
+    --shadow-pop: 0 10px 28px -10px rgb(0 0 0 / 0.7), 0 2px 6px rgb(0 0 0 / 0.3);
     --good-text: #3fc43f;
     --good-soft: #15291a;
+    --warning: #fab219;
     --warning-text: #fab219;
     --warning-soft: #2e2512;
     --critical-text: #f07070;
     --critical-soft: #331919;
-    --neutral: #5f5e59;
+    --neutral: #706f69;
     --neutral-soft: #262624;
     --series-1: #3987e5;
     --series-2: #d95926;
@@ -74,25 +135,29 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
   --bg: #121211;
-  --surface: #1a1a19;
-  --surface-2: #242422;
-  --border: rgba(255, 255, 255, 0.08);
-  --text: #f0efec;
-  --text-2: #c3c2b7;
-  --text-3: #8f8e88;
+  --surface: #171716;
+  --surface-2: #212120;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.4);
+  --text: #ecebe8;
+  --text-2: #bdbcb3;
+  --text-3: #95948d;
   --accent: #818cf8;
   --accent-hover: #a5b4fc;
-  --accent-soft: #23243a;
+  --accent-soft: #212238;
   --on-accent: #111122;
-  --grid: #2c2c2a;
+  --grid: #292927;
   --baseline: #383835;
+  --shadow-card: 0 0 0 transparent;
+  --shadow-pop: 0 10px 28px -10px rgb(0 0 0 / 0.7), 0 2px 6px rgb(0 0 0 / 0.3);
   --good-text: #3fc43f;
   --good-soft: #15291a;
+  --warning: #fab219;
   --warning-text: #fab219;
   --warning-soft: #2e2512;
   --critical-text: #f07070;
   --critical-soft: #331919;
-  --neutral: #5f5e59;
+  --neutral: #706f69;
   --neutral-soft: #262624;
   --series-1: #3987e5;
   --series-2: #d95926;
@@ -103,11 +168,11 @@
 }
 
 @theme inline {
-  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
   --color-ink: var(--text);
   --color-ink-2: var(--text-2);
   --color-ink-3: var(--text-3);
@@ -128,6 +193,13 @@
   --color-critical-soft: var(--critical-soft);
   --color-neutral: var(--neutral);
   --color-neutral-soft: var(--neutral-soft);
+  --spacing-gutter: var(--gutter);
+  --spacing-section: var(--section);
+}
+
+/* Reserva o espaço da barra de rolagem: o conteúdo não "pula" entre telas curtas e longas. */
+html {
+  scrollbar-gutter: stable;
 }
 
 body {
@@ -144,24 +216,82 @@ body {
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 1.25rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 8px 24px -12px rgba(0, 0, 0, 0.08);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+/* Superfície flutuante (dicas ⓘ, tooltip do gráfico): separada do fundo pela sombra. */
+.tip-surface {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-pop);
 }
 
 .field {
   width: 100%;
-  border-radius: 0.75rem;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
   padding: 0.6rem 0.8rem;
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   color: var(--text);
   transition: border-color 0.15s, box-shadow 0.15s;
+}
+.field::placeholder {
+  color: var(--text-3);
+  opacity: 1;
 }
 .field:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+@keyframes hint-in {
+  from {
+    opacity: 0;
+  }
+}
+.hint-in {
+  animation: hint-in 0.15s ease-out both;
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(2rem);
+  }
+}
+.slide-in {
+  animation: slide-in 0.2s ease-out both;
+}
+
+/* Ação principal da tela: o único elemento preenchido com a cor de destaque. */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  padding: 0.625rem 1.25rem;
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+  transition: background-color 0.15s;
+}
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+.btn-primary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.btn-primary:disabled {
+  opacity: 0.6;
 }
 
 @keyframes rise {
