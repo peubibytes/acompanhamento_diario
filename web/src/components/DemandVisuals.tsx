@@ -70,6 +70,16 @@ export function DeadlineBadge({ status }: { status: DeadlineStatus }) {
   );
 }
 
+/** Ciclo aberto sem atualização há dias úteis demais (ver STALLED_WORKDAYS). */
+export function StalledBadge({ idleWorkdays }: { idleWorkdays: number }) {
+  return (
+    <span className={`${BADGE} bg-warning-soft text-warning-text`}>
+      <HourglassIcon size={13} />
+      Parado há {idleWorkdays} dias úteis
+    </span>
+  );
+}
+
 export const cycleStatusStyle: Record<CycleStatus, { badge: string; icon: (s: number) => ReactNode }> = {
   novo: { badge: 'bg-neutral-soft text-ink-2', icon: (s) => <DashIcon size={s} /> },
   em_andamento: { badge: 'bg-accent-soft text-accent', icon: (s) => <ClockIcon size={s} /> },

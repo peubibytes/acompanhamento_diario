@@ -9,9 +9,11 @@ import {
   type DemandEvent,
   type DemandEventInput,
   type DemandInput,
+  type DemandStatusChange,
   type DemandStatusGroup,
   type DemandSummary,
   type ISODate,
+  type Overview,
 } from '@acomp/shared';
 
 export class ApiError extends Error {}
@@ -43,12 +45,14 @@ const keys = {
   activities: (date: ISODate) => ['activities', date] as const,
   demands: (filter?: DemandStatusGroup) => ['demands', 'list', filter ?? 'todas'] as const,
   demand: (id: number) => ['demands', 'detail', id] as const,
+  metrics: (date: ISODate) => ['metrics', getCycle(date).start] as const,
 };
 
 export type DemandDetail = DemandSummary & {
   activities: Activity[];
   events: DemandEvent[];
   blockers: DemandBlocker[];
+  statusChanges: DemandStatusChange[];
 };
 
 export function useCycle(date: ISODate) {
@@ -72,6 +76,14 @@ export function useDemands(filter?: DemandStatusGroup) {
   });
 }
 
+/** Tarefas (concluídas, fila, em andamento) e ciclos abertos, no ciclo de apontamento da data. */
+export function useOverview(date: ISODate) {
+  return useQuery({
+    queryKey: keys.metrics(date),
+    queryFn: () => request<Overview>('GET', `/metrics?date=${date}`),
+  });
+}
+
 export function useDemand(id: number, enabled = true) {
   return useQuery({
     queryKey: keys.demand(id),
@@ -88,7 +100,7 @@ function useInvalidate() {
   const client = useQueryClient();
   return () =>
     Promise.all(
-      ['cycle', 'activities', 'demands'].map((key) => client.invalidateQueries({ queryKey: [key] })),
+      ['cycle', 'activities', 'demands', 'metrics'].map((key) => client.invalidateQueries({ queryKey: [key] })),
     );
 }
 

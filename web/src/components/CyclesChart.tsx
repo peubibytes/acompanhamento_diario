@@ -1,21 +1,40 @@
 import { Link } from 'react-router';
-import { formatDayMonth, formatDuration, WEEKDAY_SHORT, weekdayOf, type DemandSummary } from '@acomp/shared';
-import { DeadlineBadge } from './DemandVisuals';
+import {
+  formatDayMonth,
+  formatDuration,
+  WEEKDAY_SHORT,
+  weekdayOf,
+  type CycleProgress,
+  type DemandSummary,
+  type LastUpdate,
+} from '@acomp/shared';
+import { DeadlineBadge, StalledBadge } from './DemandVisuals';
 import { SectionTitle } from './SectionTitle';
 import { ArrowRight, PlusIcon, TargetIcon } from './icons';
 
 const MAX_ROWS = 6;
 
+const UPDATE_KIND = { evento: 'Evento', status: 'Status', apontamento: 'Apontamento' } as const;
+
+/** "Ter 27/10 · Evento: Publicado em staging". */
+const updateText = (u: LastUpdate) =>
+  `${WEEKDAY_SHORT[weekdayOf(u.date)]} ${formatDayMonth(u.date)} · ${UPDATE_KIND[u.kind]}${u.text ? `: ${u.text}` : ''}`;
+
 const HINT = (
   <>
     <span className="block">Horas apontadas em cada ciclo aberto, dos mais urgentes para os demais.</span>
     <span className="mt-1.5 block">As barras comparam os ciclos entre si: a maior ocupa a largura toda.</span>
+    <span className="mt-1.5 block">
+      <strong className="font-semibold text-ink">Última atualização:</strong> o evento, a troca de status ou o
+      apontamento mais recente. Sem nenhuma há 3 dias úteis ou mais, o ciclo aparece como parado.
+    </span>
   </>
 );
 
 /** Painel: horas apontadas em cada ciclo aberto. Prazo, apontamentos e lembrete aparecem no hover/foco. */
-export function CyclesChart({ demands }: { demands: DemandSummary[] }) {
+export function CyclesChart({ demands, progress }: { demands: DemandSummary[]; progress: CycleProgress[] }) {
   const cycles = demands.filter((d) => d.category === 'ciclo');
+  const progressOf = (id: number) => progress.find((p) => p.id === id);
   const shown = cycles.slice(0, MAX_ROWS);
   const logged = cycles.reduce((sum, d) => sum + d.metrics.logged, 0);
   const max = Math.max(1, ...shown.map((d) => d.metrics.logged));
@@ -60,6 +79,7 @@ export function CyclesChart({ demands }: { demands: DemandSummary[] }) {
             {shown.map((d) => {
               const due = d.category === 'ciclo' ? d.dueDate : null;
               const pct = (d.metrics.logged / max) * 100;
+              const p = progressOf(d.id);
               return (
                 <li key={d.id}>
                   <Link
@@ -68,7 +88,10 @@ export function CyclesChart({ demands }: { demands: DemandSummary[] }) {
                   >
                     <div className="flex items-center justify-between gap-3">
                       <span className="min-w-0 truncate text-sm font-medium text-ink">{d.label}</span>
-                      <DeadlineBadge status={d.metrics.deadline} />
+                      <span className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                        {p?.stalled && <StalledBadge idleWorkdays={p.idleWorkdays!} />}
+                        <DeadlineBadge status={d.metrics.deadline} />
+                      </span>
                     </div>
                     <div className="mt-2.5 flex items-center gap-3">
                       <div
@@ -85,6 +108,9 @@ export function CyclesChart({ demands }: { demands: DemandSummary[] }) {
                         {formatDuration(d.metrics.logged)}
                       </span>
                     </div>
+                    <p className="mt-1.5 truncate text-xs text-ink-3">
+                      {p?.lastUpdate ? `Atualizado ${updateText(p.lastUpdate)}` : 'Sem atualizações'}
+                    </p>
 
                     <span
                       role="tooltip"
@@ -97,6 +123,9 @@ export function CyclesChart({ demands }: { demands: DemandSummary[] }) {
                               d.metrics.dayCount > 1 ? ` em ${d.metrics.dayCount} dias` : ''
                             }`}
                       </span>
+                      {p && (
+                        <span className="tabular mt-1 block">{formatDuration(p.loggedInPeriod)} no ciclo de apontamento</span>
+                      )}
                       {due && (
                         <span className="tabular mt-1 block">
                           Prazo {WEEKDAY_SHORT[weekdayOf(due)]} {formatDayMonth(due)}

@@ -146,8 +146,8 @@ O esquema evolui por migrações numeradas em `server/src/db.ts` (`PRAGMA user_v
 Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com o texto explicativo
 (que não fica fixo na tela) e, à direita, a ação principal.
 
-1. **Painel (`/`)** — um seletor no topo escolhe a visão (**Dia útil**, **Distribuição** ou
-   **Ciclos**); a navegação entre ciclos de apontamento fica ao lado (só nas duas primeiras).
+1. **Painel (`/`)** — um seletor no topo escolhe a visão (**Dia útil**, **Distribuição**,
+   **Tarefas** ou **Ciclos**); a navegação entre ciclos de apontamento fica ao lado (v0.7: em todas).
    - *Dia útil:* faixa fina com o anel de % preenchido, o selo da situação ("Faltam 17h15",
      "Excedeu 1h", "Meta atingida"), total realizado, meta semanal e dias conformes; abaixo, o
      gráfico por dia útil (~340 px), com o valor e o ícone de status em cima de cada barra e
@@ -156,7 +156,10 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
      mostra o apontado, a diferença, o nº de apontamentos, quantas reuniões, chamados,
      treinamentos e ciclos foram apontados no dia (demandas distintas) e o diagnóstico.
    - *Distribuição:* rosca grande do dia escolhido (Sex–Qui) e legenda com nome, horas e %.
-   - *Ciclos:* barras de horas apontadas por ciclo aberto, com o selo de prazo.
+   - *Tarefas (v0.7):* concluídas no ciclo, na fila e em andamento, e a divisão entre chamados e
+     treinamentos (barra empilhada, com os números escritos).
+   - *Ciclos:* barras de horas apontadas por ciclo aberto, com o selo de prazo, a última
+     atualização e o selo "Parado há N dias úteis".
    - Ação principal: "Registrar apontamentos". Link "Detalhes" no gráfico.
 2. **Apontamentos (`/apontamentos`; `/atividades` redireciona)** — abas Sex/Seg/Ter/Qua/Qui
    (dia, horas e uma barrinha de progresso); mostra só o dia escolhido: resumo do dia em uma
