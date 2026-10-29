@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Link } from 'react-router';
 import { formatDuration, WORKDAYS_PER_CYCLE, type CycleSummary } from '@acomp/shared';
 import { useCycle, useDemands } from '../api/client';
@@ -13,7 +13,6 @@ import { PageHeader } from '../components/PageHeader';
 import { ArrowRight, CheckIcon, HourglassIcon, PlusIcon, TrendUpIcon } from '../components/icons';
 import { ProgressRing } from '../components/ProgressRing';
 import { Segmented } from '../components/Segmented';
-import { SectionTitle } from '../components/SectionTitle';
 import { ErrorState, Skeleton } from '../components/States';
 import { useRefDate, withDate } from '../hooks';
 
@@ -149,13 +148,7 @@ function WeekView({ summary, date }: { summary: CycleSummary; date: string }) {
             <dd className={NUMBER}>{formatDuration(week.total)}</dd>
           </div>
           <GoalPopover date={date} dailyGoal={dailyGoal} weekGoal={week.goal} />
-          <div>
-            <dt className={LABEL}>Dias conformes</dt>
-            <dd className={NUMBER}>
-              {week.conformDays}
-              <span className="text-base font-semibold text-ink-3">/{WORKDAYS_PER_CYCLE}</span>
-            </dd>
-          </div>
+          <FulfilledStat />
         </dl>
 
         <span className="absolute top-0 right-0">
@@ -166,23 +159,60 @@ function WeekView({ summary, date }: { summary: CycleSummary; date: string }) {
       </div>
 
       <div className="mt-6 border-t border-line pt-5">
-        <SectionTitle
-          title="Horas por dia útil"
-          hint={<ChartHint />}
-          aside={
-            <Link
-              to={withDate('/detalhes', date)}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-2 transition hover:text-ink"
-            >
-              Detalhes <ArrowRight size={14} />
-            </Link>
-          }
-        />
+        {/* Título à esquerda, dias conformes no meio e o link à direita (no celular, o do meio desce). */}
+        <div className="grid grid-cols-2 items-center gap-x-4 gap-y-3 sm:grid-cols-[1fr_auto_1fr]">
+          <div className="flex items-center gap-1.5">
+            <h2 className="text-sm font-semibold text-ink">Horas por dia útil</h2>
+            <InfoHint label="Sobre horas por dia útil">
+              <ChartHint />
+            </InfoHint>
+          </div>
+          <p className="tabular order-last col-span-2 text-center text-sm text-ink-2 sm:order-none sm:col-span-1">
+            Dias conformes{' '}
+            <strong className="font-semibold text-ink">
+              {week.conformDays}/{WORKDAYS_PER_CYCLE}
+            </strong>
+          </p>
+          <Link
+            to={withDate('/detalhes', date)}
+            className="inline-flex items-center gap-1.5 justify-self-end text-sm font-medium text-ink-2 transition hover:text-ink"
+          >
+            Detalhes <ArrowRight size={14} />
+          </Link>
+        </div>
         <div className="mt-8">
           <DailyChart days={days} goal={dailyGoal} />
         </div>
       </div>
     </section>
+  );
+}
+
+/** Demandas concluídas (chamados, treinamentos e ciclos); o cartão suspenso separa atividades de ciclos. */
+function FulfilledStat() {
+  const demands = useDemands();
+  const done = (demands.data ?? []).filter((d) => d.category !== 'reuniao' && d.status === 'concluido');
+  const cycles = done.filter((d) => d.category === 'ciclo').length;
+  const activities = done.length - cycles;
+  const id = useId();
+
+  return (
+    <div className="group relative" tabIndex={0} aria-describedby={id}>
+      <dt className={LABEL}>Demandas cumpridas</dt>
+      <dd className={NUMBER}>{demands.data ? done.length : '—'}</dd>
+      <div
+        id={id}
+        role="tooltip"
+        className="tip-surface hint-in absolute top-full right-0 z-30 mt-2 hidden w-52 p-3 text-sm group-focus-within:block group-hover:block sm:right-auto sm:left-0"
+      >
+        <p className="flex items-baseline justify-between gap-4 text-ink-2">
+          Atividades concluídas <strong className="tabular font-semibold text-ink">{activities}</strong>
+        </p>
+        <p className="mt-1.5 flex items-baseline justify-between gap-4 text-ink-2">
+          Ciclos concluídos <strong className="tabular font-semibold text-ink">{cycles}</strong>
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -204,7 +234,8 @@ function KpiHint({ dailyGoal }: { dailyGoal: number }) {
         Toque no valor para mudar a meta diária.
       </span>
       <span className="mt-1.5 block">
-        <strong className={term}>Dias conformes:</strong> dias com exatamente a meta diária.
+        <strong className={term}>Demandas cumpridas:</strong> chamados, treinamentos e ciclos concluídos, desde o início.
+        Reuniões não têm status e não entram.
       </span>
     </>
   );
@@ -215,6 +246,9 @@ function ChartHint() {
   return (
     <>
       <span className="block">Clique em um dia para registrar ou revisar os apontamentos dele.</span>
+      <span className="mt-1.5 block">
+        <strong className="font-semibold text-ink">Dias conformes:</strong> dias com exatamente a meta diária.
+      </span>
       <span className="mt-2 grid gap-1.5">
         {(Object.keys(toneStyle) as DayTone[]).map((c) => (
           <span key={c} className="flex items-center gap-2">
