@@ -117,6 +117,9 @@ demands(id, category ('ciclo'|'chamado'|'reuniao'|'treinamento'),
 demand_events(id, demand_id → demands (ON DELETE CASCADE), date, kind, text, created_at)
 demand_blockers(id, demand_id → demands (ON DELETE CASCADE), owner, description, since,
                 resolved_at, created_at)
+-- uma linha por troca de status (v0.7); a declaração entra com from_status nulo
+demand_status_changes(id, demand_id → demands (ON DELETE CASCADE), from_status, to_status,
+                      changed_at, created_at)
 ```
 O esquema evolui por migrações numeradas em `server/src/db.ts` (`PRAGMA user_version`).
 
@@ -136,6 +139,7 @@ O esquema evolui por migrações numeradas em `server/src/db.ts` (`PRAGMA user_v
 | DELETE | `/api/demands/:id` | remove; com apontamentos → 409 (eventos e impedimentos vão junto) |
 | POST/PUT/DELETE | `/api/demands/:id/events[/:eventId]` | linha do tempo (só ciclos) |
 | POST/PUT/DELETE | `/api/demands/:id/blockers[/:blockerId]` | impedimentos (só ciclos) |
+| GET | `/api/metrics?date=` | tarefas (concluídas no ciclo de apontamento da data, na fila, em andamento) e ciclos abertos (última atualização, horas) |
 
 ## 3. Telas
 
@@ -184,6 +188,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 | 6 | Polimento: estados vazios, carregamento, modo escuro, responsividade | ✅ primeira versão |
 | 7 | Próximos passos: autocompletar projetos, copiar atividade de outro dia, exportar semana | a definir |
 | 8 | Expansão para gestão do colaborador (seção 8) | a definir |
+| 9 | v0.7: status só na demanda, Tarefas, métricas, relatório diário (seção 10) | em andamento |
 | — | Integração com o Azure | futuro |
 
 ### Decisões registradas
@@ -454,3 +459,23 @@ cada dia, um chamado retomado à tarde) aparece reunida.
 ### Fora de escopo (atualizado)
 Azure (códigos e apontamento automático), login/múltiplos usuários (roda localmente),
 folha de pagamento, cobrança a clientes, controle de ponto oficial.
+
+## 10. Status só na demanda, histórico e métricas de tarefas (v0.7 — em andamento)
+
+Decisão em `docs/decisions/0003-status-so-na-demanda.md`.
+
+- **Status só na demanda:** o apontamento não tem mais status (migração 5). O formulário mostra o
+  status da demanda escolhida, só para leitura, com o atalho "Alterar em Demandas".
+- **Tarefas:** o nome da família de rotina (chamado, reunião, treinamento), antes "Atividades".
+- **Histórico de status (migração 6):** cada troca de status de uma demanda é gravada com a data.
+  Dele saem a **data de conclusão** (`completedAt`: a última vez que passou a Concluído, se ainda
+  está concluída) e a **última atualização** (`tracking.lastUpdate`: o mais recente entre evento,
+  troca de status e apontamento; no mesmo dia vale essa ordem). As demandas anteriores à migração
+  têm a data aproximada pelo último `updated_at`.
+- **Métricas de tarefas** (só chamados e treinamentos; reunião não tem status):
+  - *Concluídas:* `completedAt` dentro do ciclo de apontamento (sexta → quinta);
+  - *Na fila:* status Não iniciado, agora; *Em andamento:* Iniciado ou Em andamento, agora.
+- **Métricas de ciclos abertos:** última atualização, dias úteis sem atualização (**parado** a partir
+  de 3, `STALLED_WORKDAYS`), horas apontadas no total e no ciclo de apontamento.
+- **API:** `GET /api/metrics?date=` devolve o período e as duas métricas; as regras ficam em
+  `shared/src/overview.ts`.

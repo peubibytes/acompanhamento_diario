@@ -5,6 +5,7 @@ import { z } from 'zod';
 import {
   buildCycleSummary,
   buildDemandSummary,
+  buildOverview,
   compareDemands,
   CYCLE_STATUSES,
   DEMAND_CATEGORIES,
@@ -171,7 +172,11 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
   const summarize = (demands: Demand[]) => {
     const now = today();
     const linked = repo.listLinkedActivities();
-    const history = { events: repo.listAllEvents(), blockers: repo.listAllBlockers() };
+    const history = {
+      events: repo.listAllEvents(),
+      blockers: repo.listAllBlockers(),
+      statusChanges: repo.listAllStatusChanges(),
+    };
     return demands.map((d) => buildDemandSummary(d, linked, now, history)).sort(compareDemands);
   };
 
@@ -210,6 +215,14 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
     const makeDefault = start >= getCycle(today()).start;
     repo.setCycleGoal(start, body.data.dailyGoalMinutes, makeDefault);
     res.json({ cycleStart: start, dailyGoalMinutes: body.data.dailyGoalMinutes, appliesToNextCycles: makeDefault });
+  });
+
+  /** Métricas de acompanhamento do ciclo de apontamento da data: tarefas e ciclos. */
+  app.get('/api/metrics', (req, res) => {
+    const date = isoDate.default(today()).safeParse(req.query.date);
+    if (!date.success) return badRequest(res, date.error);
+    const { start, end } = getCycle(date.data);
+    res.json(buildOverview(summarize(repo.listDemands()), repo.listLinkedActivities(), { start, end }, today()));
   });
 
   app.get('/api/activities', (req, res) => {
@@ -268,6 +281,7 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
       activities: repo.listDemandActivities(id.data),
       events: repo.listDemandEvents(id.data),
       blockers: repo.listDemandBlockers(id.data),
+      statusChanges: repo.listDemandStatusChanges(id.data),
     });
   });
 
@@ -276,7 +290,7 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
     if (!body.success) return badRequest(res, body.error);
     const duplicate = duplicateOf(body.data);
     if (duplicate) return res.status(409).json({ error: duplicate });
-    res.status(201).json(summarize([repo.createDemand(body.data)])[0]);
+    res.status(201).json(summarize([repo.createDemand(body.data, today())])[0]);
   });
 
   app.put('/api/demands/:id', (req, res) => {
@@ -292,7 +306,7 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
     const duplicate = duplicateOf(body.data, id.data);
     if (duplicate) return res.status(409).json({ error: duplicate });
 
-    res.json(summarize([repo.updateDemand(id.data, body.data)!])[0]);
+    res.json(summarize([repo.updateDemand(id.data, body.data, today())!])[0]);
   });
 
   app.delete('/api/demands/:id', (req, res) => {

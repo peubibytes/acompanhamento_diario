@@ -369,7 +369,9 @@ describe('API de demandas: ciclos', () => {
     assert.equal(detail.events.length, 2);
     assert.equal(detail.events[0].date, '2026-10-27'); // mais recentes primeiro
     assert.equal(detail.blockers.length, 1);
-    assert.deepEqual(detail.tracking, { eventCount: 2, lastEventDate: '2026-10-27', openBlockers: 1, waitingWorkdays: 2 });
+    const { lastUpdate, ...counts } = detail.tracking;
+    assert.deepEqual(counts, { eventCount: 2, lastEventDate: '2026-10-27', openBlockers: 1, waitingWorkdays: 2 });
+    assert.deepEqual(lastUpdate, { date: '2026-10-27', kind: 'evento', text: 'Ajuste enviado para validação' });
 
     await api('PUT', `/demands/${d.id}/blockers/${b.data.id}`, { ...b.data, resolvedAt: '2026-10-26' });
     detail = (await api('GET', `/demands/${d.id}`)).data;
@@ -385,7 +387,13 @@ describe('API de demandas: ciclos', () => {
     // Excluir o ciclo leva junto a linha do tempo e os impedimentos.
     await api('DELETE', `/demands/${d.id}`);
     const again = (await api('POST', '/demands', cycleBody)).data as DemandSummary;
-    assert.deepEqual(again.tracking, { eventCount: 0, lastEventDate: null, openBlockers: 0, waitingWorkdays: 0 });
+    assert.deepEqual(again.tracking, {
+      eventCount: 0,
+      lastEventDate: null,
+      openBlockers: 0,
+      waitingWorkdays: 0,
+      lastUpdate: { date: '2026-10-27', kind: 'status', text: 'Declarada como Em andamento' },
+    });
     await api('DELETE', `/demands/${again.id}`);
   });
 
@@ -397,7 +405,110 @@ describe('API de demandas: ciclos', () => {
   });
 });
 
+describe('API de tarefas: histórico de status e métricas', () => {
+  const ticketBody = { category: 'chamado', ticketNumber: 'HIST0000001', description: 'Descrição fictícia' };
+  const metrics = async (date = today) => (await api('GET', `/metrics?date=${date}`)).data;
+
+  it('registra cada troca de status com a data e informa quando foi concluída', async () => {
+    const created = (await api('POST', '/demands', ticketBody)).data as DemandSummary;
+    today = '2026-10-28';
+    await api('PUT', `/demands/${created.id}`, { ...ticketBody, status: 'em_andamento' });
+    // Editar sem trocar o status não entra no histórico.
+    await api('PUT', `/demands/${created.id}`, { ...ticketBody, status: 'em_andamento', description: 'Descrição revisada' });
+    today = '2026-10-29';
+    const done = (await api('PUT', `/demands/${created.id}`, { ...ticketBody, status: 'concluido' })).data as DemandSummary;
+    assert.equal(done.completedAt, '2026-10-29');
+    assert.deepEqual(done.tracking.lastUpdate, { date: '2026-10-29', kind: 'status', text: 'Em andamento → Concluído' });
+
+    const { data: detail } = await api('GET', `/demands/${created.id}`);
+    assert.deepEqual(
+      detail.statusChanges.map((c: { from: string | null; to: string; date: string }) => [c.from, c.to, c.date]),
+      [
+        ['em_andamento', 'concluido', '2026-10-29'],
+        ['nao_iniciado', 'em_andamento', '2026-10-28'],
+        [null, 'nao_iniciado', '2026-10-27'],
+      ],
+    );
+
+    // Reabrir apaga a data de conclusão, mas o histórico fica.
+    const reopened = (await api('PUT', `/demands/${created.id}`, { ...ticketBody, status: 'iniciado' })).data;
+    assert.equal(reopened.completedAt, null);
+
+    await api('DELETE', `/demands/${created.id}`);
+    assert.equal((await api('GET', `/demands/${created.id}`)).status, 404);
+  });
+
+  it('reunião não tem status e não entra no histórico', async () => {
+    const m = (await api('POST', '/demands', {
+      category: 'reuniao',
+      meetingType: 'Semanal',
+      participants: 'Equipe Exemplo',
+      subject: 'Histórico',
+    })).data as DemandSummary;
+    const { data: detail } = await api('GET', `/demands/${m.id}`);
+    assert.deepEqual(detail.statusChanges, []);
+    assert.equal(detail.completedAt, null);
+    await api('DELETE', `/demands/${m.id}`);
+  });
+
+  it('métricas: concluídas no ciclo, na fila e em andamento', async () => {
+    today = '2026-10-29'; // quinta, fecha o ciclo 23/10 → 29/10
+    const before = (await metrics()).tasks;
+    const mk = async (n: number, status: string) =>
+      ((await api('POST', '/demands', { ...ticketBody, ticketNumber: `METR000000${n}`, status })).data as DemandSummary).id;
+    const ids = [await mk(1, 'nao_iniciado'), await mk(2, 'em_andamento'), await mk(3, 'concluido')];
+
+    const after = await metrics();
+    assert.deepEqual(after.period, { start: '2026-10-23', end: '2026-10-29' });
+    assert.equal(after.tasks.queued - before.queued, 1);
+    assert.equal(after.tasks.inProgress - before.inProgress, 1);
+    assert.equal(after.tasks.completed - before.completed, 1); // concluída hoje, dentro do ciclo
+
+    // No ciclo seguinte, a mesma tarefa não conta como concluída; a fila e o andamento seguem.
+    const next = await metrics('2026-10-30');
+    assert.equal(next.tasks.completed, 0);
+    assert.equal(next.tasks.queued - before.queued, 1);
+
+    for (const id of ids) await api('DELETE', `/demands/${id}`);
+  });
+
+  it('métricas dos ciclos: última atualização e horas no período', async () => {
+    const c = (await api('POST', '/demands', { category: 'ciclo', title: 'Ciclo das métricas' })).data as DemandSummary;
+    await api('POST', `/demands/${c.id}/events`, { date: '2026-10-26', kind: 'deploy', text: 'Publicado em staging' });
+    const act = await api('POST', '/activities', { ...sample, demandId: c.id, date: '2026-10-28', startMinute: 480, endMinute: 600 });
+    today = '2026-10-29';
+
+    const row = (await metrics()).cycles.find((x: { id: number }) => x.id === c.id);
+    assert.deepEqual(row.lastUpdate, { date: '2026-10-28', kind: 'apontamento', text: sample.description });
+    assert.equal(row.loggedInPeriod, 120);
+    assert.equal(row.logged, 120);
+    assert.equal(row.idleWorkdays, 1);
+    assert.equal(row.stalled, false);
+
+    assert.equal((await api('GET', '/metrics?date=2026-13-01')).status, 400);
+    await api('DELETE', `/activities/${act.data.activity.id}`);
+    await api('DELETE', `/demands/${c.id}`);
+  });
+});
+
 describe('migração do banco', () => {
+  it('cria o histórico de status das demandas existentes, datado pelo último update', () => {
+    const db = new DatabaseSync(':memory:');
+    migrate(db, 5);
+    db.exec(`
+      INSERT INTO demands (category, ticket_number, description, status, updated_at)
+        VALUES ('chamado', 'MIG0000001', 'Descrição fictícia', 'em_andamento', '2026-10-20 12:00:00');
+      INSERT INTO demands (category, title, meeting_type, participants)
+        VALUES ('reuniao', 'Assunto', 'Daily', 'Equipe Exemplo');
+    `);
+
+    migrate(db);
+
+    assert.deepEqual(createRepo(db).listAllStatusChanges(), [
+      { demandId: 1, from: null, to: 'em_andamento', date: '2026-10-20' },
+    ]);
+  });
+
   it('remove o status do apontamento e preserva o que não era o padrão nas observações', () => {
     const db = new DatabaseSync(':memory:');
     migrate(db, 4);

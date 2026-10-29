@@ -187,6 +187,23 @@ const MIGRATIONS = [
 
   ALTER TABLE activities DROP COLUMN status;
   `,
+  // 6 — histórico de status das demandas (docs/decisions/0003): uma linha por troca, com a data.
+  // Cada demanda existente ganha a linha do status atual, datada pelo último update (aproximação,
+  // em UTC): é o melhor que se sabe de quando ela chegou até aqui.
+  `
+  CREATE TABLE demand_status_changes (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    demand_id   INTEGER NOT NULL REFERENCES demands(id) ON DELETE CASCADE,
+    from_status TEXT,
+    to_status   TEXT    NOT NULL,
+    changed_at  TEXT    NOT NULL,
+    created_at  TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX idx_demand_status_changes_demand ON demand_status_changes(demand_id, changed_at);
+
+  INSERT INTO demand_status_changes (demand_id, from_status, to_status, changed_at)
+  SELECT id, NULL, status, substr(updated_at, 1, 10) FROM demands WHERE status IS NOT NULL;
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

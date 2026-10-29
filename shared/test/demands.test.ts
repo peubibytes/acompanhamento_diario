@@ -186,7 +186,7 @@ describe('ciclo: impedimentos e linha do tempo', () => {
       ],
     });
     assert.equal(s.label, 'Migração de relatórios');
-    assert.deepEqual(s.tracking, { eventCount: 2, lastEventDate: '2026-10-26', openBlockers: 1, waitingWorkdays: 2 });
+    assert.deepEqual(s.tracking, { eventCount: 2, lastEventDate: '2026-10-26', openBlockers: 1, waitingWorkdays: 2, lastUpdate: { date: '2026-10-26', kind: 'evento', text: '' } });
   });
 });
 

@@ -12,6 +12,7 @@ import {
   type DemandEvent,
   type DemandEventInput,
   type DemandInput,
+  type DemandStatusChange,
   type ISODate,
 } from '@acomp/shared';
 
@@ -154,6 +155,23 @@ function demandParams(d: DemandInput) {
   }
 }
 
+interface StatusChangeRow {
+  demand_id: number;
+  from_status: string | null;
+  to_status: string;
+  changed_at: string;
+}
+
+const toStatusChange = (r: StatusChangeRow): DemandStatusChange => ({
+  demandId: r.demand_id,
+  from: r.from_status,
+  to: r.to_status,
+  date: r.changed_at,
+});
+
+/** Reuniões não têm status. */
+const statusOf = (d: DemandInput): string | null => ('status' in d ? d.status : null);
+
 const toEvent = (r: EventRow): DemandEvent => ({
   id: r.id,
   demandId: r.demand_id,
@@ -235,6 +253,14 @@ export function createRepo(db: DatabaseSync) {
       'SELECT * FROM activities WHERE demand_id = ? ORDER BY date DESC, start_minute DESC, id DESC',
     ),
 
+    statusChanges: db.prepare('SELECT * FROM demand_status_changes ORDER BY changed_at DESC, id DESC'),
+    statusChangesOfDemand: db.prepare(
+      'SELECT * FROM demand_status_changes WHERE demand_id = ? ORDER BY changed_at DESC, id DESC',
+    ),
+    insertStatusChange: db.prepare(`
+      INSERT INTO demand_status_changes (demand_id, from_status, to_status, changed_at)
+      VALUES (:demandId, :from, :to, :date)`),
+
     events: db.prepare('SELECT * FROM demand_events ORDER BY date DESC, id DESC'),
     eventsOfDemand: db.prepare('SELECT * FROM demand_events WHERE demand_id = ? ORDER BY date DESC, id DESC'),
     eventById: db.prepare('SELECT * FROM demand_events WHERE id = ? AND demand_id = ?'),
@@ -305,17 +331,56 @@ export function createRepo(db: DatabaseSync) {
       return row && toDemand(row);
     },
 
-    createDemand(input: DemandInput): Demand {
-      const { lastInsertRowid } = q.insertDemand.run(demandParams(input));
-      return this.getDemand(Number(lastInsertRowid))!;
+    /** Declara a demanda e registra o status inicial no histórico (`today` = data da declaração). */
+    createDemand(input: DemandInput, today: ISODate): Demand {
+      db.exec('BEGIN');
+      try {
+        const { lastInsertRowid } = q.insertDemand.run(demandParams(input));
+        const id = Number(lastInsertRowid);
+        const status = statusOf(input);
+        if (status) q.insertStatusChange.run({ demandId: id, from: null, to: status, date: today });
+        db.exec('COMMIT');
+        return this.getDemand(id)!;
+      } catch (err) {
+        db.exec('ROLLBACK');
+        throw err;
+      }
     },
 
-    /** Atualiza a demanda e o nome gravado nos seus apontamentos (coluna "projeto"). */
-    updateDemand(id: number, input: DemandInput): Demand | undefined {
-      const { changes } = q.updateDemand.run({ ...demandParams(input), id });
-      if (!changes) return undefined;
-      q.relabelActivities.run(demandLabel(input), id);
-      return this.getDemand(id);
+    /**
+     * Atualiza a demanda e o nome gravado nos seus apontamentos (coluna "projeto"). Se o status
+     * mudou, a troca entra no histórico com a data de `today`.
+     */
+    updateDemand(id: number, input: DemandInput, today: ISODate): Demand | undefined {
+      const before = this.getDemand(id);
+      if (!before) return undefined;
+      db.exec('BEGIN');
+      try {
+        const { changes } = q.updateDemand.run({ ...demandParams(input), id });
+        if (!changes) {
+          db.exec('ROLLBACK');
+          return undefined;
+        }
+        q.relabelActivities.run(demandLabel(input), id);
+        const from = statusOf(before);
+        const to = statusOf(input);
+        if (to && to !== from) q.insertStatusChange.run({ demandId: id, from, to, date: today });
+        db.exec('COMMIT');
+        return this.getDemand(id);
+      } catch (err) {
+        db.exec('ROLLBACK');
+        throw err;
+      }
+    },
+
+    /** Trocas de status de todas as demandas (para a data de conclusão e a última atualização). */
+    listAllStatusChanges(): DemandStatusChange[] {
+      return (q.statusChanges.all() as unknown as StatusChangeRow[]).map(toStatusChange);
+    },
+
+    /** Histórico de status de uma demanda, da troca mais recente para a mais antiga. */
+    listDemandStatusChanges(demandId: number): DemandStatusChange[] {
+      return (q.statusChangesOfDemand.all(demandId) as unknown as StatusChangeRow[]).map(toStatusChange);
     },
 
     /** Outro chamado já declarado com o mesmo número (normalizado). */
