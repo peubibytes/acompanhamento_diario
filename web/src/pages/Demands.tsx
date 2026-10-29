@@ -366,7 +366,9 @@ function RoutineStatusSelect({ demand, status }: { demand: DemandSummary; status
     );
   };
   return (
-    <label className={`relative inline-flex shrink-0 items-center gap-1.5 rounded-full py-1 pr-1 pl-2.5 text-xs font-medium ${style.badge}`}>
+    <label
+      className={`relative inline-flex shrink-0 items-center gap-1.5 rounded-full py-1 pr-1 pl-2.5 text-xs font-medium has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent ${style.badge}`}
+    >
       {style.icon(13)}
       <span className="sr-only">Status</span>
       <select

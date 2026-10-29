@@ -318,6 +318,17 @@ em destaque, um título, uma ação principal e um filtro por tela.
     link. A agenda mostra "Amanhã  Qui 29/10" numa linha só. Ícones sem status ficam neutros (a
     cor de destaque é para a ação principal).
 
+- **Fase 6 — revisão (pronta):**
+  - **Contraste (WCAG AA):** auditoria automática de todo texto visível — Painel (3 visões),
+    Apontamentos, Demandas, Detalhes e Lembretes, mais os estados abertos (painéis, ⓘ, meta, sino),
+    nos dois temas, em 1280 e 390 px —, sem nenhuma falha (texto ≥ 4,5:1; texto grande ≥ 3:1).
+  - **Teclado:** todo controle alcançado com Tab mostra um indicador de foco. A auditoria achou
+    um só caso, o seletor de status das linhas de Demandas, e foi corrigido.
+  - **Celular:** o ⓘ abre ao toque, fecha ao tocar de novo ou fora, e a barra inferior continua.
+    Nenhuma tela tem rolagem horizontal em 390, 360 e 320 px.
+  - **Antes e depois:** comparativos lado a lado de cada tela (8 telas × desktop claro, desktop
+    escuro e celular), tomando como "antes" o commit `9fdc285`.
+
 ## 8. Expansão: gestão do colaborador (v0.4 — em andamento)
 
 Objetivo: transformar o app, de controlador de apontamentos, em organizador completo do dia a dia
