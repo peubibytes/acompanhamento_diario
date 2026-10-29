@@ -4,6 +4,7 @@ import express, { type ErrorRequestHandler, type Response } from 'express';
 import { z } from 'zod';
 import {
   buildCycleSummary,
+  buildDailyReport,
   buildDemandSummary,
   buildOverview,
   compareDemands,
@@ -18,6 +19,7 @@ import {
   formatHM,
   matchesStatusGroup,
   normalizeTicketNumber,
+  previousWorkday,
   TASK_STATUSES,
   getCycle,
   isValidISODate,
@@ -223,6 +225,23 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
     if (!date.success) return badRequest(res, date.error);
     const { start, end } = getCycle(date.data);
     res.json(buildOverview(summarize(repo.listDemands()), repo.listLinkedActivities(), { start, end }, today()));
+  });
+
+  /** Relatório do dia para a daily ou o 1:1; sem `date`, o dia útil anterior a hoje. */
+  app.get('/api/reports/daily', (req, res) => {
+    const date = isoDate.default(previousWorkday(today())).safeParse(req.query.date);
+    if (!date.success) return badRequest(res, date.error);
+    res.json(
+      buildDailyReport({
+        date: date.data,
+        goal: repo.goalForCycle(getCycle(date.data).start),
+        activities: repo.listActivities(date.data, date.data),
+        demands: summarize(repo.listDemands()),
+        events: repo.listAllEvents(),
+        blockers: repo.listAllBlockers(),
+        statusChanges: repo.listAllStatusChanges(),
+      }),
+    );
   });
 
   app.get('/api/activities', (req, res) => {

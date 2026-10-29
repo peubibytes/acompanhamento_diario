@@ -9,6 +9,7 @@ import {
   type DemandEvent,
   type DemandEventInput,
   type DemandInput,
+  type DailyReport,
   type DemandStatusChange,
   type DemandStatusGroup,
   type DemandSummary,
@@ -84,6 +85,14 @@ export function useOverview(date: ISODate) {
   });
 }
 
+/** Relatório do dia (daily / 1:1): o que foi feito, impedimentos e o que será feito. */
+export function useDailyReport(date: ISODate) {
+  return useQuery({
+    queryKey: ['reports', 'daily', date] as const,
+    queryFn: () => request<DailyReport>('GET', `/reports/daily?date=${date}`),
+  });
+}
+
 export function useDemand(id: number, enabled = true) {
   return useQuery({
     queryKey: keys.demand(id),
@@ -100,7 +109,7 @@ function useInvalidate() {
   const client = useQueryClient();
   return () =>
     Promise.all(
-      ['cycle', 'activities', 'demands', 'metrics'].map((key) => client.invalidateQueries({ queryKey: [key] })),
+      ['cycle', 'activities', 'demands', 'metrics', 'reports'].map((key) => client.invalidateQueries({ queryKey: [key] })),
     );
 }
 

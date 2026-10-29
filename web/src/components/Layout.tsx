@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { NavLink, Outlet } from 'react-router';
 import { useRefDate, withDate } from '../hooks';
-import { ClockIcon, GridIcon, StopwatchIcon, TableIcon, TargetIcon } from './icons';
+import { ClockIcon, GridIcon, ListIcon, StopwatchIcon, TableIcon, TargetIcon } from './icons';
 import { NotificationBell } from './NotificationBell';
 import { ThemeToggle } from './ThemeToggle';
 
@@ -10,6 +10,7 @@ const links: { to: string; label: string; icon: ReactNode }[] = [
   { to: '/apontamentos', label: 'Apontamentos', icon: <ClockIcon size={20} /> },
   { to: '/demandas', label: 'Demandas', icon: <TargetIcon size={20} /> },
   { to: '/detalhes', label: 'Detalhes', icon: <TableIcon size={20} /> },
+  { to: '/relatorio', label: 'Relatório', icon: <ListIcon size={20} /> },
 ];
 
 export function Layout() {
@@ -17,7 +18,7 @@ export function Layout() {
 
   return (
     <div className="min-h-dvh">
-      <header className="sticky top-0 z-30 border-b border-line bg-bg/85 backdrop-blur-md">
+      <header className="sticky top-0 z-30 border-b print:hidden border-line bg-bg/85 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-page items-center justify-between gap-3 px-gutter">
           <NavLink
             to={withDate('/', date)}
@@ -60,10 +61,10 @@ export function Layout() {
 
       {/* Celular: barra de navegação inferior, ao alcance do polegar */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:hidden print:hidden"
         aria-label="Principal"
       >
-        <div className="grid grid-cols-4">
+        <div className="grid grid-cols-5">
           {links.map((l) => (
             <NavLink
               key={l.to}

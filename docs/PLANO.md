@@ -139,6 +139,7 @@ O esquema evolui por migrações numeradas em `server/src/db.ts` (`PRAGMA user_v
 | DELETE | `/api/demands/:id` | remove; com apontamentos → 409 (eventos e impedimentos vão junto) |
 | POST/PUT/DELETE | `/api/demands/:id/events[/:eventId]` | linha do tempo (só ciclos) |
 | POST/PUT/DELETE | `/api/demands/:id/blockers[/:blockerId]` | impedimentos (só ciclos) |
+| GET | `/api/reports/daily?date=` | relatório do dia (sem `date`, o dia útil anterior): o que foi feito, impedimentos e o que será feito |
 | GET | `/api/metrics?date=` | tarefas (concluídas no ciclo de apontamento da data, na fila, em andamento) e ciclos abertos (última atualização, horas) |
 
 ## 3. Telas
@@ -178,6 +179,11 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
    Lembretes por gravidade ("Pedem atenção", "Para saber") e a agenda por dia, em listas sem
    molduras.
 
+6. **Relatório (`/relatorio`, v0.7)** — o relatório de um dia para a daily ou o 1:1; por padrão, o
+   dia útil anterior, com navegação por dia útil. Pré-visualização em três seções e a ação
+   principal **Copiar** (Markdown); também `Baixar .md` e `Imprimir / PDF` (impressão do navegador,
+   sem o menu). Ver seção 10.
+
 ## 4. Fases
 
 | Fase | Entregável | Status |
@@ -191,7 +197,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 | 6 | Polimento: estados vazios, carregamento, modo escuro, responsividade | ✅ primeira versão |
 | 7 | Próximos passos: autocompletar projetos, copiar atividade de outro dia, exportar semana | a definir |
 | 8 | Expansão para gestão do colaborador (seção 8) | a definir |
-| 9 | v0.7: status só na demanda, Tarefas, métricas, relatório diário (seção 10) | em andamento |
+| 9 | v0.7: status só na demanda, Tarefas, métricas, relatório diário (seção 10) | ✅ código; falta a documentação técnica (PDF) |
 | — | Integração com o Azure | futuro |
 
 ### Decisões registradas
@@ -463,7 +469,7 @@ cada dia, um chamado retomado à tarde) aparece reunida.
 Azure (códigos e apontamento automático), login/múltiplos usuários (roda localmente),
 folha de pagamento, cobrança a clientes, controle de ponto oficial.
 
-## 10. Status só na demanda, histórico e métricas de tarefas (v0.7 — em andamento)
+## 10. Status só na demanda, histórico e métricas de tarefas (v0.7)
 
 Decisão em `docs/decisions/0003-status-so-na-demanda.md`.
 
@@ -482,3 +488,23 @@ Decisão em `docs/decisions/0003-status-so-na-demanda.md`.
   de 3, `STALLED_WORKDAYS`), horas apontadas no total e no ciclo de apontamento.
 - **API:** `GET /api/metrics?date=` devolve o período e as duas métricas; as regras ficam em
   `shared/src/overview.ts`.
+
+### Relatório diário (`/relatorio`)
+
+Foco: apresentar em uma daily ou 1:1. Montado na hora (nada é gravado); regras em
+`shared/src/report.ts`, testadas com dados fictícios.
+
+1. **O que foi feito.** Métricas: horas apontadas × meta e conformidade, apontamentos, demandas
+   com tempo apontado por tipo e tarefas concluídas no dia. Por demanda (do maior tempo para o
+   menor): horas, cada apontamento ("o que foi feito" e observações), trocas de status do dia
+   (a declaração não conta) e eventos da linha do tempo na data. Apontamentos antigos, sem demanda,
+   aparecem pelo projeto. Sem apontamentos, o que mais aconteceu no dia ainda aparece.
+2. **Impedimentos.** Os abertos no dia e os resolvidos nele (um resolvido antes não entra; um
+   resolvido depois ainda estava aberto). Métricas: abertos, novos, resolvidos e maior espera em
+   dias úteis. Cada item traz o ciclo, o responsável, desde quando e a espera. Sem nenhum:
+   "Sem impedimentos".
+3. **O que será feito hoje.** Só existe se houver demanda aberta que não seja reunião. O dia é o
+   próximo dia útil depois do relatório ("hoje" quando é hoje). Traz, nesta ordem, as tarefas em
+   andamento, os ciclos abertos (ordem de urgência, com prazo e "impedimento aberto") e a fila
+   ("Na fila: N tarefas"). Na tela, cada item tem uma caixa para tirá-lo antes de copiar.
+   O status usado é o de agora, mesmo em relatório de dia passado.
