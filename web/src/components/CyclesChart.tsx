@@ -1,14 +1,19 @@
 import { Link } from 'react-router';
 import { formatDayMonth, formatDuration, WEEKDAY_SHORT, weekdayOf, type DemandSummary } from '@acomp/shared';
 import { DeadlineBadge } from './DemandVisuals';
+import { SectionTitle } from './SectionTitle';
 import { ArrowRight, PlusIcon, TargetIcon } from './icons';
 
 const MAX_ROWS = 6;
 
-/**
- * Painel: horas apontadas em cada ciclo aberto, dos mais urgentes para os demais. Sem meta de
- * horas, as barras comparam os ciclos entre si (a maior ocupa a largura toda).
- */
+const HINT = (
+  <>
+    <span className="block">Horas apontadas em cada ciclo aberto, dos mais urgentes para os demais.</span>
+    <span className="mt-1.5 block">As barras comparam os ciclos entre si: a maior ocupa a largura toda.</span>
+  </>
+);
+
+/** Painel: horas apontadas em cada ciclo aberto. Prazo, apontamentos e lembrete aparecem no hover/foco. */
 export function CyclesChart({ demands }: { demands: DemandSummary[] }) {
   const cycles = demands.filter((d) => d.category === 'ciclo');
   const shown = cycles.slice(0, MAX_ROWS);
@@ -16,89 +21,95 @@ export function CyclesChart({ demands }: { demands: DemandSummary[] }) {
   const max = Math.max(1, ...shown.map((d) => d.metrics.logged));
 
   return (
-    <section className="card rise p-5 sm:p-6" style={{ animationDelay: '240ms' }}>
-      <div className="mb-5">
-        <h2 className="text-lg font-semibold text-ink">Ciclos em andamento</h2>
-        <p className="text-sm text-ink-2">Horas apontadas em cada ciclo aberto e a situação do prazo.</p>
-        {cycles.length > 0 && (
-          <p className="tabular mt-3 inline-flex items-baseline gap-1.5 rounded-full bg-surface-2 px-3 py-1 text-xs text-ink-2">
-            Total nos ciclos
-            <strong className="text-sm font-bold text-ink">{formatDuration(logged)}</strong>
-          </p>
-        )}
-      </div>
+    <section className="card rise p-5 sm:p-6">
+      <SectionTitle
+        title="Ciclos em andamento"
+        hint={HINT}
+        aside={
+          cycles.length > 0 && (
+            <Link
+              to="/demandas?tipo=ciclo"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-2 transition hover:text-ink"
+            >
+              {cycles.length > MAX_ROWS ? `Ver todos (${cycles.length})` : 'Gerenciar'}
+              <ArrowRight size={14} />
+            </Link>
+          )
+        }
+      />
 
       {cycles.length === 0 ? (
-        <div className="flex flex-col items-center rounded-2xl border border-dashed border-line px-6 py-8 text-center">
-          <span className="grid size-10 place-items-center rounded-full bg-accent-soft text-accent">
+        <div className="mt-6 flex flex-col items-center rounded-2xl border border-dashed border-line px-6 py-14 text-center">
+          <span className="grid size-10 place-items-center rounded-full bg-surface-2 text-ink-2">
             <TargetIcon size={20} />
           </span>
-          <p className="mt-2 font-semibold text-ink">Nenhum ciclo aberto</p>
-          <p className="mt-1 max-w-xs text-sm text-ink-2">
-            Declare trabalhos longos, com prazo e prioridade, para acompanhá-los aqui.
-          </p>
+          <p className="mt-3 font-semibold text-ink">Nenhum ciclo aberto</p>
           <Link
             to="/demandas?tipo=ciclo"
-            className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-on-accent hover:bg-accent-hover"
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:underline"
           >
-            <PlusIcon size={16} /> Declarar ciclo
+            <PlusIcon size={15} /> Declarar ciclo
           </Link>
         </div>
       ) : (
-        <ul className="space-y-1">
-          {shown.map((d) => {
-            const due = d.category === 'ciclo' ? d.dueDate : null;
-            const pct = (d.metrics.logged / max) * 100;
-            return (
-              <li key={d.id}>
-                <Link
-                  to={`/demandas#demanda-${d.id}`}
-                  title={d.metrics.reminder ?? d.label}
-                  className="block rounded-xl px-2 py-2.5 transition hover:bg-surface-2/70 sm:px-3"
-                >
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <span className="truncate text-sm font-medium text-ink">{d.label}</span>
-                    <DeadlineBadge status={d.metrics.deadline} />
-                  </div>
-                  <div
-                    className="h-2.5 overflow-hidden rounded-full bg-grid"
-                    role="img"
-                    aria-label={`${d.label}: ${formatDuration(d.metrics.logged)} apontadas`}
+        <>
+          <p className="tabular mt-1 text-xs text-ink-3">
+            {formatDuration(logged)} no total · {cycles.length} {cycles.length === 1 ? 'ciclo' : 'ciclos'}
+          </p>
+          <ul className="mt-5 space-y-1">
+            {shown.map((d) => {
+              const due = d.category === 'ciclo' ? d.dueDate : null;
+              const pct = (d.metrics.logged / max) * 100;
+              return (
+                <li key={d.id}>
+                  <Link
+                    to={`/demandas#demanda-${d.id}`}
+                    className="group relative block rounded-xl px-3 py-3 outline-none transition hover:bg-surface-2/70 focus-visible:ring-2 focus-visible:ring-accent"
                   >
-                    <div
-                      className="h-full rounded-full bg-accent transition-[width] duration-700 ease-out"
-                      style={{ width: `${d.metrics.logged > 0 ? Math.max(2, pct) : 0}%` }}
-                    />
-                  </div>
-                  <div className="tabular mt-1.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-xs">
-                    <span className="text-ink-2">
-                      <strong className="font-semibold text-ink">{formatDuration(d.metrics.logged)}</strong> apontadas
-                      {d.metrics.activityCount > 0 &&
-                        ` · ${d.metrics.activityCount === 1 ? '1 apontamento' : `${d.metrics.activityCount} apontamentos`}`}
-                    </span>
-                    {due && (
-                      <span className="text-ink-3">
-                        Prazo {WEEKDAY_SHORT[weekdayOf(due)]} {formatDayMonth(due)}
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="min-w-0 truncate text-sm font-medium text-ink">{d.label}</span>
+                      <DeadlineBadge status={d.metrics.deadline} />
+                    </div>
+                    <div className="mt-2.5 flex items-center gap-3">
+                      <div
+                        className="h-3 flex-1 overflow-hidden rounded-full bg-grid"
+                        role="img"
+                        aria-label={`${d.label}: ${formatDuration(d.metrics.logged)} apontadas`}
+                      >
+                        <div
+                          className="h-full rounded-full bg-accent transition-[width] duration-700 ease-out"
+                          style={{ width: `${d.metrics.logged > 0 ? Math.max(2, pct) : 0}%` }}
+                        />
+                      </div>
+                      <span className="tabular w-14 shrink-0 text-right text-sm font-semibold text-ink">
+                        {formatDuration(d.metrics.logged)}
                       </span>
-                    )}
-                  </div>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                    </div>
 
-      {cycles.length > 0 && (
-        <div className="mt-3 flex justify-end">
-          <Link
-            to="/demandas?tipo=ciclo"
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:underline"
-          >
-            {cycles.length > MAX_ROWS ? `Ver todos (${cycles.length})` : 'Gerenciar ciclos'}
-            <ArrowRight size={15} />
-          </Link>
-        </div>
+                    <span
+                      role="tooltip"
+                      className="tip-surface pointer-events-none absolute top-full left-3 z-20 mt-1 hidden w-64 max-w-[calc(100%-1.5rem)] p-3 text-left text-xs text-ink-2 group-hover:block group-focus-visible:block"
+                    >
+                      <span className="tabular block">
+                        {d.metrics.activityCount === 0
+                          ? 'Nenhum apontamento'
+                          : `${d.metrics.activityCount} ${d.metrics.activityCount === 1 ? 'apontamento' : 'apontamentos'}${
+                              d.metrics.dayCount > 1 ? ` em ${d.metrics.dayCount} dias` : ''
+                            }`}
+                      </span>
+                      {due && (
+                        <span className="tabular mt-1 block">
+                          Prazo {WEEKDAY_SHORT[weekdayOf(due)]} {formatDayMonth(due)}
+                        </span>
+                      )}
+                      {d.metrics.reminder && <span className="mt-1 block font-medium text-ink">{d.metrics.reminder}</span>}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </>
       )}
     </section>
   );

@@ -139,10 +139,16 @@ O esquema evolui por migrações numeradas em `server/src/db.ts` (`PRAGMA user_v
 Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com o texto explicativo
 (que não fica fixo na tela) e, à direita, a ação principal.
 
-1. **Painel (`/`)** — visual: KPIs (meta semanal, total realizado, dias conformes,
-   % preenchido em anel), gráfico por dia útil com a linha de meta, faixa de status do
-   ciclo (na quinta: "Hoje é dia de apontamento"), seletor de meta, navegação entre
-   semanas, botão "Registrar apontamentos" e, mais abaixo, "Mostrar mais".
+1. **Painel (`/`)** — um seletor no topo escolhe a visão (**Dia útil**, **Distribuição** ou
+   **Ciclos**); a navegação entre ciclos de apontamento fica ao lado (só nas duas primeiras).
+   - *Dia útil:* faixa fina com o anel de % preenchido, o selo da situação ("Faltam 17h15",
+     "Excedeu 1h", "Meta atingida"), total realizado, meta semanal e dias conformes; abaixo, o
+     gráfico por dia útil (~340 px), com o valor e o ícone de status em cima de cada barra e
+     a linha de meta por cima das barras. Tocar em "Meta semanal" abre a meta diária (5h30,
+     8h48 ou outro). O lembrete de dia de apontamento fica no sino.
+   - *Distribuição:* rosca grande do dia escolhido (Sex–Qui) e legenda com nome, horas e %.
+   - *Ciclos:* barras de horas apontadas por ciclo aberto, com o selo de prazo.
+   - Ação principal: "Registrar apontamentos". Link "Detalhamento" no gráfico.
 2. **Apontamentos (`/apontamentos`; `/atividades` redireciona)** — abas Sex/Seg/Ter/Qua/Qui;
    mostra só o dia escolhido: resumo do dia, lista (por horário ou por demanda) e formulário
    (demanda, início, fim, duração ao vivo, o que foi feito, observações, status). Ver seção 9.
@@ -213,10 +219,9 @@ npm start       # build do front + servidor único em :3001
 
 Princípio: o usuário vê apenas o que escolher, sem poluição.
 
-- **Coluna de métricas no painel:** o usuário escolhe uma visão por vez: *Acompanhamento por
-  dia útil* (anel de horas apontadas, meta semanal, total realizado, dias conformes e o gráfico
-  diário, juntos), *Distribuição do dia* ou *Demandas em andamento*. A escolha fica salva no
-  navegador. No celular, a coluna vira um controle segmentado.
+- **Visões do painel:** o usuário escolhe uma por vez em um seletor no topo: *Dia útil*
+  (indicadores e gráfico diário, juntos), *Distribuição do dia* ou *Ciclos em andamento*. A
+  escolha fica salva no navegador. (Até a v0.5 era uma coluna lateral "Métricas".)
 - **Lembretes fora da tela:** os alertas de apontamento irregular, de prazo das demandas e o
   aviso do dia de apontamento saíram do painel e da tela de detalhes.
 - **Sino no header:** contador do que pede atenção (vermelho se houver algo urgente); ao passar
@@ -252,6 +257,18 @@ em destaque, um título, uma ação principal e um filtro por tela.
     lateral (`px-gutter`) e o mesmo espaço entre blocos (`space-y-section`), alinhados ao logo.
     O espaço da barra de rolagem é sempre reservado, para o conteúdo não "pular" entre telas.
   - **Celular:** a barra inferior com as quatro telas continua; a tela atual fica em negrito.
+
+- **Fase 2 — Painel (pronta):**
+  - O seletor segmentado no topo substitui a coluna lateral "Métricas"; as descrições das
+    visões estão no ⓘ do título.
+  - **Dia útil:** faixa de indicadores (só número e rótulo; explicações no ⓘ) e gráfico em
+    destaque. O selo de status sob cada barra saiu: o status fica na cor da barra e no ícone ao
+    lado do valor, e a legenda no ⓘ do gráfico. Saíram também os quadradinhos por dia e as
+    frases "5 dias × 5h30" e "Faltam…" (esta virou um selo curto). A meta diária deixou de ocupar
+    uma linha de controles: abre ao tocar em "Meta semanal".
+  - **Distribuição** e **Ciclos:** mesmo tratamento (gráfico grande, rótulos diretos, detalhes
+    no hover ou foco; a frase-resumo e os rodapés explicativos foram para o ⓘ).
+  - Tooltips do gráfico fechados saem do layout (sem rolagem horizontal em 320 px).
 
 ## 8. Expansão: gestão do colaborador (v0.4 — em andamento)
 

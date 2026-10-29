@@ -22,14 +22,14 @@ export function Segmented<T extends string>({
   /** Nome acessível do grupo. */
   label: string;
   size?: 'sm' | 'md';
-  /** Ocupa a largura toda, com as opções divididas por igual. */
+  /** No celular, ocupa a largura toda com as opções divididas por igual; de sm em diante, o tamanho do conteúdo. */
   stretch?: boolean;
 }) {
   return (
     <div
       role="tablist"
       aria-label={label}
-      className={`${stretch ? 'flex w-full' : 'inline-flex'} items-center rounded-full bg-surface-2 p-1`}
+      className={`${stretch ? 'flex w-full sm:inline-flex sm:w-auto' : 'inline-flex'} items-center rounded-full bg-surface-2 p-1`}
     >
       {options.map((o) => {
         const on = o.value === value;
@@ -40,8 +40,8 @@ export function Segmented<T extends string>({
             aria-selected={on}
             onClick={() => onChange(o.value)}
             className={`inline-flex items-center justify-center gap-1.5 rounded-full font-medium whitespace-nowrap transition ${
-              stretch ? 'min-w-0 flex-1' : ''
-            } ${size === 'sm' ? 'px-3 py-1 text-xs' : 'px-3.5 py-1.5 text-sm'} ${
+              stretch ? 'min-w-0 flex-1 sm:flex-none' : ''
+            } ${size === 'sm' ? 'px-3 py-1 text-xs' : stretch ? 'px-2 py-1.5 text-sm sm:px-3.5' : 'px-3.5 py-1.5 text-sm'} ${
               on ? 'bg-surface text-ink shadow-sm' : 'text-ink-2 hover:text-ink'
             }`}
           >

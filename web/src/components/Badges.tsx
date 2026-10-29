@@ -20,11 +20,15 @@ export type DayTone = 'conforme' | 'abaixo' | 'acima' | 'pendente';
 export const dayTone = (d: Pick<DayMetrics, 'conformity' | 'exceeded'>): DayTone =>
   d.conformity === 'nao_conforme' ? (d.exceeded ? 'acima' : 'abaixo') : d.conformity;
 
-export const toneStyle: Record<DayTone, { label: string; short: string; badge: string; bar: string; icon: (size: number) => ReactNode }> = {
+export const toneStyle: Record<
+  DayTone,
+  { label: string; short: string; badge: string; text: string; bar: string; icon: (size: number) => ReactNode }
+> = {
   conforme: {
     label: 'Conforme',
     short: 'Conforme',
     badge: 'bg-good-soft text-good-text',
+    text: 'text-good-text',
     bar: 'var(--good)',
     icon: (s) => <CheckIcon size={s} />,
   },
@@ -32,6 +36,7 @@ export const toneStyle: Record<DayTone, { label: string; short: string; badge: s
     label: 'Abaixo da meta',
     short: 'Abaixo',
     badge: 'bg-warning-soft text-warning-text',
+    text: 'text-warning-text',
     bar: 'var(--warning)',
     icon: (s) => <AlertIcon size={s} />,
   },
@@ -39,6 +44,7 @@ export const toneStyle: Record<DayTone, { label: string; short: string; badge: s
     label: 'Acima da meta · irregular',
     short: 'Irregular',
     badge: 'bg-critical-soft text-critical-text',
+    text: 'text-critical-text',
     bar: 'var(--critical)',
     icon: (s) => <TrendUpIcon size={s} />,
   },
@@ -46,6 +52,7 @@ export const toneStyle: Record<DayTone, { label: string; short: string; badge: s
     label: 'Pendente',
     short: 'Pendente',
     badge: 'bg-neutral-soft text-ink-2',
+    text: 'text-ink-3',
     bar: 'var(--neutral)',
     icon: (s) => <DashIcon size={s} />,
   },
