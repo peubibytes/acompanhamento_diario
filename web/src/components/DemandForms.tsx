@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import {
   CYCLE_STATUS_LABEL,
   CYCLE_STATUSES,
@@ -28,7 +28,8 @@ import {
 import { useSaveDemand } from '../api/client';
 import { routineStatusStyle } from './DemandVisuals';
 import { Field } from './Field';
-import { ChevronDown, ClockIcon } from './icons';
+import { ChevronDown } from './icons';
+import { InfoHint } from './InfoHint';
 import { useToast } from './Toast';
 
 type Editing<C extends DemandCategory> = Extract<DemandSummary, { category: C }>;
@@ -38,22 +39,45 @@ export function DemandForm({
   category,
   editing,
   onDone,
+  onDirtyChange,
 }: {
   category: DemandCategory;
   editing?: DemandSummary;
+  /** Chamado ao salvar ou ao cancelar: quem abriu o painel o fecha. */
   onDone: () => void;
+  /** Avisa o painel quando há algo digitado que se perderia ao fechar. */
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const same = editing?.category === category ? editing : undefined;
+  const shared = { onDone, onDirtyChange };
   switch (category) {
     case 'ciclo':
-      return <CycleForm editing={same as Editing<'ciclo'> | undefined} onDone={onDone} />;
+      return <CycleForm editing={same as Editing<'ciclo'> | undefined} {...shared} />;
     case 'chamado':
-      return <TicketForm editing={same as Editing<'chamado'> | undefined} onDone={onDone} />;
+      return <TicketForm editing={same as Editing<'chamado'> | undefined} {...shared} />;
     case 'reuniao':
-      return <MeetingForm editing={same as Editing<'reuniao'> | undefined} onDone={onDone} />;
+      return <MeetingForm editing={same as Editing<'reuniao'> | undefined} {...shared} />;
     case 'treinamento':
-      return <TrainingForm editing={same as Editing<'treinamento'> | undefined} onDone={onDone} />;
+      return <TrainingForm editing={same as Editing<'treinamento'> | undefined} {...shared} />;
   }
+}
+
+interface FormProps<T> {
+  editing?: T;
+  onDone: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
+}
+
+/**
+ * Sujo = o conteúdo atual difere do inicial (o da demanda editada ou o formulário vazio). Compara
+ * um retrato dos campos, então vale para qualquer formulário sem listar campo a campo.
+ */
+function useDirty(snapshot: unknown, onDirtyChange?: (dirty: boolean) => void) {
+  const initial = useRef<string | null>(null);
+  const current = JSON.stringify(snapshot);
+  initial.current ??= current;
+  const dirty = current !== initial.current;
+  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
 }
 
 const CREATED: Record<DemandCategory, string> = {
@@ -63,8 +87,8 @@ const CREATED: Record<DemandCategory, string> = {
   treinamento: 'Treinamento declarado.',
 };
 
-/** Grava a declaração; numa nova, limpa o formulário depois de salvar. */
-function useSubmit(editing: { id: number; category: DemandCategory } | undefined, onDone: () => void, reset: () => void) {
+/** Grava a declaração e fecha o painel. */
+function useSubmit(editing: { id: number; category: DemandCategory } | undefined, onDone: () => void) {
   const save = useSaveDemand();
   const toast = useToast();
   const submit = (input: DemandInput) =>
@@ -73,7 +97,6 @@ function useSubmit(editing: { id: number; category: DemandCategory } | undefined
       {
         onSuccess: () => {
           toast(editing ? 'Alterações salvas.' : CREATED[input.category]);
-          if (!editing) reset();
           onDone();
         },
         onError: (err) => toast(err.message, 'error'),
@@ -82,7 +105,7 @@ function useSubmit(editing: { id: number; category: DemandCategory } | undefined
   return { submit, pending: save.isPending };
 }
 
-function CycleForm({ editing, onDone }: { editing?: CycleDemand; onDone: () => void }) {
+function CycleForm({ editing, onDone, onDirtyChange }: FormProps<CycleDemand>) {
   const [title, setTitle] = useState(editing?.title ?? '');
   const [kind, setKind] = useState<DemandKind>(editing?.kind ?? 'planejada');
   const [status, setStatus] = useState<CycleStatus>(editing?.status ?? 'novo');
@@ -96,18 +119,8 @@ function CycleForm({ editing, onDone }: { editing?: CycleDemand; onDone: () => v
   const toast = useToast();
   const invalidDue = dueDate !== '' && dueDate < startDate;
 
-  const { submit, pending } = useSubmit(editing, onDone, () => {
-    setTitle('');
-    setKind('planejada');
-    setStatus('novo');
-    setPriority('media');
-    setDescription('');
-    setStartDate(todayISO());
-    setDueDate('');
-    setBranch('');
-    setPrUrl('');
-    setEnvironment(null);
-  });
+  const { submit, pending } = useSubmit(editing, onDone);
+  useDirty({ title, kind, status, priority, description, startDate, dueDate, branch, prUrl, environment }, onDirtyChange);
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -141,7 +154,21 @@ function CycleForm({ editing, onDone }: { editing?: CycleDemand; onDone: () => v
       </Field>
 
       <fieldset>
-        <legend className="mb-1.5 block text-xs font-semibold text-ink-2">Tipo</legend>
+        <legend className="mb-1.5 flex items-center gap-1 text-xs font-semibold text-ink-2">
+          Tipo
+          <InfoHint label="Sobre o tipo do ciclo">
+            <span className="block">
+              <strong className="font-semibold text-ink">Planejada:</strong> estava no planejamento.
+            </span>
+            <span className="mt-1.5 block">
+              <strong className="font-semibold text-ink">Intempestiva:</strong> não estava planejada e interrompeu o que
+              estava previsto.
+            </span>
+            <span className="mt-1.5 block">
+              <strong className="font-semibold text-ink">Preventiva:</strong> feita para evitar um problema futuro.
+            </span>
+          </InfoHint>
+        </legend>
         <div className="flex rounded-full bg-surface-2 p-1">
           {DEMAND_KINDS.map((k) => (
             <label
@@ -155,7 +182,6 @@ function CycleForm({ editing, onDone }: { editing?: CycleDemand; onDone: () => v
             </label>
           ))}
         </div>
-        <p className="mt-1 text-xs text-ink-3">Intempestiva: não estava planejada e interrompeu o que estava previsto.</p>
       </fieldset>
 
       <div className="grid grid-cols-2 gap-3">
@@ -248,15 +274,12 @@ function CycleForm({ editing, onDone }: { editing?: CycleDemand; onDone: () => v
   );
 }
 
-function TicketForm({ editing, onDone }: { editing?: TicketDemand; onDone: () => void }) {
+function TicketForm({ editing, onDone, onDirtyChange }: FormProps<TicketDemand>) {
   const [ticketNumber, setTicketNumber] = useState(editing?.ticketNumber ?? '');
   const [description, setDescription] = useState(editing?.description ?? '');
   const [status, setStatus] = useState<RoutineStatus>(editing?.status ?? 'nao_iniciado');
-  const { submit, pending } = useSubmit(editing, onDone, () => {
-    setTicketNumber('');
-    setDescription('');
-    setStatus('nao_iniciado');
-  });
+  const { submit, pending } = useSubmit(editing, onDone);
+  useDirty({ ticketNumber, description, status }, onDirtyChange);
 
   return (
     <form
@@ -277,12 +300,12 @@ function TicketForm({ editing, onDone }: { editing?: TicketDemand; onDone: () =>
           className="field tabular font-medium tracking-wide"
         />
       </Field>
-      <Field label="Descrição" hint="Qual o problema, quem solicitou e outras informações relevantes.">
+      <Field label="Descrição">
         <textarea
           required
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Ex.: Erro ao gerar o relatório mensal. Solicitado pela área financeira."
+          placeholder="Qual o problema, quem solicitou e outras informações relevantes"
           rows={5}
           maxLength={4000}
           className="field resize-y"
@@ -294,16 +317,13 @@ function TicketForm({ editing, onDone }: { editing?: TicketDemand; onDone: () =>
   );
 }
 
-function MeetingForm({ editing, onDone }: { editing?: MeetingDemand; onDone: () => void }) {
+function MeetingForm({ editing, onDone, onDirtyChange }: FormProps<MeetingDemand>) {
   const [meetingType, setMeetingType] = useState(editing?.meetingType ?? '');
   const [participants, setParticipants] = useState(editing?.participants ?? '');
   const [subject, setSubject] = useState(editing?.subject ?? '');
   const listId = useId();
-  const { submit, pending } = useSubmit(editing, onDone, () => {
-    setMeetingType('');
-    setParticipants('');
-    setSubject('');
-  });
+  const { submit, pending } = useSubmit(editing, onDone);
+  useDirty({ meetingType, participants, subject }, onDirtyChange);
 
   return (
     <form
@@ -343,7 +363,7 @@ function MeetingForm({ editing, onDone }: { editing?: MeetingDemand; onDone: () 
           </button>
         ))}
       </div>
-      <Field label="Com quem" hint="Pessoas ou equipes que participam.">
+      <Field label="Com quem">
         <input
           required
           value={participants}
@@ -368,15 +388,12 @@ function MeetingForm({ editing, onDone }: { editing?: MeetingDemand; onDone: () 
   );
 }
 
-function TrainingForm({ editing, onDone }: { editing?: TrainingDemand; onDone: () => void }) {
+function TrainingForm({ editing, onDone, onDirtyChange }: FormProps<TrainingDemand>) {
   const [title, setTitle] = useState(editing?.title ?? '');
   const [description, setDescription] = useState(editing?.description ?? '');
   const [status, setStatus] = useState<RoutineStatus>(editing?.status ?? 'nao_iniciado');
-  const { submit, pending } = useSubmit(editing, onDone, () => {
-    setTitle('');
-    setDescription('');
-    setStatus('nao_iniciado');
-  });
+  const { submit, pending } = useSubmit(editing, onDone);
+  useDirty({ title, description, status }, onDirtyChange);
 
   return (
     <form
@@ -396,10 +413,11 @@ function TrainingForm({ editing, onDone }: { editing?: TrainingDemand; onDone: (
           className="field"
         />
       </Field>
-      <Field label="Descrição" optional hint="Instituição ou plataforma, conteúdo, certificado…">
+      <Field label="Descrição" optional>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
+          placeholder="Instituição ou plataforma, conteúdo, certificado…"
           rows={3}
           maxLength={4000}
           className="field resize-y"
@@ -448,36 +466,19 @@ function Actions({
   create: string;
 }) {
   return (
-    <>
-      <div className="flex gap-2 pt-1">
+    <div className="space-y-2 pt-1">
+      <button type="submit" disabled={pending} className="btn-primary w-full">
+        {pending ? 'Salvando…' : editing ? 'Salvar alterações' : create}
+      </button>
+      <div className="flex justify-center">
         <button
-          type="submit"
-          disabled={pending}
-          className="flex-1 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-on-accent shadow-sm transition hover:bg-accent-hover disabled:opacity-60"
+          type="button"
+          onClick={onCancel}
+          className="rounded-full px-4 py-2 text-sm font-semibold text-ink-3 outline-none transition hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-accent"
         >
-          {pending ? 'Salvando…' : editing ? 'Salvar alterações' : create}
+          Cancelar
         </button>
-        {editing && (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-full border border-line px-5 py-2.5 text-sm font-semibold text-ink-2 transition hover:bg-surface-2"
-          >
-            Cancelar
-          </button>
-        )}
       </div>
-      <DeclarationNote />
-    </>
-  );
-}
-
-/** Lembra que aqui só se declara: as horas vão para Apontamentos. */
-function DeclarationNote(): ReactNode {
-  return (
-    <p className="flex items-start gap-2 rounded-xl bg-surface-2 px-3 py-2.5 text-xs text-ink-2">
-      <ClockIcon size={14} className="mt-px shrink-0 text-ink-3" />
-      Aqui você só declara. O tempo gasto é registrado em Apontamentos, escolhendo esta demanda.
-    </p>
+    </div>
   );
 }

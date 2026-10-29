@@ -3,17 +3,12 @@ import {
   CYCLE_STATUS_LABEL,
   DEADLINE_LABEL,
   DEMAND_CATEGORY_LABEL,
-  DEMAND_KIND_LABEL,
-  DEMAND_PRIORITY_LABEL,
   formatDayMonth,
   formatDuration,
-  ROUTINE_STATUS_LABEL,
   type CycleStatus,
   type DeadlineStatus,
   type DemandCategory,
-  type DemandKind,
   type DemandMetrics,
-  type DemandPriority,
   type RoutineStatus,
 } from '@acomp/shared';
 import {
@@ -99,39 +94,6 @@ export const routineStatusStyle: Record<RoutineStatus, { badge: string; icon: (s
   em_andamento: { badge: 'bg-accent-soft text-accent', icon: (s) => <ClockIcon size={s} /> },
   concluido: { badge: 'bg-good-soft text-good-text', icon: (s) => <CheckIcon size={s} /> },
 };
-
-export function RoutineStatusBadge({ status }: { status: RoutineStatus }) {
-  const style = routineStatusStyle[status];
-  return (
-    <span className={`${BADGE} ${style.badge}`}>
-      {style.icon(13)}
-      {ROUTINE_STATUS_LABEL[status]}
-    </span>
-  );
-}
-
-/** Só o que foge do comum ganha selo: tipo diferente de "planejada" e prioridade alta/urgente. */
-export function DemandFlags({ kind, priority }: { kind: DemandKind; priority: DemandPriority }) {
-  return (
-    <>
-      {kind !== 'planejada' && (
-        <span
-          className={`${BADGE} ${kind === 'intempestiva' ? 'bg-warning-soft text-warning-text' : 'bg-neutral-soft text-ink-2'}`}
-        >
-          {DEMAND_KIND_LABEL[kind]}
-        </span>
-      )}
-      {(priority === 'alta' || priority === 'urgente') && (
-        <span
-          className={`${BADGE} ${priority === 'urgente' ? 'bg-critical-soft text-critical-text' : 'bg-warning-soft text-warning-text'}`}
-        >
-          <AlertIcon size={13} />
-          Prioridade {DEMAND_PRIORITY_LABEL[priority].toLowerCase()}
-        </span>
-      )}
-    </>
-  );
-}
 
 /** "3h20 apontadas · 4 apontamentos em 3 dias · último em 28/10" (ou o convite a apontar). */
 export function LoggedSummary({ metrics: m, compact = false }: { metrics: DemandMetrics; compact?: boolean }) {

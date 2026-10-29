@@ -154,7 +154,10 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
    linha, e a lista (por horário ou por demanda) ocupando a tela. O formulário (demanda, início,
    fim, duração ao vivo, o que foi feito, observações, status) abre num painel deslizante pelo
    botão "Novo apontamento" ou ao editar. Ver seção 9.
-3. **Demandas (`/demandas`)** — declaração de Atividades e Ciclos. Ver seção 9.
+3. **Demandas (`/demandas`)** — uma barra só: abas **Atividades | Ciclo** (com a contagem dos
+   abertos), o tipo da atividade (chamado, reunião ou treinamento) num menu, e o status (em
+   aberto, encerrados, todos) à direita. A lista é de linhas compactas; o formulário abre num
+   painel deslizante pelo botão "Declarar {tipo}" ou ao editar. Ver seção 9.
 4. **Detalhamento (`/detalhes`)** — tabela fiel à planilha: data, dia, meta, horas,
    diferença, qtd apontamentos, conformidade, diagnóstico e linha de total geral.
 
@@ -286,6 +289,20 @@ em destaque, um título, uma ação principal e um filtro por tela.
     descrição, as observações e o status completo aparecem ao expandir a linha; editar e excluir
     aparecem ao passar o mouse (no celular, dentro da linha expandida).
 
+- **Fase 4 — Demandas (pronta):**
+  - **Uma barra de navegação** no lugar de três níveis empilhados (cartões de família, seletor de
+    tipo e filtro de status). Tipos de atividade em menu; o seletor de status some em Reuniões,
+    que não têm status.
+  - **Formulário no painel deslizante** (o mesmo `SlideOver` de Apontamentos, com confirmação ao
+    descartar). O botão principal acompanha o tipo: "Declarar chamado", "Declarar reunião"…
+    As explicações dos campos viraram placeholder ou ⓘ (ex.: a diferença entre planejada,
+    intempestiva e preventiva); a nota fixa "Aqui você só declara" saiu (está no ⓘ da tela).
+  - **Linhas compactas:** título, status, prazo e horas; o impedimento aberto aparece como um ícone
+    de ampulheta, com rótulo para leitor de tela. Editar e excluir aparecem no hover (celular:
+    na linha expandida).
+  - Links por âncora (`#demanda-ID`) abrem a aba certa, mostram a demanda mesmo se encerrada, a
+    expandem e rolam até ela, uma vez por link.
+
 ## 8. Expansão: gestão do colaborador (v0.4 — em andamento)
 
 Objetivo: transformar o app, de controlador de apontamentos, em organizador completo do dia a dia
@@ -362,11 +379,11 @@ sobre uma demanda já declarada. Assim, a mesma coisa feita em horários diferen
 cada dia, um chamado retomado à tarde) aparece reunida.
 
 ### Demandas (`/demandas`)
-- Duas famílias, escolhidas em dois cartões no topo: **Atividades** e **Ciclo**.
-- **Atividades** têm três abas:
+- Duas famílias, nas abas do topo: **Atividades** e **Ciclo**.
+- **Atividades** têm três tipos (menu ao lado das abas):
   - **Chamados:** número do chamado (obrigatório, normalizado em maiúsculas, único), descrição
     (obrigatória: problema, quem solicitou, outras informações) e status: Não iniciado,
-    Iniciado, Em andamento, Concluído. Troca rápida de status no próprio cartão.
+    Iniciado, Em andamento, Concluído. Troca rápida de status na própria linha.
   - **Reuniões:** tipo (sugestões Daily, Semanal, Planejamento, Treinamento; aceita outro), com
     quem e assunto, todos obrigatórios. Sem status: ficam sempre disponíveis para apontar. A
     mesma reunião (tipo, participantes e assunto iguais) não é declarada duas vezes.
@@ -374,9 +391,11 @@ cada dia, um chamado retomado à tarde) aparece reunida.
 - **Ciclo:** nome do projeto, tipo (planejada, intempestiva, preventiva), status (os 6 da seção
   8.1), prioridade, descrição, início e prazo opcional, vínculos técnicos opcionais. Mantém prazo,
   lembretes, linha do tempo, impedimentos e espera.
-- Cada cartão mostra o que já foi apontado: horas (sobreposições contadas uma vez), quantidade de
-  apontamentos, em quantos dias e o último. Ao expandir, lista cada ocorrência.
-- Filtros por status (em aberto / concluídos / todos) em chamados, treinamentos e ciclos.
+- Cada linha mostra o título, o status, o prazo (ciclos abertos) e as horas apontadas
+  (sobreposições contadas uma vez). Ao expandir: descrição, tipo, prioridade, datas, ambiente e
+  vínculos técnicos; nos ciclos, a linha do tempo, os impedimentos e os apontamentos; nas demais,
+  os apontamentos (cada ocorrência). Um resumo da descrição aparece ao passar o mouse no título.
+- Filtro de status (em aberto / encerrados / todos) em chamados, treinamentos e ciclos.
 - Uma demanda com apontamentos não pode ser excluída: primeiro exclua os apontamentos ou aponte-os
   em outra demanda. O tipo de uma demanda não muda depois de declarado.
 
