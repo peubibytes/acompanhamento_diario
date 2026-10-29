@@ -7,19 +7,13 @@ import { BellIcon, CalendarIcon, TargetIcon, TrendUpIcon } from './icons';
 export const severityStyle: Record<Severity, { chip: string; label: string }> = {
   critical: { chip: 'bg-critical-soft text-critical-text', label: 'Urgente' },
   warning: { chip: 'bg-warning-soft text-warning-text', label: 'Atenção' },
-  info: { chip: 'bg-accent-soft text-accent', label: 'Informativo' },
+  info: { chip: 'bg-neutral-soft text-ink-2', label: 'Informativo' },
 };
 
 const kindIcon: Record<AppNotification['kind'], (s: number) => ReactNode> = {
   dia_irregular: (s) => <TrendUpIcon size={s} />,
   prazo_demanda: (s) => <TargetIcon size={s} />,
   apontamento: (s) => <CalendarIcon size={s} />,
-};
-
-const actionLabel: Record<AppNotification['kind'], string> = {
-  dia_irregular: 'Abrir o dia',
-  prazo_demanda: 'Ver demanda',
-  apontamento: 'Ver painel',
 };
 
 export function SeverityIcon({ severity, kind, size = 16 }: { severity: Severity; kind: AppNotification['kind']; size?: number }) {
@@ -34,7 +28,7 @@ export function SeverityIcon({ severity, kind, size = 16 }: { severity: Severity
   );
 }
 
-/** Uma notificação. `compact` = versão do resumo do sino (sem botão de ação). */
+/** Uma notificação; a linha inteira é o link. `compact` = versão do resumo do sino. */
 export function ReminderRow({
   item,
   compact = false,
@@ -58,11 +52,6 @@ export function ReminderRow({
           )}
         </span>
         <span className={`mt-0.5 block text-ink-2 ${compact ? 'line-clamp-2 text-xs' : 'text-sm'}`}>{item.detail}</span>
-        {!compact && (
-          <span className="mt-2 inline-block text-xs font-semibold text-accent group-hover:underline">
-            {actionLabel[item.kind]} →
-          </span>
-        )}
       </span>
     </>
   );
@@ -71,7 +60,7 @@ export function ReminderRow({
     <Link
       to={targetHref(item.target)}
       onClick={onNavigate}
-      className={`group flex items-start gap-3 rounded-xl transition hover:bg-surface-2 ${compact ? 'px-2.5 py-2' : 'p-3'}`}
+      className={`flex items-start gap-3 rounded-xl outline-none transition hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent ${compact ? 'px-2.5 py-2' : 'p-3'}`}
     >
       {body}
     </Link>
@@ -85,7 +74,6 @@ export function EmptyReminders({ compact = false }: { compact?: boolean }) {
         <BellIcon size={18} />
       </span>
       <p className="mt-2 text-sm font-semibold text-ink">Nada pendente</p>
-      <p className="mt-0.5 text-xs text-ink-3">Nenhum lembrete pedindo atenção agora.</p>
     </div>
   );
 }

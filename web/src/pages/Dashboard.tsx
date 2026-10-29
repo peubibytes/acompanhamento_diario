@@ -174,7 +174,7 @@ function WeekView({ summary, date }: { summary: CycleSummary; date: string }) {
               to={withDate('/detalhes', date)}
               className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-2 transition hover:text-ink"
             >
-              Detalhamento <ArrowRight size={14} />
+              Detalhes <ArrowRight size={14} />
             </Link>
           }
         />

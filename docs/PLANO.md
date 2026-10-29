@@ -148,7 +148,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
      8h48 ou outro). O lembrete de dia de apontamento fica no sino.
    - *Distribuição:* rosca grande do dia escolhido (Sex–Qui) e legenda com nome, horas e %.
    - *Ciclos:* barras de horas apontadas por ciclo aberto, com o selo de prazo.
-   - Ação principal: "Registrar apontamentos". Link "Detalhamento" no gráfico.
+   - Ação principal: "Registrar apontamentos". Link "Detalhes" no gráfico.
 2. **Apontamentos (`/apontamentos`; `/atividades` redireciona)** — abas Sex/Seg/Ter/Qua/Qui
    (dia, horas e uma barrinha de progresso); mostra só o dia escolhido: resumo do dia em uma
    linha, e a lista (por horário ou por demanda) ocupando a tela. O formulário (demanda, início,
@@ -158,8 +158,13 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
    abertos), o tipo da atividade (chamado, reunião ou treinamento) num menu, e o status (em
    aberto, encerrados, todos) à direita. A lista é de linhas compactas; o formulário abre num
    painel deslizante pelo botão "Declarar {tipo}" ou ao editar. Ver seção 9.
-4. **Detalhamento (`/detalhes`)** — tabela fiel à planilha: data, dia, meta, horas,
-   diferença, qtd apontamentos, conformidade, diagnóstico e linha de total geral.
+4. **Detalhes (`/detalhes`)** — tabela fiel à planilha: data, dia, meta, horas, diferença, qtd
+   apontamentos, conformidade, diagnóstico e linha de total geral. Linhas com listras suaves em
+   vez de bordas, números à direita (algarismos tabulares) e cabeçalho fixo; clicar num dia abre
+   os apontamentos dele.
+5. **Lembretes e agenda (`/lembretes`)** — só pelo sino; seta de voltar ao lado do título.
+   Lembretes por gravidade ("Pedem atenção", "Para saber") e a agenda por dia, em listas sem
+   molduras.
 
 ## 4. Fases
 
@@ -302,6 +307,16 @@ em destaque, um título, uma ação principal e um filtro por tela.
     na linha expandida).
   - Links por âncora (`#demanda-ID`) abrem a aba certa, mostram a demanda mesmo se encerrada, a
     expandem e rolam até ela, uma vez por link.
+
+- **Fase 5 — Detalhes e Lembretes (pronta):**
+  - **Detalhes:** a tela passa a se chamar "Detalhes" (como o item do menu; o link do Painel
+    também). Sem o "Voltar ao painel" (a tela já está no menu) e sem o texto de rodapé, que foi
+    para o ⓘ. A data de cada dia é um link, alcançável pelo teclado.
+  - **Lembretes:** o "Voltar" virou uma seta no cabeçalho (`PageHeader` ganhou `onBack`), então o
+    título fica na mesma altura de todas as telas. Saíram os subtítulos fixos (dia por extenso,
+    contagem de vencidos, "nenhum lembrete…") e o "Ver demanda →" repetido; a linha inteira é o
+    link. A agenda mostra "Amanhã  Qui 29/10" numa linha só. Ícones sem status ficam neutros (a
+    cor de destaque é para a ação principal).
 
 ## 8. Expansão: gestão do colaborador (v0.4 — em andamento)
 
