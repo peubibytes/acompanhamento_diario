@@ -14,7 +14,7 @@ export function Details() {
   const cycle = useCycle(date);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-section">
       <Link
         to={withDate('/', date)}
         className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-2 transition hover:text-ink"

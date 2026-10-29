@@ -7,8 +7,8 @@ import { InfoHint } from './InfoHint';
  */
 export function PageHeader({ title, hint, action }: { title: string; hint?: ReactNode; action?: ReactNode }) {
   return (
-    <header className="flex min-h-10 flex-wrap items-center justify-between gap-x-4 gap-y-3">
-      <div className="flex min-w-0 items-center gap-1.5">
+    <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+      <div className="flex min-h-10 min-w-0 items-center gap-1.5">
         <h1 className="truncate text-2xl font-semibold tracking-tight text-ink">{title}</h1>
         {hint && <InfoHint label={`Sobre ${title}`}>{hint}</InfoHint>}
       </div>

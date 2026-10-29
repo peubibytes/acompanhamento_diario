@@ -24,7 +24,7 @@ export function Reminders() {
   const info = notifications.filter((n) => n.severity === 'info');
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-section">
       <button
         onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))}
         className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-2 transition hover:text-ink"
@@ -37,7 +37,7 @@ export function Reminders() {
       {error ? (
         <ErrorState message={error.message} onRetry={refetch} />
       ) : (
-        <div className="grid items-start gap-6 lg:grid-cols-5">
+        <div className="grid items-start gap-section lg:grid-cols-5">
           <section className="min-w-0 space-y-4 lg:col-span-2" aria-labelledby="titulo-lembretes">
             <h2 id="titulo-lembretes" className="text-lg font-semibold text-ink">
               Lembretes

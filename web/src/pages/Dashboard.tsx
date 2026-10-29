@@ -69,7 +69,7 @@ export function Dashboard() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-section">
       <PageHeader
         title="Painel"
         hint="Escolha o que analisar; o resto fica fora do caminho."
@@ -83,7 +83,7 @@ export function Dashboard() {
         }
       />
 
-      <div className="grid items-start gap-6 lg:grid-cols-[14rem_minmax(0,1fr)] xl:grid-cols-[16rem_minmax(0,1fr)]">
+      <div className="grid items-start gap-section lg:grid-cols-[14rem_minmax(0,1fr)] xl:grid-cols-[16rem_minmax(0,1fr)]">
         <MetricsNav view={view} onChange={choose} />
 
         <div id="painel-visao" role="tabpanel" aria-label={VIEWS.find((v) => v.id === view)!.label} className="min-w-0 space-y-5">

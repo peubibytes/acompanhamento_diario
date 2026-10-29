@@ -197,6 +197,11 @@
   --spacing-section: var(--section);
 }
 
+/* Reserva o espaço da barra de rolagem: o conteúdo não "pula" entre telas curtas e longas. */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   background: var(--bg);
   color: var(--text);

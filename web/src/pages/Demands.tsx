@@ -137,7 +137,7 @@ export function Demands() {
     all.filter((d) => cats.includes(d.category) && isOpenDemand(d)).length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-section">
       <PageHeader title="Demandas" hint="Declare o que você faz. O tempo gasto é registrado depois, em Apontamentos." />
 
       <div role="tablist" aria-label="Família de demandas" className="grid grid-cols-2 gap-3">
@@ -192,7 +192,7 @@ export function Demands() {
         )}
       </div>
 
-      <div className="grid items-start gap-6 lg:grid-cols-5">
+      <div className="grid items-start gap-section lg:grid-cols-5">
         <section className="min-w-0 space-y-3 lg:col-span-3" aria-label={DEMAND_CATEGORY_PLURAL[category]}>
           {demands.isPending ? (
             <>

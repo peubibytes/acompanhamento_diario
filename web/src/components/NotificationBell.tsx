@@ -54,8 +54,8 @@ export function NotificationBell() {
         aria-label={label}
         aria-haspopup="true"
         aria-expanded={open}
-        className={`relative grid size-9 place-items-center rounded-full transition ${
-          onPage ? 'bg-accent-soft text-accent' : 'bg-surface-2 text-ink-2 hover:text-ink'
+        className={`relative grid size-9 place-items-center rounded-full outline-none transition focus-visible:ring-2 focus-visible:ring-accent ${
+          onPage ? 'bg-surface-2 text-ink' : 'text-ink-2 hover:bg-surface-2 hover:text-ink'
         }`}
       >
         <BellIcon size={18} />

@@ -245,6 +245,14 @@ em destaque, um título, uma ação principal e um filtro por tela.
   - A cor de status ainda nunca é a única pista (ícone ou rótulo junto). As cores de barra
     âmbar e cinza do tema claro foram escurecidas para atingir 3:1.
 
+- **Fase 1 — estrutura e navegação (pronta):**
+  - **Header** de 56px: logo, as quatro telas, sino e tema. Só a tela atual tem fundo; sino e
+    tema ficam sem fundo em repouso. A cor de destaque fica para a ação principal e o foco.
+  - **Contêiner único:** todas as telas usam a mesma largura (`max-w-page`), a mesma margem
+    lateral (`px-gutter`) e o mesmo espaço entre blocos (`space-y-section`), alinhados ao logo.
+    O espaço da barra de rolagem é sempre reservado, para o conteúdo não "pular" entre telas.
+  - **Celular:** a barra inferior com as quatro telas continua; a tela atual fica em negrito.
+
 ## 8. Expansão: gestão do colaborador (v0.4 — em andamento)
 
 Objetivo: transformar o app, de controlador de apontamentos, em organizador completo do dia a dia

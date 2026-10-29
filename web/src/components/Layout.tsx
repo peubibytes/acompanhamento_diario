@@ -17,27 +17,30 @@ export function Layout() {
 
   return (
     <div className="min-h-dvh">
-      <header className="sticky top-0 z-30 border-b border-line bg-bg/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
-          <NavLink to={withDate('/', date)} className="flex items-center gap-2.5">
-            <span className="grid size-8 place-items-center rounded-lg bg-accent text-on-accent">
-              <StopwatchIcon size={19} strokeWidth={2.25} />
+      <header className="sticky top-0 z-30 border-b border-line bg-bg/85 backdrop-blur-md">
+        <div className="mx-auto flex h-14 max-w-page items-center justify-between gap-3 px-gutter">
+          <NavLink
+            to={withDate('/', date)}
+            className="flex items-center gap-2.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <span className="grid size-7 place-items-center rounded-lg bg-accent text-on-accent">
+              <StopwatchIcon size={17} strokeWidth={2.25} />
             </span>
-            <span className="text-base font-semibold tracking-tight text-ink sm:hidden lg:inline">
+            <span className="text-sm font-semibold tracking-tight text-ink sm:hidden lg:inline">
               Acompanhamento Diário
             </span>
           </NavLink>
-          <div className="flex items-center gap-2">
-            {/* Desktop/tablet: navegação no topo */}
-            <nav className="hidden items-center gap-1 rounded-full bg-surface-2 p-1 sm:flex" aria-label="Principal">
+          <div className="flex items-center gap-1">
+            {/* Desktop/tablet: navegação no topo; a tela atual é a única com fundo */}
+            <nav className="mr-2 hidden items-center gap-0.5 sm:flex" aria-label="Principal">
               {links.map((l) => (
                 <NavLink
                   key={l.to}
                   to={withDate(l.to, date)}
                   end
                   className={({ isActive }) =>
-                    `rounded-full px-4 py-1.5 text-sm font-medium transition ${
-                      isActive ? 'bg-surface text-ink shadow-sm' : 'text-ink-2 hover:text-ink'
+                    `rounded-full px-3.5 py-1.5 text-sm font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-accent ${
+                      isActive ? 'bg-surface-2 text-ink' : 'text-ink-2 hover:text-ink'
                     }`
                   }
                 >
@@ -51,7 +54,7 @@ export function Layout() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 pt-6 pb-28 sm:px-6 sm:py-8">
+      <main className="mx-auto max-w-page px-gutter pt-section pb-28 sm:pb-section">
         <Outlet />
       </main>
 
@@ -67,8 +70,8 @@ export function Layout() {
               to={withDate(l.to, date)}
               end
               className={({ isActive }) =>
-                `flex flex-col items-center gap-0.5 py-2 text-2xs font-medium transition ${
-                  isActive ? 'text-accent' : 'text-ink-3 hover:text-ink'
+                `flex flex-col items-center gap-0.5 py-2 text-2xs outline-none transition focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent ${
+                  isActive ? 'font-semibold text-ink' : 'font-medium text-ink-3 hover:text-ink'
                 }`
               }
             >
