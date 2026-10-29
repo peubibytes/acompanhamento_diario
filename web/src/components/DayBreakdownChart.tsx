@@ -100,7 +100,7 @@ export function DayBreakdownChart({ summary }: { summary: CycleSummary }) {
               }`}
             >
               <span className="block text-xs font-semibold">{d.weekdayShort}</span>
-              <span className="tabular block text-[11px] opacity-80">
+              <span className="tabular block text-2xs opacity-80">
                 {d.date === today ? 'Hoje' : d.minutes ? formatDuration(d.minutes) : '—'}
               </span>
             </button>
@@ -193,7 +193,7 @@ export function DayBreakdownChart({ summary }: { summary: CycleSummary }) {
                     <span className="size-2.5 shrink-0 rounded-sm" style={{ background: s.color }} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm text-ink">{s.label}</span>
-                      <span className="block text-[11px] text-ink-3">
+                      <span className="block text-2xs text-ink-3">
                         {s.kind === 'demanda'
                           ? DEMAND_CATEGORY_LABEL[categoryOf.get(s.demandId!) ?? 'ciclo']
                           : s.kind === 'projeto'
@@ -205,7 +205,7 @@ export function DayBreakdownChart({ summary }: { summary: CycleSummary }) {
                     </span>
                     <span className="tabular shrink-0 text-right">
                       <span className="block text-sm font-semibold text-ink">{formatDuration(s.minutes)}</span>
-                      <span className="block text-[11px] text-ink-3">{Math.round(s.share)}%</span>
+                      <span className="block text-2xs text-ink-3">{Math.round(s.share)}%</span>
                     </span>
                   </div>
                 </li>

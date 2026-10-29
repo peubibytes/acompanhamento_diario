@@ -50,9 +50,9 @@ export function ReminderRow({
       <span className="min-w-0 flex-1">
         <span className={`flex min-w-0 items-center gap-x-2 gap-y-1 ${compact ? '' : 'flex-wrap'}`}>
           {/* Resumo do sino: uma linha só; tela completa: o título quebra para não esconder a data. */}
-          <span className={`min-w-0 font-semibold text-ink ${compact ? 'truncate text-[13px]' : 'text-sm'}`}>{item.title}</span>
+          <span className={`min-w-0 font-semibold text-ink ${compact ? 'truncate text-xs' : 'text-sm'}`}>{item.title}</span>
           {!compact && item.severity !== 'info' && (
-            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${severityStyle[item.severity].chip}`}>
+            <span className={`shrink-0 rounded-full px-2 py-0.5 text-2xs font-semibold ${severityStyle[item.severity].chip}`}>
               {severityStyle[item.severity].label}
             </span>
           )}

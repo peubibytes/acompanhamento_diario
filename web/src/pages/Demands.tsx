@@ -33,6 +33,7 @@ import {
   routineStatusStyle,
 } from '../components/DemandVisuals';
 import { BellIcon, CheckIcon, ChevronDown, ListIcon, PencilIcon, PlusIcon, TargetIcon, TrashIcon, UndoIcon } from '../components/icons';
+import { PageHeader } from '../components/PageHeader';
 import { Segmented } from '../components/Segmented';
 import { ErrorState, Skeleton } from '../components/States';
 import { useToast } from '../components/Toast';
@@ -137,12 +138,7 @@ export function Demands() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">Demandas</h1>
-        <p className="mt-1 text-sm text-ink-2">
-          Declare o que você faz. O tempo gasto é registrado depois, em Apontamentos.
-        </p>
-      </div>
+      <PageHeader title="Demandas" hint="Declare o que você faz. O tempo gasto é registrado depois, em Apontamentos." />
 
       <div role="tablist" aria-label="Família de demandas" className="grid grid-cols-2 gap-3">
         <SectionCard
@@ -197,7 +193,7 @@ export function Demands() {
       </div>
 
       <div className="grid items-start gap-6 lg:grid-cols-5">
-        <section className="space-y-3 lg:col-span-3" aria-label={DEMAND_CATEGORY_PLURAL[category]}>
+        <section className="min-w-0 space-y-3 lg:col-span-3" aria-label={DEMAND_CATEGORY_PLURAL[category]}>
           {demands.isPending ? (
             <>
               <Skeleton className="h-36" />
@@ -315,7 +311,7 @@ function RoutineCard({ demand: d, highlighted, isEditing, onEdit, onDeleted }: C
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0">
               {d.category === 'reuniao' && (
-                <p className="text-[11px] font-semibold tracking-wider text-accent uppercase">{d.meetingType}</p>
+                <p className="text-2xs font-semibold tracking-wider text-accent uppercase">{d.meetingType}</p>
               )}
               <h3
                 className={`font-semibold text-ink ${d.category === 'chamado' ? 'tabular tracking-wide' : ''} ${
@@ -625,7 +621,7 @@ function CardFooter({
 function Stat({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <dt className="text-[11px] font-semibold tracking-wider text-ink-3 uppercase">{label}</dt>
+      <dt className="text-2xs font-semibold tracking-wider text-ink-3 uppercase">{label}</dt>
       <dd className="tabular mt-0.5 text-sm font-semibold text-ink">{children}</dd>
     </div>
   );

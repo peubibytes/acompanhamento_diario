@@ -20,6 +20,7 @@ import { CycleNav } from '../components/CycleNav';
 import { IconButton } from '../components/DemandHistory';
 import { CategoryAvatar } from '../components/DemandVisuals';
 import { AlertIcon, ClockIcon, LayersIcon, ListIcon, PencilIcon, PlusIcon, TrashIcon, TrendUpIcon } from '../components/icons';
+import { PageHeader } from '../components/PageHeader';
 import { Segmented } from '../components/Segmented';
 import { ErrorState, Skeleton } from '../components/States';
 import { TimeEntryForm } from '../components/TimeEntryForm';
@@ -91,13 +92,11 @@ export function TimeEntries() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">Apontamentos</h1>
-          <p className="mt-1 text-sm text-ink-2">Escolha o dia e registre o tempo gasto em cada demanda declarada.</p>
-        </div>
-        <CycleNav date={day} onChange={changeCycle} />
-      </div>
+      <PageHeader
+        title="Apontamentos"
+        hint="Escolha o dia e registre o tempo gasto em cada demanda declarada."
+        action={<CycleNav date={day} onChange={changeCycle} />}
+      />
 
       {cycle.data ? (
         <DayTabs days={cycle.data.days} selected={day} onSelect={selectDay} />
@@ -106,7 +105,7 @@ export function TimeEntries() {
       )}
 
       <div className="grid items-start gap-6 lg:grid-cols-5">
-        <section className="space-y-4 lg:col-span-3">
+        <section className="min-w-0 space-y-4 lg:col-span-3">
           {metrics && <DaySummary metrics={metrics} />}
 
           {list.length > 1 && (
@@ -206,7 +205,7 @@ function DayTabs({ days, selected, onSelect }: { days: DayMetrics[]; selected: I
             <div className="mt-2 h-1 overflow-hidden rounded-full bg-grid">
               <div className="h-full rounded-full" style={{ width: `${pct}%`, background: dayStyle(d).bar }} />
             </div>
-            <p className="tabular mt-1.5 hidden text-[11px] text-ink-2 sm:block">
+            <p className="tabular mt-1.5 hidden text-2xs text-ink-2 sm:block">
               {formatDuration(d.minutes)} / {formatDuration(d.goal)}
             </p>
           </button>
@@ -273,7 +272,7 @@ function DemandHeading({ activity: a, demand }: { activity: Activity; demand?: D
     return (
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <h3 className="font-semibold text-ink">{a.project}</h3>
-        <span className="inline-flex items-center gap-1 rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-medium text-warning-text">
+        <span className="inline-flex items-center gap-1 rounded-full bg-warning-soft px-2 py-0.5 text-2xs font-medium text-warning-text">
           <AlertIcon size={12} /> Sem demanda · edite para escolher
         </span>
       </div>
@@ -418,7 +417,7 @@ function ByDemand({
               <DemandHeading activity={first} demand={demand} />
               <span className="tabular shrink-0 text-right">
                 <span className="block text-base font-bold text-ink">{formatDuration(total)}</span>
-                <span className="block text-[11px] text-ink-3">
+                <span className="block text-2xs text-ink-3">
                   {items.length === 1 ? '1 horário' : `${items.length} horários`}
                 </span>
               </span>

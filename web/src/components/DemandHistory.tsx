@@ -185,7 +185,7 @@ function Timeline({ detail }: { detail: DemandDetail }) {
               <span className="absolute top-1.5 -left-[21px] size-2.5 rounded-full border-2 border-surface bg-accent" />
               <div className="flex items-start gap-2">
                 <span className="tabular w-[4.5rem] shrink-0 font-medium whitespace-nowrap text-ink">{dayLabel(ev.date)}</span>
-                <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-ink-2">
+                <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-2xs font-medium text-ink-2">
                   {DEMAND_EVENT_LABEL[ev.kind]}
                 </span>
                 <span className="min-w-0 flex-1 text-ink-2">{ev.text}</span>

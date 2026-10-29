@@ -19,7 +19,7 @@ export function DailyChart({ days, goal }: { days: DayMetrics[]; goal: number })
           className="pointer-events-none absolute inset-x-0 border-t-2 border-dashed border-baseline"
           style={{ bottom: goalY }}
         >
-          <span className="absolute -top-5 right-0 rounded bg-surface px-1 text-[11px] font-medium text-ink-2">
+          <span className="absolute -top-5 right-0 rounded bg-surface px-1 text-2xs font-medium text-ink-2">
             Meta {formatDuration(goal)}
           </span>
         </div>
@@ -64,7 +64,7 @@ export function DailyChart({ days, goal }: { days: DayMetrics[]; goal: number })
               </span>
               <span className="tabular text-xs text-ink-3">{isToday ? 'Hoje' : formatDayMonth(d.date)}</span>
               <span
-                className={`mt-1 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium sm:text-[11px] ${dayStyle(d).badge}`}
+                className={`mt-1 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-2xs font-medium sm:text-2xs ${dayStyle(d).badge}`}
               >
                 {dayStyle(d).icon(11)}
                 <span className="hidden sm:inline">{dayStyle(d).short}</span>
@@ -88,7 +88,7 @@ function Tooltip({ day, align }: { day: DayMetrics; align: keyof typeof TOOLTIP_
   return (
     <span
       role="tooltip"
-      className={`card pointer-events-none absolute bottom-full z-20 mb-2 w-48 ${TOOLTIP_ALIGN[align]} -translate-y-1 p-3 text-left opacity-0 transition group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100`}
+      className={`tip-surface pointer-events-none absolute bottom-full z-20 mb-2 w-48 ${TOOLTIP_ALIGN[align]} -translate-y-1 p-3 text-left opacity-0 transition group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100`}
     >
       <span className="block text-xs font-semibold text-ink">
         {day.weekdayLong}, {formatDayMonth(day.date)}

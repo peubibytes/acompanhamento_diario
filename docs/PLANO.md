@@ -136,6 +136,9 @@ O esquema evolui por migrações numeradas em `server/src/db.ts` (`PRAGMA user_v
 
 ## 3. Telas
 
+Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com o texto explicativo
+(que não fica fixo na tela) e, à direita, a ação principal.
+
 1. **Painel (`/`)** — visual: KPIs (meta semanal, total realizado, dias conformes,
    % preenchido em anel), gráfico por dia útil com a linha de meta, faixa de status do
    ciclo (na quinta: "Hoje é dia de apontamento"), seletor de meta, navegação entre
@@ -221,6 +224,26 @@ Princípio: o usuário vê apenas o que escolher, sem poluição.
 - **Tela "Lembretes e agenda" (`/lembretes`):** acessível só pelo sino, sem entrada no seletor
   de telas. Lembretes agrupados por gravidade e agenda por data (prazos vencidos, prazos e
   inícios de demandas, dias de apontamento do ciclo atual e do próximo).
+
+### Estilo visual (v0.6 — em andamento)
+
+Reestilização só de apresentação (cálculos, regras, API, rotas e banco não mudam), em fases
+aprovadas uma a uma: 0 fundação · 1 estrutura e navegação · 2 painel · 3 apontamentos ·
+4 demandas · 5 detalhes e lembretes · 6 revisão. Meta: o mínimo de informação na tela, gráficos
+em destaque, um título, uma ação principal e um filtro por tela.
+
+- **Fase 0 — fundação (pronta):**
+  - **Tokens** em `web/src/index.css`: tipografia (`text-2xs` … `text-display`, sem tamanhos
+    soltos), raios (`rounded-control`, `rounded-card`), espaço (`px-gutter`, `gap-section`,
+    `max-w-page`) e cores nos dois temas, com uma única cor de destaque. Cartões quase sem
+    borda e sombra; campos com borda de contraste ≥ 3:1. Contraste conferido: texto ≥ 4,5:1.
+  - **ⓘ (`InfoHint`):** todo texto explicativo vai para a dica do ícone. Abre ao passar o mouse,
+    ao focar pelo teclado ou ao tocar; Esc ou tocar fora fecha; fica ligada ao botão por
+    `aria-describedby`. A dica é deslocada para dentro da janela e abre para cima se faltar
+    espaço. Fechada, sai do layout (para não criar rolagem horizontal).
+  - **`PageHeader`:** aplicado em todas as telas; os subtítulos das páginas já estão nos ⓘ.
+  - A cor de status ainda nunca é a única pista (ícone ou rótulo junto). As cores de barra
+    âmbar e cinza do tema claro foram escurecidas para atingir 3:1.
 
 ## 8. Expansão: gestão do colaborador (v0.4 — em andamento)
 

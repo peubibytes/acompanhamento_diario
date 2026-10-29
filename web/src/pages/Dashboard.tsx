@@ -8,6 +8,7 @@ import { DailyChart } from '../components/DailyChart';
 import { DayBreakdownChart } from '../components/DayBreakdownChart';
 import { CyclesChart } from '../components/CyclesChart';
 import { GoalSelector } from '../components/GoalSelector';
+import { PageHeader } from '../components/PageHeader';
 import { BarChartIcon, ChevronDown, PieIcon, PlusIcon, TargetIcon } from '../components/icons';
 import { ProgressRing } from '../components/ProgressRing';
 import { ErrorState, Skeleton } from '../components/States';
@@ -69,18 +70,18 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">Painel</h1>
-          <p className="mt-1 text-sm text-ink-2">Escolha o que analisar; o resto fica fora do caminho.</p>
-        </div>
-        <Link
-          to={withDate('/apontamentos', date)}
-          className="inline-flex items-center justify-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-on-accent shadow-sm transition hover:bg-accent-hover"
-        >
-          <PlusIcon size={18} /> Registrar apontamentos
-        </Link>
-      </div>
+      <PageHeader
+        title="Painel"
+        hint="Escolha o que analisar; o resto fica fora do caminho."
+        action={
+          <Link
+            to={withDate('/apontamentos', date)}
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-on-accent shadow-sm transition hover:bg-accent-hover"
+          >
+            <PlusIcon size={18} /> Registrar apontamentos
+          </Link>
+        }
+      />
 
       <div className="grid items-start gap-6 lg:grid-cols-[14rem_minmax(0,1fr)] xl:grid-cols-[16rem_minmax(0,1fr)]">
         <MetricsNav view={view} onChange={choose} />
@@ -117,7 +118,7 @@ function MetricsNav({ view, onChange }: { view: View; onChange: (v: View) => voi
   return (
     <>
       <nav className="card hidden p-2 lg:sticky lg:top-24 lg:block" aria-label="Métricas do painel">
-        <p className="px-3 pt-2 pb-2 text-[11px] font-semibold tracking-wider text-ink-3 uppercase">Métricas</p>
+        <p className="px-3 pt-2 pb-2 text-2xs font-semibold tracking-wider text-ink-3 uppercase">Métricas</p>
         <div role="tablist" aria-orientation="vertical" className="space-y-1">
           {VIEWS.map((v) => {
             const on = v.id === view;
@@ -234,7 +235,7 @@ function WeekView({ summary, date }: { summary: CycleSummary; date: string }) {
                 </span>
               ))}
             </div>
-            <div className="mt-1 flex gap-1.5 text-center text-[10px] text-ink-3">
+            <div className="mt-1 flex gap-1.5 text-center text-2xs text-ink-3">
               {days.map((d) => (
                 <span key={d.date} className="flex-1">
                   {d.weekdayShort}

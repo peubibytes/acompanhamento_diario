@@ -171,7 +171,7 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone }: Props) 
       ) : (
         recent.length > 0 && (
           <div className="-mt-1">
-            <p className="mb-1.5 text-[11px] font-semibold tracking-wider text-ink-3 uppercase">Recentes</p>
+            <p className="mb-1.5 text-2xs font-semibold tracking-wider text-ink-3 uppercase">Recentes</p>
             <div className="flex flex-wrap gap-1.5">
               {recent.map((d) => (
                 <button

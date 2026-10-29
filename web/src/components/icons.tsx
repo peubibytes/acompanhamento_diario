@@ -26,6 +26,14 @@ export const CheckIcon = (p: IconProps) => (
     <path d="M5 12.5l4.5 4.5L19 7.5" />
   </Icon>
 );
+/** ⓘ: abre a dica de uma métrica ou tela (ver InfoHint). */
+export const InfoIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 11v5.25" />
+    <circle cx="12" cy="7.75" r="0.6" fill="currentColor" />
+  </Icon>
+);
 /** Cronômetro: ícone da aplicação. */
 export const StopwatchIcon = (p: IconProps) => (
   <Icon {...p}>

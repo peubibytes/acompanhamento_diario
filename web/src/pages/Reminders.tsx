@@ -12,6 +12,7 @@ import {
 import { targetHref, useReminders } from '../api/reminders';
 import { deadlineStyle } from '../components/DemandVisuals';
 import { ArrowLeft, CalendarIcon, SendIcon, TargetIcon } from '../components/icons';
+import { PageHeader } from '../components/PageHeader';
 import { EmptyReminders, ReminderRow } from '../components/ReminderVisuals';
 import { ErrorState, Skeleton } from '../components/States';
 
@@ -31,10 +32,7 @@ export function Reminders() {
         <ArrowLeft size={16} /> Voltar
       </button>
 
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">Lembretes e agenda</h1>
-        <p className="mt-1 text-sm text-ink-2">O que pede sua atenção agora e as próximas datas importantes.</p>
-      </div>
+      <PageHeader title="Lembretes e agenda" hint="O que pede sua atenção agora e as próximas datas importantes." />
 
       {error ? (
         <ErrorState message={error.message} onRetry={refetch} />
@@ -73,7 +71,7 @@ export function Reminders() {
 function ReminderGroup({ title, items }: { title: string; items: AppNotification[] }) {
   return (
     <div className="card p-2">
-      <p className="px-3 pt-2 pb-1 text-[11px] font-semibold tracking-wider text-ink-3 uppercase">
+      <p className="px-3 pt-2 pb-1 text-2xs font-semibold tracking-wider text-ink-3 uppercase">
         {title} <span className="tabular">· {items.length}</span>
       </p>
       <ul className="divide-y divide-line">
@@ -182,7 +180,7 @@ function AgendaDay({
                 <span className="min-w-0 flex-1">
                   <span className="flex min-w-0 flex-wrap items-center gap-x-2">
                     <span className="min-w-0 truncate text-sm font-semibold text-ink">{i.title}</span>
-                    <span className="text-[11px] font-medium text-ink-3">{kindStyle[i.kind].tag}</span>
+                    <span className="text-2xs font-medium text-ink-3">{kindStyle[i.kind].tag}</span>
                   </span>
                   <span className="mt-0.5 block text-xs text-ink-2">
                     {showDate && `${relative(today, i.date)} (${formatDayMonth(i.date)}) · `}

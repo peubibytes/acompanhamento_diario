@@ -23,7 +23,7 @@ export function Layout() {
             <span className="grid size-8 place-items-center rounded-lg bg-accent text-on-accent">
               <StopwatchIcon size={19} strokeWidth={2.25} />
             </span>
-            <span className="text-[15px] font-semibold tracking-tight text-ink sm:hidden lg:inline">
+            <span className="text-base font-semibold tracking-tight text-ink sm:hidden lg:inline">
               Acompanhamento Diário
             </span>
           </NavLink>
@@ -67,7 +67,7 @@ export function Layout() {
               to={withDate(l.to, date)}
               end
               className={({ isActive }) =>
-                `flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition ${
+                `flex flex-col items-center gap-0.5 py-2 text-2xs font-medium transition ${
                   isActive ? 'text-accent' : 'text-ink-3 hover:text-ink'
                 }`
               }

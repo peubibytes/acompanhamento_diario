@@ -4,6 +4,7 @@ import { useCycle } from '../api/client';
 import { ConformityBadge } from '../components/Badges';
 import { CycleNav } from '../components/CycleNav';
 import { ArrowLeft, CheckIcon, AlertIcon } from '../components/icons';
+import { PageHeader } from '../components/PageHeader';
 import { ErrorState, Skeleton } from '../components/States';
 import { useRefDate, withDate } from '../hooks';
 
@@ -21,17 +22,15 @@ export function Details() {
         <ArrowLeft size={16} /> Voltar ao painel
       </Link>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">Acompanhamento diário</h1>
-          <p className="mt-1 text-sm text-ink-2">
-            {cycle.data
-              ? `Meta diária de ${formatDuration(cycle.data.dailyGoal)} · ciclo de ${WORKDAYS_PER_CYCLE} dias úteis`
-              : 'Detalhamento por dia útil'}
-          </p>
-        </div>
-        <CycleNav date={date} onChange={setDate} />
-      </div>
+      <PageHeader
+        title="Acompanhamento diário"
+        hint={
+          cycle.data
+            ? `Meta diária de ${formatDuration(cycle.data.dailyGoal)} · ciclo de ${WORKDAYS_PER_CYCLE} dias úteis`
+            : 'Detalhamento por dia útil'
+        }
+        action={<CycleNav date={date} onChange={setDate} />}
+      />
 
       {cycle.isPending ? (
         <Skeleton className="h-96" />
@@ -55,7 +54,7 @@ function DetailTable({ summary }: { summary: CycleSummary }) {
   const { days, week } = summary;
   const allConform = week.conformDays === WORKDAYS_PER_CYCLE;
 
-  const th = 'px-4 py-3 text-left text-[11px] font-semibold tracking-wider text-ink-3 uppercase whitespace-nowrap';
+  const th = 'px-4 py-3 text-left text-2xs font-semibold tracking-wider text-ink-3 uppercase whitespace-nowrap';
   const td = 'px-4 py-3.5 whitespace-nowrap';
 
   return (
