@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import {
   ACTIVITY_STATUSES,
@@ -28,7 +28,10 @@ interface Props {
   editing?: Activity;
   /** Sugestão de início para um novo apontamento (fim do último do dia). */
   suggestedStart: string;
-  onDone: (saved?: Activity) => void;
+  /** `keepOpen`: salvou com "Adicionar e continuar"; o painel fica aberto para o próximo. */
+  onDone: (saved?: Activity, keepOpen?: boolean) => void;
+  /** Avisa o painel quando há algo digitado que se perderia ao fechar. */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 const MAX_RECENT = 5;
@@ -43,7 +46,7 @@ const DONE_PLACEHOLDER: Record<DemandSummary['category'], string> = {
 };
 
 /** Apontar = escolher uma demanda já declarada e registrar o horário em que ela foi feita. */
-export function TimeEntryForm({ date, editing, suggestedStart, onDone }: Props) {
+export function TimeEntryForm({ date, editing, suggestedStart, onDone, onDirtyChange }: Props) {
   const save = useSaveActivity();
   const toast = useToast();
   const demands = useDemands();
@@ -74,8 +77,18 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone }: Props) 
   const duration = startMin !== null && endMin !== null ? endMin - startMin : null;
   const invalidRange = duration !== null && duration <= 0;
 
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
+  // Novo: sujo quando algo foi preenchido (o início sugerido não conta). Edição: quando difere do salvo.
+  const dirty = editing
+    ? demandId !== editing.demandId ||
+      start !== formatHM(editing.startMinute) ||
+      end !== formatHM(editing.endMinute) ||
+      description !== editing.description ||
+      notes !== editing.notes ||
+      status !== editing.status
+    : demandId !== null || end !== '' || description !== '' || notes !== '' || status !== 'concluido';
+  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
+
+  const persist = (keepOpen: boolean) => {
     if (demandId === null) return toast('Escolha a demanda apontada.', 'error');
     if (startMin === null || endMin === null) return toast('Informe os horários de início e fim.', 'error');
     if (invalidRange) return toast('O horário de fim deve ser depois do início.', 'error');
@@ -94,7 +107,7 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone }: Props) 
             setNotes('');
             setStatus('concluido');
           }
-          onDone(activity);
+          onDone(activity, keepOpen);
         },
         onError: (err) => toast(err.message, 'error'),
       },
@@ -119,7 +132,13 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone }: Props) 
   }
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form
+      onSubmit={(e: FormEvent) => {
+        e.preventDefault();
+        persist(false);
+      }}
+      className="space-y-4"
+    >
       {editing && editing.demandId === null && (
         <p className="flex items-start gap-2 rounded-xl bg-warning-soft px-3 py-2.5 text-sm text-warning-text">
           <AlertIcon size={16} className="mt-0.5 shrink-0" />
@@ -278,23 +297,29 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone }: Props) 
         </div>
       </fieldset>
 
-      <div className="flex gap-2 pt-1">
-        <button
-          type="submit"
-          disabled={save.isPending}
-          className="flex-1 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-on-accent shadow-sm transition hover:bg-accent-hover disabled:opacity-60"
-        >
+      <div className="space-y-2 pt-1">
+        <button type="submit" disabled={save.isPending} className="btn-primary w-full">
           {save.isPending ? 'Salvando…' : editing ? 'Salvar alterações' : 'Adicionar apontamento'}
         </button>
-        {editing && (
+        <div className="flex items-center justify-center gap-1">
+          {!editing && (
+            <button
+              type="button"
+              onClick={() => persist(true)}
+              disabled={save.isPending}
+              className="rounded-full px-4 py-2 text-sm font-semibold text-ink-2 outline-none transition hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60"
+            >
+              Adicionar e continuar
+            </button>
+          )}
           <button
             type="button"
             onClick={() => onDone()}
-            className="rounded-full border border-line px-5 py-2.5 text-sm font-semibold text-ink-2 transition hover:bg-surface-2"
+            className="rounded-full px-4 py-2 text-sm font-semibold text-ink-3 outline-none transition hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-accent"
           >
             Cancelar
           </button>
-        )}
+        </div>
       </div>
     </form>
   );

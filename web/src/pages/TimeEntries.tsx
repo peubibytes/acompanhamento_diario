@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import {
   DEMAND_CATEGORY_LABEL,
@@ -7,6 +7,7 @@ import {
   formatDuration,
   formatHM,
   getCycle,
+  STATUS_LABEL,
   todayISO,
   unionMinutesByDay,
   type Activity,
@@ -15,13 +16,15 @@ import {
   type ISODate,
 } from '@acomp/shared';
 import { useCycle, useDayActivities, useDeleteActivity, useDemands } from '../api/client';
-import { ConformityBadge, dayStyle, StatusBadge } from '../components/Badges';
+import { ConformityBadge, dayStyle, StatusBadge, statusStyle } from '../components/Badges';
 import { CycleNav } from '../components/CycleNav';
 import { IconButton } from '../components/DemandHistory';
-import { CategoryAvatar } from '../components/DemandVisuals';
-import { AlertIcon, ClockIcon, LayersIcon, ListIcon, PencilIcon, PlusIcon, TrashIcon, TrendUpIcon } from '../components/icons';
+import { CategoryAvatar, categoryIcon } from '../components/DemandVisuals';
+import { InfoHint } from '../components/InfoHint';
+import { AlertIcon, ChevronDown, ClockIcon, ListIcon, PencilIcon, PlusIcon, TrashIcon } from '../components/icons';
 import { PageHeader } from '../components/PageHeader';
 import { Segmented } from '../components/Segmented';
+import { SlideOver } from '../components/SlideOver';
 import { ErrorState, Skeleton } from '../components/States';
 import { TimeEntryForm } from '../components/TimeEntryForm';
 import { useToast } from '../components/Toast';
@@ -48,6 +51,9 @@ function resolveWorkday(date: ISODate): ISODate {
   return workdays.filter((d) => d <= date).at(-1) ?? workdays[0];
 }
 
+/** O formulário aberto no painel: novo apontamento ou edição de um existente. */
+type Panel = { mode: 'new' } | { mode: 'edit'; id: number };
+
 export function TimeEntries() {
   const [refDate, setRefDate] = useRefDate();
   const day = resolveWorkday(refDate);
@@ -55,13 +61,14 @@ export function TimeEntries() {
   const activities = useDayActivities(day);
   const demands = useDemands();
   const byId = new Map(demands.data?.map((d) => [d.id, d]));
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [panel, setPanel] = useState<Panel | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
   const [view, setView] = useState<View>(storedView);
-  const formRef = useRef<HTMLElement>(null);
 
   const metrics = cycle.data?.days.find((d) => d.date === day);
   const list = activities.data ?? [];
-  const editing = list.find((a) => a.id === editingId);
+  const editing = panel?.mode === 'edit' ? list.find((a) => a.id === panel.id) : undefined;
   const lastEnd = list.length ? formatHM(Math.max(...list.map((a) => a.endMinute))) : DEFAULT_START;
 
   const chooseView = (next: View) => {
@@ -73,8 +80,15 @@ export function TimeEntries() {
     }
   };
 
+  const open = (next: Panel) => {
+    setDirty(false);
+    setPanel(next);
+  };
+  const close = () => setPanel(null);
+
   const selectDay = (d: ISODate) => {
-    setEditingId(null);
+    setPanel(null);
+    setExpandedId(null);
     setRefDate(d);
   };
 
@@ -85,129 +99,129 @@ export function TimeEntries() {
     selectDay(getCycle(d).workdays[index]);
   };
 
-  const edit = (id: number) => {
-    setEditingId(id);
-    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  };
+  const rowProps = (a: Activity) => ({
+    activity: a,
+    demand: a.demandId ? byId.get(a.demandId) : undefined,
+    expanded: expandedId === a.id,
+    onToggle: () => setExpandedId((id) => (id === a.id ? null : a.id)),
+    onEdit: () => open({ mode: 'edit', id: a.id }),
+    onDeleted: () => setExpandedId((id) => (id === a.id ? null : id)),
+  });
 
   return (
     <div className="space-y-section">
       <PageHeader
         title="Apontamentos"
         hint="Escolha o dia e registre o tempo gasto em cada demanda declarada."
-        action={<CycleNav date={day} onChange={changeCycle} />}
+        action={
+          <button type="button" onClick={() => open({ mode: 'new' })} className="btn-primary">
+            <PlusIcon size={18} /> Novo apontamento
+          </button>
+        }
       />
 
-      {cycle.data ? (
-        <DayTabs days={cycle.data.days} selected={day} onSelect={selectDay} />
-      ) : (
-        <Skeleton className="h-20" />
-      )}
-
-      <div className="grid items-start gap-section lg:grid-cols-5">
-        <section className="min-w-0 space-y-4 lg:col-span-3">
-          {metrics && <DaySummary metrics={metrics} />}
-
-          {list.length > 1 && (
-            <Segmented
-              label="Organizar apontamentos"
-              size="sm"
-              value={view}
-              onChange={chooseView}
-              options={[
-                { value: 'horario', label: 'Por horário', icon: <ClockIcon size={13} /> },
-                { value: 'demanda', label: 'Por demanda', icon: <ListIcon size={13} /> },
-              ]}
-            />
-          )}
-
-          {activities.isPending ? (
-            <div className="space-y-3">
-              <Skeleton className="h-24" />
-              <Skeleton className="h-24" />
-            </div>
-          ) : activities.isError ? (
-            <ErrorState message={activities.error.message} onRetry={() => activities.refetch()} />
-          ) : list.length === 0 ? (
-            <EmptyDay />
-          ) : view === 'demanda' && list.length > 1 ? (
-            <ByDemand
-              activities={list}
-              demands={byId}
-              editingId={editingId}
-              onEdit={edit}
-              onDeleted={(id) => id === editingId && setEditingId(null)}
-            />
-          ) : (
-            <ul className="space-y-3">
-              {list.map((a) => (
-                <EntryItem
-                  key={a.id}
-                  activity={a}
-                  demand={a.demandId ? byId.get(a.demandId) : undefined}
-                  isEditing={a.id === editingId}
-                  onEdit={() => edit(a.id)}
-                  onDeleted={() => a.id === editingId && setEditingId(null)}
-                />
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <aside ref={formRef} className="card scroll-mt-24 p-5 sm:p-6 lg:sticky lg:top-24 lg:col-span-2">
-          <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-ink">
-            {editing ? <PencilIcon size={17} /> : <PlusIcon size={17} />}
-            {editing ? 'Editar apontamento' : 'Novo apontamento'}
-          </h2>
-          {activities.isPending || demands.isPending ? (
-            <Skeleton className="h-96" />
-          ) : (
-            // A chave remonta o formulário ao trocar de dia ou de apontamento em edição,
-            // e só depois de a lista carregar, para sugerir o início a partir do último fim.
-            <TimeEntryForm
-              key={`${day}-${editing?.id ?? 'new'}`}
-              date={day}
-              editing={editing}
-              suggestedStart={lastEnd}
-              onDone={() => setEditingId(null)}
-            />
-          )}
-        </aside>
+      <div className="space-y-4">
+        <CycleNav date={day} onChange={changeCycle} />
+        {cycle.data ? <DayTabs days={cycle.data.days} selected={day} onSelect={selectDay} /> : <Skeleton className="h-20" />}
       </div>
+
+      <section className="space-y-3" aria-label="Apontamentos do dia">
+        {metrics && (
+          <DaySummary
+            metrics={metrics}
+            view={view}
+            onView={chooseView}
+            showView={list.length > 1}
+          />
+        )}
+
+        {activities.isPending ? (
+          <div className="space-y-2">
+            <Skeleton className="h-14" />
+            <Skeleton className="h-14" />
+          </div>
+        ) : activities.isError ? (
+          <ErrorState message={activities.error.message} onRetry={() => activities.refetch()} />
+        ) : list.length === 0 ? (
+          <EmptyDay />
+        ) : view === 'demanda' && list.length > 1 ? (
+          <ByDemand activities={list} demands={byId} rowProps={rowProps} />
+        ) : (
+          <ul className="card divide-y divide-line">
+            {list.map((a) => (
+              <EntryRow key={a.id} {...rowProps(a)} />
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <SlideOver
+        open={panel !== null}
+        onClose={close}
+        dirty={dirty}
+        title={panel?.mode === 'edit' ? 'Editar apontamento' : 'Novo apontamento'}
+        subtitle={metrics ? `${metrics.weekdayLong}, ${formatDayMonth(day)}` : undefined}
+      >
+        {activities.isPending || demands.isPending ? (
+          <Skeleton className="h-96" />
+        ) : (
+          <TimeEntryForm
+            date={day}
+            editing={editing}
+            suggestedStart={lastEnd}
+            onDirtyChange={setDirty}
+            onDone={(_saved, keepOpen) => {
+              if (!keepOpen) close();
+            }}
+          />
+        )}
+      </SlideOver>
     </div>
   );
 }
 
+/** Dia, horas e uma barrinha de progresso; o status vai no ícone e na cor da barra. */
 function DayTabs({ days, selected, onSelect }: { days: DayMetrics[]; selected: ISODate; onSelect: (d: ISODate) => void }) {
   const today = todayISO();
   return (
     <div className="grid grid-cols-5 gap-2" role="tablist" aria-label="Dia da semana">
       {days.map((d) => {
         const active = d.date === selected;
-        const pct = Math.min(100, (d.minutes / d.goal) * 100);
+        const style = dayStyle(d);
+        const isToday = d.date === today;
         return (
           <button
             key={d.date}
             role="tab"
             aria-selected={active}
+            aria-current={isToday ? 'date' : undefined}
             onClick={() => onSelect(d.date)}
-            className={`rounded-2xl border p-2.5 text-left transition sm:p-3 ${
-              active ? 'border-accent bg-surface shadow-sm ring-2 ring-accent-soft' : 'border-line bg-surface/60 hover:bg-surface'
+            className={`min-w-0 rounded-xl border px-2.5 py-2.5 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-accent sm:px-3.5 sm:py-3 ${
+              active ? 'border-line-strong bg-surface shadow-sm' : 'border-transparent bg-surface-2/60 hover:bg-surface-2'
             }`}
           >
-            <div className="flex items-center justify-between gap-1">
-              <span className={`text-sm font-semibold ${active ? 'text-accent' : 'text-ink'}`}>{d.weekdayShort}</span>
-              <span className={`hidden sm:inline ${dayStyle(d).badge} grid size-5 place-items-center rounded-full`}>
-                {dayStyle(d).icon(11)}
+            <span className="flex items-center justify-between gap-1">
+              <span className="flex min-w-0 items-baseline gap-1.5">
+                <span className="text-sm font-semibold text-ink">{d.weekdayShort}</span>
+                <span className="tabular hidden truncate text-2xs text-ink-3 sm:inline">
+                  {isToday ? 'Hoje' : formatDayMonth(d.date)}
+                </span>
+                {isToday && <span className="size-1.5 shrink-0 self-center rounded-full bg-ink sm:hidden" aria-hidden="true" />}
               </span>
-            </div>
-            <p className="tabular text-xs text-ink-3">{d.date === today ? 'Hoje' : formatDayMonth(d.date)}</p>
-            <div className="mt-2 h-1 overflow-hidden rounded-full bg-grid">
-              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: dayStyle(d).bar }} />
-            </div>
-            <p className="tabular mt-1.5 hidden text-2xs text-ink-2 sm:block">
-              {formatDuration(d.minutes)} / {formatDuration(d.goal)}
-            </p>
+              <span className={`shrink-0 ${style.text}`} title={style.label}>
+                {style.icon(13)}
+                <span className="sr-only">{style.label}</span>
+              </span>
+            </span>
+            <span className="tabular mt-1 block truncate text-sm font-semibold text-ink sm:text-base">
+              {d.minutes ? formatDuration(d.minutes) : '—'}
+            </span>
+            <span className="mt-2 block h-1 overflow-hidden rounded-full bg-grid">
+              <span
+                className="block h-full rounded-full"
+                style={{ width: `${Math.min(100, (d.minutes / d.goal) * 100)}%`, background: style.bar }}
+              />
+            </span>
           </button>
         );
       })}
@@ -215,128 +229,159 @@ function DayTabs({ days, selected, onSelect }: { days: DayMetrics[]; selected: I
   );
 }
 
-function DaySummary({ metrics }: { metrics: DayMetrics }) {
-  const pct = Math.min(100, (metrics.minutes / metrics.goal) * 100);
+/** Resumo do dia em uma linha: apontado · meta · situação. O diagnóstico completo está no ⓘ. */
+function DaySummary({
+  metrics: m,
+  view,
+  onView,
+  showView,
+}: {
+  metrics: DayMetrics;
+  view: View;
+  onView: (v: View) => void;
+  showView: boolean;
+}) {
   return (
-    <div className="card p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium text-ink-2">
-            {metrics.weekdayLong}, {formatDayMonth(metrics.date)}
-          </p>
-          <p className="tabular mt-0.5 text-2xl font-bold text-ink">
-            {formatDuration(metrics.minutes)}
-            <span className="text-base font-medium text-ink-3"> de {formatDuration(metrics.goal)}</span>
-          </p>
-        </div>
-        <ConformityBadge day={metrics} />
-      </div>
-      <div className="mt-4 h-2 overflow-hidden rounded-full bg-grid">
-        <div
-          className="h-full rounded-full transition-[width] duration-700"
-          style={{ width: `${pct}%`, background: dayStyle(metrics).bar }}
-        />
-      </div>
-      {metrics.exceeded ? (
-        <div role="alert" className="mt-3 flex items-start gap-2.5 rounded-xl bg-critical-soft px-3 py-2.5 text-sm">
-          <TrendUpIcon size={17} className="mt-0.5 shrink-0 text-critical-text" />
-          <p className="text-ink-2">
-            <strong className="text-critical-text">Apontamento irregular.</strong> O dia soma{' '}
-            {formatDuration(metrics.minutes)}, acima da meta de {formatDuration(metrics.goal)}. Reajuste os horários
-            para remover <strong className="tabular text-ink">{formatHM(metrics.diff)}</strong>.
-          </p>
-        </div>
-      ) : (
-        <p className="mt-2 text-sm text-ink-2">
-          {metrics.diagnosis} · {metrics.activityCount}{' '}
-          {metrics.activityCount === 1 ? 'apontamento' : 'apontamentos'}
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+        <h2 className="text-sm font-semibold text-ink">
+          {m.weekdayLong}, {formatDayMonth(m.date)}
+        </h2>
+        <p className="tabular text-sm text-ink-2">
+          <strong className="font-semibold text-ink">{formatDuration(m.minutes)}</strong> de {formatDuration(m.goal)}
         </p>
-      )}
-      {metrics.overlapMinutes > 0 && (
-        <p className="mt-2 flex items-start gap-2 text-xs text-ink-2">
-          <LayersIcon size={14} className="mt-px shrink-0 text-ink-3" />
-          <span>
-            Horários sobrepostos: o trecho em comum (
-            <strong className="tabular font-semibold text-ink">{formatDuration(metrics.overlapMinutes)}</strong>) entrou uma
-            única vez no total do dia.
+        <ConformityBadge day={m} />
+        {m.diffLabel && <span className="tabular text-xs text-ink-3">{m.diffLabel}</span>}
+        <InfoHint label="Sobre o dia">
+          <span className="block">
+            {m.diagnosis} · {m.activityCount} {m.activityCount === 1 ? 'apontamento' : 'apontamentos'}.
           </span>
-        </p>
+          {m.exceeded && (
+            <span className="mt-1.5 block font-medium text-critical-text">
+              O dia soma {formatDuration(m.minutes)}, acima da meta de {formatDuration(m.goal)}. Reajuste os horários para
+              remover {formatHM(m.diff)}.
+            </span>
+          )}
+          {m.overlapMinutes > 0 && (
+            <span className="mt-1.5 block">
+              Horários sobrepostos: o trecho em comum ({formatDuration(m.overlapMinutes)}) entrou uma única vez no total
+              do dia.
+            </span>
+          )}
+        </InfoHint>
+      </div>
+
+      {showView && (
+        <Segmented
+          label="Organizar apontamentos"
+          size="sm"
+          value={view}
+          onChange={onView}
+          options={[
+            { value: 'horario', label: 'Por horário', icon: <ClockIcon size={13} /> },
+            { value: 'demanda', label: 'Por demanda', icon: <ListIcon size={13} /> },
+          ]}
+        />
       )}
     </div>
   );
 }
 
-/** Nome da demanda apontada; nos apontamentos antigos, o projeto com o aviso para vincular. */
-function DemandHeading({ activity: a, demand }: { activity: Activity; demand?: DemandSummary }) {
-  if (!demand) {
-    return (
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <h3 className="font-semibold text-ink">{a.project}</h3>
-        <span className="inline-flex items-center gap-1 rounded-full bg-warning-soft px-2 py-0.5 text-2xs font-medium text-warning-text">
-          <AlertIcon size={12} /> Sem demanda · edite para escolher
-        </span>
-      </div>
-    );
-  }
-  return (
-    <Link to={`/demandas#demanda-${demand.id}`} className="group flex min-w-0 items-center gap-2.5" title="Ver a demanda">
-      <CategoryAvatar category={demand.category} size={28} />
-      <span className="min-w-0">
-        <span className="block truncate font-semibold text-ink group-hover:text-accent">{demand.label}</span>
-        <span className="block truncate text-xs text-ink-3">
-          {DEMAND_CATEGORY_LABEL[demand.category]}
-          {demand.subtitle && ` · ${demand.subtitle}`}
-        </span>
-      </span>
-    </Link>
-  );
-}
-
-function EntryItem({
-  activity: a,
-  demand,
-  isEditing,
-  onEdit,
-  onDeleted,
-}: {
+interface RowProps {
   activity: Activity;
   demand?: DemandSummary;
-  isEditing: boolean;
+  expanded: boolean;
+  onToggle: () => void;
   onEdit: () => void;
   onDeleted: () => void;
-}) {
+}
+
+/**
+ * Uma linha: horário, demanda e duração. A descrição, as observações e o status completo
+ * aparecem ao expandir; editar e excluir aparecem ao passar o mouse (no celular, dentro da linha expandida).
+ */
+function EntryRow({ grouped = false, ...row }: RowProps & { grouped?: boolean }) {
+  const { activity: a, demand, expanded, onToggle } = row;
+  const detailId = useId();
+  const status = statusStyle[a.status];
+
   return (
-    <li className={`card rise p-4 transition sm:p-5 ${isEditing ? 'ring-2 ring-accent' : ''}`}>
-      <div className="flex items-start gap-4">
-        <div className="hidden w-16 shrink-0 text-center sm:block">
-          <p className="tabular text-sm font-semibold text-ink">{formatHM(a.startMinute)}</p>
-          <div className="mx-auto my-1 h-4 w-px bg-baseline" />
-          <p className="tabular text-sm text-ink-3">{formatHM(a.endMinute)}</p>
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <DemandHeading activity={a} demand={demand} />
-            <span className="tabular inline-flex shrink-0 items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-ink-2">
-              <ClockIcon size={12} />
-              <span className="sm:hidden">
-                {formatHM(a.startMinute)}–{formatHM(a.endMinute)} ·{' '}
+    <li className="group">
+      <div className="flex items-center pr-2 sm:pr-3">
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-controls={detailId}
+          onClick={onToggle}
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-3 text-left outline-none transition hover:bg-surface-2/60 focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <span className="tabular shrink-0 text-sm text-ink-2 sm:w-28">
+            {formatHM(a.startMinute)}–{formatHM(a.endMinute)}
+          </span>
+          {grouped ? (
+            <span className="min-w-0 flex-1 truncate text-sm text-ink-2">{a.description || '—'}</span>
+          ) : (
+            <span className="flex min-w-0 flex-1 items-center gap-2">
+              <span className="shrink-0 text-ink-3">
+                {demand ? categoryIcon[demand.category](15) : <AlertIcon size={15} className="text-warning-text" />}
               </span>
-              {formatDuration(durationOf(a))}
+              <span className="truncate text-sm font-semibold text-ink">{demand?.label ?? a.project}</span>
             </span>
-          </div>
-          {a.description && <p className="mt-2 text-sm whitespace-pre-line text-ink-2">{a.description}</p>}
-          {a.notes && <p className="mt-1 text-sm text-ink-3">↳ {a.notes}</p>}
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-            <StatusBadge value={a.status} />
-            <EntryActions activity={a} onEdit={onEdit} onDeleted={onDeleted} />
+          )}
+          <span className="tabular shrink-0 text-sm font-semibold text-ink">{formatDuration(durationOf(a))}</span>
+          <span className={`hidden shrink-0 sm:block ${status.text}`} title={STATUS_LABEL[a.status]}>
+            {status.icon(15)}
+            <span className="sr-only">{STATUS_LABEL[a.status]}</span>
+          </span>
+          <ChevronDown size={15} className={`shrink-0 text-ink-3 transition ${expanded ? 'rotate-180' : ''}`} />
+        </button>
+        <EntryActions
+          {...row}
+          className="hidden sm:flex sm:opacity-0 sm:transition sm:group-focus-within:opacity-100 sm:group-hover:opacity-100"
+        />
+      </div>
+
+      {expanded && (
+        <div id={detailId} className="space-y-2.5 px-3 pb-4 sm:pl-[10.5rem]">
+          {!grouped && demand?.subtitle && (
+            <p className="text-xs text-ink-3">
+              {DEMAND_CATEGORY_LABEL[demand.category]} · {demand.subtitle}
+            </p>
+          )}
+          {!demand && (
+            <p className="flex items-start gap-1.5 text-xs text-warning-text">
+              <AlertIcon size={14} className="mt-px shrink-0" />
+              Apontamento antigo, sem demanda. Edite para escolher a demanda declarada.
+            </p>
+          )}
+          {a.description && <p className="text-sm whitespace-pre-line text-ink-2">{a.description}</p>}
+          {a.notes && <p className="text-sm text-ink-3">↳ {a.notes}</p>}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="flex flex-wrap items-center gap-3">
+              <StatusBadge value={a.status} />
+              {demand && (
+                <Link to={`/demandas#demanda-${demand.id}`} className="text-xs font-medium text-ink-2 hover:text-ink hover:underline">
+                  Ver demanda
+                </Link>
+              )}
+            </span>
+            <EntryActions {...row} className="flex sm:hidden" />
           </div>
         </div>
-      </div>
+      )}
     </li>
   );
 }
 
-function EntryActions({ activity: a, onEdit, onDeleted }: { activity: Activity; onEdit: () => void; onDeleted: () => void }) {
+function EntryActions({
+  activity: a,
+  onEdit,
+  onDeleted,
+  className,
+}: RowProps & {
+  /** Exibição e visibilidade da barra de ações, definidas por quem a usa (linha ou área expandida). */
+  className: string;
+}) {
   const remove = useDeleteActivity();
   const toast = useToast();
   const [confirming, setConfirming] = useState(false);
@@ -351,7 +396,7 @@ function EntryActions({ activity: a, onEdit, onDeleted }: { activity: Activity; 
     });
 
   return (
-    <div className="flex items-center gap-1">
+    <div className={`items-center gap-1 ${className}`}>
       {confirming ? (
         <>
           <span className="mr-1 text-xs text-ink-2">Excluir?</span>
@@ -383,6 +428,26 @@ function EntryActions({ activity: a, onEdit, onDeleted }: { activity: Activity; 
   );
 }
 
+/** Nome da demanda do grupo; nos apontamentos antigos, o projeto digitado na época. */
+function GroupHeading({ activity: a, demand }: { activity: Activity; demand?: DemandSummary }) {
+  if (!demand) {
+    return (
+      <span className="flex min-w-0 items-center gap-2">
+        <AlertIcon size={16} className="shrink-0 text-warning-text" />
+        <h3 className="truncate text-sm font-semibold text-ink">{a.project}</h3>
+        <span className="shrink-0 text-xs text-warning-text">Sem demanda</span>
+      </span>
+    );
+  }
+  return (
+    <Link to={`/demandas#demanda-${demand.id}`} className="group/name flex min-w-0 items-center gap-2.5" title="Ver a demanda">
+      <CategoryAvatar category={demand.category} size={26} />
+      <h3 className="truncate text-sm font-semibold text-ink group-hover/name:underline">{demand.label}</h3>
+      <span className="hidden shrink-0 text-xs text-ink-3 sm:inline">{DEMAND_CATEGORY_LABEL[demand.category]}</span>
+    </Link>
+  );
+}
+
 /**
  * A mesma demanda feita em horários diferentes, reunida: cada grupo mostra o total do dia
  * (sobreposições contadas uma vez) e os horários em que ela aconteceu.
@@ -390,15 +455,11 @@ function EntryActions({ activity: a, onEdit, onDeleted }: { activity: Activity; 
 function ByDemand({
   activities,
   demands,
-  editingId,
-  onEdit,
-  onDeleted,
+  rowProps,
 }: {
   activities: Activity[];
   demands: Map<number, DemandSummary>;
-  editingId: number | null;
-  onEdit: (id: number) => void;
-  onDeleted: (id: number) => void;
+  rowProps: (a: Activity) => RowProps;
 }) {
   const groups = [
     ...Map.groupBy(activities, (a) => (a.demandId !== null ? `d${a.demandId}` : `p${a.project}`)).values(),
@@ -407,53 +468,40 @@ function ByDemand({
     .sort((x, y) => y.total - x.total);
 
   return (
-    <ul className="space-y-3">
+    <div className="card divide-y divide-line">
       {groups.map(({ items, total }) => {
         const first = items[0];
         const demand = first.demandId ? demands.get(first.demandId) : undefined;
         return (
-          <li key={first.id} className="card rise p-4 sm:p-5">
-            <div className="flex items-start justify-between gap-3">
-              <DemandHeading activity={first} demand={demand} />
-              <span className="tabular shrink-0 text-right">
-                <span className="block text-base font-bold text-ink">{formatDuration(total)}</span>
-                <span className="block text-2xs text-ink-3">
+          <section key={first.id} className="py-1">
+            <div className="flex items-center justify-between gap-3 px-3 pt-3 pb-1">
+              <GroupHeading activity={first} demand={demand} />
+              <span className="tabular shrink-0 text-right text-sm font-semibold text-ink">
+                {formatDuration(total)}
+                <span className="ml-2 text-xs font-normal text-ink-3">
                   {items.length === 1 ? '1 horário' : `${items.length} horários`}
                 </span>
               </span>
             </div>
-            <ul className="mt-3 divide-y divide-line rounded-xl border border-line">
+            <ul>
               {items.map((a) => (
-                <li
-                  key={a.id}
-                  className={`flex items-center gap-3 px-3 py-2 text-sm ${a.id === editingId ? 'bg-accent-soft' : ''}`}
-                >
-                  <span className="tabular w-24 shrink-0 font-medium text-ink">
-                    {formatHM(a.startMinute)}–{formatHM(a.endMinute)}
-                  </span>
-                  <span className="tabular w-12 shrink-0 text-ink-3">{formatDuration(durationOf(a))}</span>
-                  <span className="min-w-0 flex-1 truncate text-ink-2">{a.description || '—'}</span>
-                  <EntryActions activity={a} onEdit={() => onEdit(a.id)} onDeleted={() => onDeleted(a.id)} />
-                </li>
+                <EntryRow key={a.id} grouped {...rowProps(a)} />
               ))}
             </ul>
-          </li>
+          </section>
         );
       })}
-    </ul>
+    </div>
   );
 }
 
 function EmptyDay(): ReactNode {
   return (
-    <div className="card flex flex-col items-center px-6 py-12 text-center">
-      <span className="grid size-12 place-items-center rounded-full bg-accent-soft text-accent">
-        <ClockIcon size={22} />
+    <div className="card flex flex-col items-center px-6 py-14 text-center">
+      <span className="grid size-10 place-items-center rounded-full bg-surface-2 text-ink-2">
+        <ClockIcon size={20} />
       </span>
-      <p className="mt-3 font-semibold text-ink">Nenhum apontamento neste dia</p>
-      <p className="mt-1 max-w-xs text-sm text-ink-2">
-        No formulário, escolha a demanda declarada e registre o horário de início e fim.
-      </p>
+      <p className="mt-3 text-sm font-semibold text-ink">Nenhum apontamento neste dia</p>
     </div>
   );
 }

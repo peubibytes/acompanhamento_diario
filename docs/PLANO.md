@@ -149,9 +149,11 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
    - *Distribuição:* rosca grande do dia escolhido (Sex–Qui) e legenda com nome, horas e %.
    - *Ciclos:* barras de horas apontadas por ciclo aberto, com o selo de prazo.
    - Ação principal: "Registrar apontamentos". Link "Detalhamento" no gráfico.
-2. **Apontamentos (`/apontamentos`; `/atividades` redireciona)** — abas Sex/Seg/Ter/Qua/Qui;
-   mostra só o dia escolhido: resumo do dia, lista (por horário ou por demanda) e formulário
-   (demanda, início, fim, duração ao vivo, o que foi feito, observações, status). Ver seção 9.
+2. **Apontamentos (`/apontamentos`; `/atividades` redireciona)** — abas Sex/Seg/Ter/Qua/Qui
+   (dia, horas e uma barrinha de progresso); mostra só o dia escolhido: resumo do dia em uma
+   linha, e a lista (por horário ou por demanda) ocupando a tela. O formulário (demanda, início,
+   fim, duração ao vivo, o que foi feito, observações, status) abre num painel deslizante pelo
+   botão "Novo apontamento" ou ao editar. Ver seção 9.
 3. **Demandas (`/demandas`)** — declaração de Atividades e Ciclos. Ver seção 9.
 4. **Detalhamento (`/detalhes`)** — tabela fiel à planilha: data, dia, meta, horas,
    diferença, qtd apontamentos, conformidade, diagnóstico e linha de total geral.
@@ -269,6 +271,20 @@ em destaque, um título, uma ação principal e um filtro por tela.
   - **Distribuição** e **Ciclos:** mesmo tratamento (gráfico grande, rótulos diretos, detalhes
     no hover ou foco; a frase-resumo e os rodapés explicativos foram para o ⓘ).
   - Tooltips do gráfico fechados saem do layout (sem rolagem horizontal em 320 px).
+
+- **Fase 3 — Apontamentos (pronta):**
+  - **Painel deslizante** (`SlideOver`, reutilizável): o formulário sai da lateral e abre pelo
+    botão "Novo apontamento" (ação principal do cabeçalho) ou ao editar. É um diálogo modal: foco
+    preso dentro dele, Esc fecha, o foco volta a quem o abriu e a rolagem da página fica travada.
+    Com algo digitado, fechar (✕, Esc ou clique fora) pede confirmação antes de descartar. No
+    celular ocupa a tela. "Adicionar e continuar" salva e deixa o painel aberto para o próximo
+    lançamento (início = fim do anterior).
+  - **Abas dos dias:** dia, horas, ícone de status e uma barrinha; a meta saiu da aba.
+  - **Resumo do dia em uma linha:** apontado · meta · situação (selo + diferença); o diagnóstico, o
+    aviso de irregular e o de horários sobrepostos estão no ⓘ.
+  - **Itens compactos:** horário, demanda e duração em destaque, com o ícone de status. A
+    descrição, as observações e o status completo aparecem ao expandir a linha; editar e excluir
+    aparecem ao passar o mouse (no celular, dentro da linha expandida).
 
 ## 8. Expansão: gestão do colaborador (v0.4 — em andamento)
 

@@ -74,10 +74,7 @@ export function Dashboard() {
         title="Painel"
         hint={PAGE_HINT}
         action={
-          <Link
-            to={withDate('/apontamentos', date)}
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-on-accent shadow-sm transition hover:bg-accent-hover"
-          >
+          <Link to={withDate('/apontamentos', date)} className="btn-primary">
             <PlusIcon size={18} /> Registrar apontamentos
           </Link>
         }

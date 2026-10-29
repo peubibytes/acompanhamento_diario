@@ -70,11 +70,11 @@ export function ConformityBadge({ day }: { day: Pick<DayMetrics, 'conformity' | 
   );
 }
 
-export const statusStyle: Record<ActivityStatus, { badge: string; icon: (size: number) => ReactNode }> = {
-  concluido: { badge: 'bg-good-soft text-good-text', icon: (s) => <CheckIcon size={s} /> },
-  nao_concluido: { badge: 'bg-critical-soft text-critical-text', icon: (s) => <XIcon size={s} /> },
-  pendente_aprovacao: { badge: 'bg-warning-soft text-warning-text', icon: (s) => <HourglassIcon size={s} /> },
-  nao_iniciado: { badge: 'bg-neutral-soft text-ink-2', icon: (s) => <DashIcon size={s} /> },
+export const statusStyle: Record<ActivityStatus, { badge: string; text: string; icon: (size: number) => ReactNode }> = {
+  concluido: { badge: 'bg-good-soft text-good-text', text: 'text-good-text', icon: (s) => <CheckIcon size={s} /> },
+  nao_concluido: { badge: 'bg-critical-soft text-critical-text', text: 'text-critical-text', icon: (s) => <XIcon size={s} /> },
+  pendente_aprovacao: { badge: 'bg-warning-soft text-warning-text', text: 'text-warning-text', icon: (s) => <HourglassIcon size={s} /> },
+  nao_iniciado: { badge: 'bg-neutral-soft text-ink-2', text: 'text-ink-3', icon: (s) => <DashIcon size={s} /> },
 };
 
 export function StatusBadge({ value }: { value: ActivityStatus }) {
