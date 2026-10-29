@@ -5,12 +5,12 @@ import {
   DEMAND_CATEGORY_LABEL,
   formatDayMonth,
   formatDuration,
-  ROUTINE_STATUS_LABEL,
+  TASK_STATUS_LABEL,
   type CycleStatus,
   type DeadlineStatus,
   type DemandCategory,
   type DemandMetrics,
-  type RoutineStatus,
+  type TaskStatus,
 } from '@acomp/shared';
 import {
   AlertIcon,
@@ -89,19 +89,19 @@ export function CycleStatusBadge({ status }: { status: CycleStatus }) {
   );
 }
 
-export const routineStatusStyle: Record<RoutineStatus, { badge: string; icon: (s: number) => ReactNode }> = {
+export const taskStatusStyle: Record<TaskStatus, { badge: string; icon: (s: number) => ReactNode }> = {
   nao_iniciado: { badge: 'bg-neutral-soft text-ink-2', icon: (s) => <DashIcon size={s} /> },
   iniciado: { badge: 'bg-accent-soft text-accent', icon: (s) => <ClockIcon size={s} /> },
   em_andamento: { badge: 'bg-accent-soft text-accent', icon: (s) => <ClockIcon size={s} /> },
   concluido: { badge: 'bg-good-soft text-good-text', icon: (s) => <CheckIcon size={s} /> },
 };
 
-export function RoutineStatusBadge({ status }: { status: RoutineStatus }) {
-  const style = routineStatusStyle[status];
+export function TaskStatusBadge({ status }: { status: TaskStatus }) {
+  const style = taskStatusStyle[status];
   return (
     <span className={`${BADGE} ${style.badge}`}>
       {style.icon(13)}
-      {ROUTINE_STATUS_LABEL[status]}
+      {TASK_STATUS_LABEL[status]}
     </span>
   );
 }

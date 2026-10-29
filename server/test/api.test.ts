@@ -389,7 +389,7 @@ describe('API de demandas: ciclos', () => {
     await api('DELETE', `/demands/${again.id}`);
   });
 
-  it('atividades de rotina não têm linha do tempo nem impedimentos', async () => {
+  it('tarefas não têm linha do tempo nem impedimentos', async () => {
     const res = await api('POST', `/demands/${sample.demandId}/events`, { text: 'x' });
     assert.equal(res.status, 400);
     assert.match(res.data.error, /só nos ciclos/);

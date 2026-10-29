@@ -1,5 +1,5 @@
 // Demandas: o que o colaborador declara que faz. São de duas famílias:
-// - Atividades (rotina): chamados, reuniões e treinamentos;
+// - Tarefas (rotina): chamados, reuniões e treinamentos;
 // - Ciclo: trabalhos longos, com prazo, prioridade, linha do tempo e impedimentos.
 // A declaração não tem horas: o tempo gasto é registrado em Apontamentos, sempre sobre uma
 // demanda já declarada. Ver docs/decisions/0002-demandas-declaradas-e-apontamentos.md.
@@ -12,9 +12,9 @@ import type { Activity } from './types.ts';
 export const DEMAND_CATEGORIES = ['ciclo', 'chamado', 'reuniao', 'treinamento'] as const;
 export type DemandCategory = (typeof DEMAND_CATEGORIES)[number];
 
-/** Categorias da família "Atividades" (rotina). */
-export const ROUTINE_CATEGORIES = ['chamado', 'reuniao', 'treinamento'] as const;
-export type RoutineCategory = (typeof ROUTINE_CATEGORIES)[number];
+/** Categorias da família "Tarefas" (rotina). */
+export const TASK_CATEGORIES = ['chamado', 'reuniao', 'treinamento'] as const;
+export type TaskCategory = (typeof TASK_CATEGORIES)[number];
 
 export const DEMAND_CATEGORY_LABEL: Record<DemandCategory, string> = {
   ciclo: 'Ciclo',
@@ -76,12 +76,12 @@ export const DEMAND_ENVIRONMENT_LABEL: Record<DemandEnvironment, string> = {
   producao: 'Produção (PRD)',
 };
 
-// ── Atividades (chamados e treinamentos têm status; reuniões, não) ─────────────
+// ── Tarefas (chamados e treinamentos têm status; reuniões, não) ─────────────
 
-export const ROUTINE_STATUSES = ['nao_iniciado', 'iniciado', 'em_andamento', 'concluido'] as const;
-export type RoutineStatus = (typeof ROUTINE_STATUSES)[number];
+export const TASK_STATUSES = ['nao_iniciado', 'iniciado', 'em_andamento', 'concluido'] as const;
+export type TaskStatus = (typeof TASK_STATUSES)[number];
 
-export const ROUTINE_STATUS_LABEL: Record<RoutineStatus, string> = {
+export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   nao_iniciado: 'Não iniciado',
   iniciado: 'Iniciado',
   em_andamento: 'Em andamento',
@@ -117,7 +117,7 @@ export interface TicketDemand {
   ticketNumber: string;
   /** Qual o problema, quem solicitou e outras informações relevantes. */
   description: string;
-  status: RoutineStatus;
+  status: TaskStatus;
 }
 
 export interface MeetingDemand {
@@ -136,7 +136,7 @@ export interface TrainingDemand {
   /** Nome do treinamento. */
   title: string;
   description: string;
-  status: RoutineStatus;
+  status: TaskStatus;
 }
 
 export type Demand = CycleDemand | TicketDemand | MeetingDemand | TrainingDemand;
@@ -411,7 +411,7 @@ const PRIORITY_ORDER: Record<DemandPriority, number> = { urgente: 0, alta: 1, me
 
 /**
  * Por categoria; dentro dela, as abertas primeiro. Ciclos seguem a urgência do prazo e a
- * prioridade; as atividades, da declarada mais recente para a mais antiga.
+ * prioridade; as tarefas, da declarada mais recente para a mais antiga.
  */
 export function compareDemands(a: DemandSummary, b: DemandSummary): number {
   const byCategory = CATEGORY_ORDER[a.category] - CATEGORY_ORDER[b.category];

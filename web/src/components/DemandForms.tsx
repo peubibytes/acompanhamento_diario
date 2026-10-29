@@ -9,8 +9,8 @@ import {
   DEMAND_PRIORITIES,
   DEMAND_PRIORITY_LABEL,
   MEETING_TYPE_SUGGESTIONS,
-  ROUTINE_STATUS_LABEL,
-  ROUTINE_STATUSES,
+  TASK_STATUS_LABEL,
+  TASK_STATUSES,
   todayISO,
   type CycleDemand,
   type CycleStatus,
@@ -21,12 +21,12 @@ import {
   type DemandPriority,
   type DemandSummary,
   type MeetingDemand,
-  type RoutineStatus,
+  type TaskStatus,
   type TicketDemand,
   type TrainingDemand,
 } from '@acomp/shared';
 import { useSaveDemand } from '../api/client';
-import { routineStatusStyle } from './DemandVisuals';
+import { taskStatusStyle } from './DemandVisuals';
 import { Field } from './Field';
 import { ChevronDown } from './icons';
 import { InfoHint } from './InfoHint';
@@ -277,7 +277,7 @@ function CycleForm({ editing, onDone, onDirtyChange }: FormProps<CycleDemand>) {
 function TicketForm({ editing, onDone, onDirtyChange }: FormProps<TicketDemand>) {
   const [ticketNumber, setTicketNumber] = useState(editing?.ticketNumber ?? '');
   const [description, setDescription] = useState(editing?.description ?? '');
-  const [status, setStatus] = useState<RoutineStatus>(editing?.status ?? 'nao_iniciado');
+  const [status, setStatus] = useState<TaskStatus>(editing?.status ?? 'nao_iniciado');
   const { submit, pending } = useSubmit(editing, onDone);
   useDirty({ ticketNumber, description, status }, onDirtyChange);
 
@@ -311,7 +311,7 @@ function TicketForm({ editing, onDone, onDirtyChange }: FormProps<TicketDemand>)
           className="field resize-y"
         />
       </Field>
-      <RoutineStatusPicker value={status} onChange={setStatus} />
+      <TaskStatusPicker value={status} onChange={setStatus} />
       <Actions editing={Boolean(editing)} pending={pending} onCancel={onDone} create="Declarar chamado" />
     </form>
   );
@@ -391,7 +391,7 @@ function MeetingForm({ editing, onDone, onDirtyChange }: FormProps<MeetingDemand
 function TrainingForm({ editing, onDone, onDirtyChange }: FormProps<TrainingDemand>) {
   const [title, setTitle] = useState(editing?.title ?? '');
   const [description, setDescription] = useState(editing?.description ?? '');
-  const [status, setStatus] = useState<RoutineStatus>(editing?.status ?? 'nao_iniciado');
+  const [status, setStatus] = useState<TaskStatus>(editing?.status ?? 'nao_iniciado');
   const { submit, pending } = useSubmit(editing, onDone);
   useDirty({ title, description, status }, onDirtyChange);
 
@@ -423,29 +423,29 @@ function TrainingForm({ editing, onDone, onDirtyChange }: FormProps<TrainingDema
           className="field resize-y"
         />
       </Field>
-      <RoutineStatusPicker value={status} onChange={setStatus} />
+      <TaskStatusPicker value={status} onChange={setStatus} />
       <Actions editing={Boolean(editing)} pending={pending} onCancel={onDone} create="Declarar treinamento" />
     </form>
   );
 }
 
-function RoutineStatusPicker({ value, onChange }: { value: RoutineStatus; onChange: (s: RoutineStatus) => void }) {
+function TaskStatusPicker({ value, onChange }: { value: TaskStatus; onChange: (s: TaskStatus) => void }) {
   return (
     <fieldset>
       <legend className="mb-1.5 text-xs font-semibold text-ink-2">Status</legend>
       <div className="grid grid-cols-2 gap-2">
-        {ROUTINE_STATUSES.map((s) => {
+        {TASK_STATUSES.map((s) => {
           const active = value === s;
           return (
             <label
               key={s}
               className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent ${
-                active ? `${routineStatusStyle[s].badge} border-transparent font-semibold` : 'border-line text-ink-2 hover:bg-surface-2'
+                active ? `${taskStatusStyle[s].badge} border-transparent font-semibold` : 'border-line text-ink-2 hover:bg-surface-2'
               }`}
             >
               <input type="radio" name="status" value={s} checked={active} onChange={() => onChange(s)} className="sr-only" />
-              {routineStatusStyle[s].icon(15)}
-              {ROUTINE_STATUS_LABEL[s]}
+              {taskStatusStyle[s].icon(15)}
+              {TASK_STATUS_LABEL[s]}
             </label>
           );
         })}

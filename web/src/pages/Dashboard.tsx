@@ -188,12 +188,12 @@ function WeekView({ summary, date }: { summary: CycleSummary; date: string }) {
   );
 }
 
-/** Demandas concluídas (chamados, treinamentos e ciclos); o cartão suspenso separa atividades de ciclos. */
+/** Demandas concluídas (chamados, treinamentos e ciclos); o cartão suspenso separa tarefas de ciclos. */
 function FulfilledStat() {
   const demands = useDemands();
   const done = (demands.data ?? []).filter((d) => d.category !== 'reuniao' && d.status === 'concluido');
   const cycles = done.filter((d) => d.category === 'ciclo').length;
-  const activities = done.length - cycles;
+  const tasks = done.length - cycles;
   const id = useId();
 
   return (
@@ -206,7 +206,7 @@ function FulfilledStat() {
         className="tip-surface hint-in absolute top-full right-0 z-30 mt-2 hidden w-52 p-3 text-sm group-focus-within:block group-hover:block sm:right-auto sm:left-0"
       >
         <p className="flex items-baseline justify-between gap-4 text-ink-2">
-          Atividades concluídas <strong className="tabular font-semibold text-ink">{activities}</strong>
+          Tarefas concluídas <strong className="tabular font-semibold text-ink">{tasks}</strong>
         </p>
         <p className="mt-1.5 flex items-baseline justify-between gap-4 text-ink-2">
           Ciclos concluídos <strong className="tabular font-semibold text-ink">{cycles}</strong>

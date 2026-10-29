@@ -13,7 +13,7 @@ import {
   type ISODate,
 } from '@acomp/shared';
 import { useDemands, useSaveActivity } from '../api/client';
-import { CategoryAvatar, categoryIcon, CycleStatusBadge, LoggedSummary, RoutineStatusBadge } from './DemandVisuals';
+import { CategoryAvatar, categoryIcon, CycleStatusBadge, LoggedSummary, TaskStatusBadge } from './DemandVisuals';
 import { Field } from './Field';
 import { AlertIcon, ArrowRight, ClockIcon } from './icons';
 import { useToast } from './Toast';
@@ -184,7 +184,7 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone, onDirtyCh
               {chosen.category === 'ciclo' ? (
                 <CycleStatusBadge status={chosen.status} />
               ) : (
-                <RoutineStatusBadge status={chosen.status} />
+                <TaskStatusBadge status={chosen.status} />
               )}
               <Link
                 to={`/demandas#demanda-${chosen.id}`}

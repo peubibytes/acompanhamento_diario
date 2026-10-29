@@ -10,21 +10,21 @@ import {
   formatDayMonth,
   formatDuration,
   isOpenDemand,
-  ROUTINE_CATEGORIES,
-  ROUTINE_STATUS_LABEL,
-  ROUTINE_STATUSES,
+  TASK_CATEGORIES,
+  TASK_STATUS_LABEL,
+  TASK_STATUSES,
   WEEKDAY_SHORT,
   weekdayOf,
   type CycleStatus,
   type DemandCategory,
   type DemandSummary,
-  type RoutineCategory,
-  type RoutineStatus,
+  type TaskCategory,
+  type TaskStatus,
 } from '@acomp/shared';
 import { useDeleteDemand, useDemands, useSaveDemand } from '../api/client';
 import { ActivityHistory, CycleTracking, IconButton } from '../components/DemandHistory';
 import { DemandForm } from '../components/DemandForms';
-import { categoryIcon, CycleStatusBadge, DeadlineBadge, routineStatusStyle } from '../components/DemandVisuals';
+import { categoryIcon, CycleStatusBadge, DeadlineBadge, taskStatusStyle } from '../components/DemandVisuals';
 import { FilterSelect } from '../components/FilterSelect';
 import { CheckIcon, ChevronDown, HourglassIcon, PencilIcon, PlusIcon, TrashIcon, UndoIcon } from '../components/icons';
 import { PageHeader } from '../components/PageHeader';
@@ -34,7 +34,7 @@ import { ErrorState, Skeleton } from '../components/States';
 import { useToast } from '../components/Toast';
 
 type StatusFilter = 'abertas' | 'encerradas' | 'todas';
-type Tab = 'atividades' | 'ciclo';
+type Tab = 'tarefas' | 'ciclo';
 /** O formulário aberto no painel: declarar uma demanda do tipo atual ou editar uma existente. */
 type Panel = { mode: 'new'; category: DemandCategory } | { mode: 'edit'; id: number };
 
@@ -68,7 +68,7 @@ const PAGE_HINT = (
   <>
     <span className="block">Declare o que você faz. O tempo gasto é registrado depois, em Apontamentos.</span>
     <span className="mt-1.5 block">
-      <strong className="font-semibold text-ink">Atividades:</strong> chamados, reuniões e treinamentos do dia a dia.
+      <strong className="font-semibold text-ink">Tarefas:</strong> chamados, reuniões e treinamentos do dia a dia.
       Cada um é declarado uma vez e apontado a cada ocorrência.
     </span>
     <span className="mt-1.5 block">
@@ -85,9 +85,9 @@ export function Demands() {
   const { hash } = useLocation();
   const tipo = params.get('tipo');
   const category: DemandCategory = isCategory(tipo) ? tipo : 'chamado';
-  const tab: Tab = category === 'ciclo' ? 'ciclo' : 'atividades';
+  const tab: Tab = category === 'ciclo' ? 'ciclo' : 'tarefas';
 
-  const [lastRoutine, setLastRoutine] = useState<RoutineCategory>(category === 'ciclo' ? 'chamado' : category);
+  const [lastTask, setLastTask] = useState<TaskCategory>(category === 'ciclo' ? 'chamado' : category);
   const [filter, setFilter] = useState<StatusFilter>('abertas');
   const [panel, setPanel] = useState<Panel | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -106,7 +106,7 @@ export function Demands() {
     setPanel(null);
     setExpandedId(null);
     setFilter('abertas');
-    if (next !== 'ciclo') setLastRoutine(next);
+    if (next !== 'ciclo') setLastTask(next);
     setParams(
       (p) => {
         p.set('tipo', next);
@@ -152,24 +152,24 @@ export function Demands() {
         }
       />
 
-      {/* Uma barra só: a família (Atividades | Ciclo), o tipo da atividade (menu) e o status. */}
+      {/* Uma barra só: a família (Tarefas | Ciclo), o tipo da tarefa (menu) e o status. */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-3">
         <Segmented
           label="Família de demandas"
           value={tab}
-          onChange={(next) => chooseCategory(next === 'ciclo' ? 'ciclo' : lastRoutine)}
+          onChange={(next) => chooseCategory(next === 'ciclo' ? 'ciclo' : lastTask)}
           stretch
           options={[
-            { value: 'atividades', label: 'Atividades', count: demands.data ? openCount(ROUTINE_CATEGORIES) : undefined },
+            { value: 'tarefas', label: 'Tarefas', count: demands.data ? openCount(TASK_CATEGORIES) : undefined },
             { value: 'ciclo', label: 'Ciclo', count: demands.data ? openCount(['ciclo']) : undefined },
           ]}
         />
-        {tab === 'atividades' && (
+        {tab === 'tarefas' && (
           <FilterSelect
-            label="Tipo de atividade"
-            value={category as RoutineCategory}
+            label="Tipo de tarefa"
+            value={category as TaskCategory}
             onChange={chooseCategory}
-            options={ROUTINE_CATEGORIES.map((c) => ({
+            options={TASK_CATEGORIES.map((c) => ({
               value: c,
               label: `${DEMAND_CATEGORY_PLURAL[c]}${demands.data ? ` (${all.filter((d) => d.category === c).length})` : ''}`,
             }))}
@@ -312,7 +312,7 @@ function DemandRow(row: RowProps) {
 
 /** Status e, nos ciclos, o prazo (só enquanto aberto e com data). Reuniões não têm status. */
 function RowStatus({ demand: d }: { demand: DemandSummary }) {
-  if (d.category === 'chamado' || d.category === 'treinamento') return <RoutineStatusSelect demand={d} status={d.status} />;
+  if (d.category === 'chamado' || d.category === 'treinamento') return <TaskStatusSelect demand={d} status={d.status} />;
   if (d.category !== 'ciclo') return null;
   const m = d.metrics;
   return (
@@ -350,17 +350,17 @@ function Logged({ demand: d }: { demand: DemandSummary }) {
 }
 
 /** Troca rápida do status de chamados e treinamentos, direto na linha. */
-function RoutineStatusSelect({ demand, status }: { demand: DemandSummary; status: RoutineStatus }) {
+function TaskStatusSelect({ demand, status }: { demand: DemandSummary; status: TaskStatus }) {
   const save = useSaveDemand();
   const toast = useToast();
-  const style = routineStatusStyle[status];
-  const change = (next: RoutineStatus) => {
+  const style = taskStatusStyle[status];
+  const change = (next: TaskStatus) => {
     const input = demandInputOf(demand);
     if (input.category !== 'chamado' && input.category !== 'treinamento') return;
     save.mutate(
       { id: demand.id, input: { ...input, status: next } },
       {
-        onSuccess: () => toast(`Status: ${ROUTINE_STATUS_LABEL[next]}.`),
+        onSuccess: () => toast(`Status: ${TASK_STATUS_LABEL[next]}.`),
         onError: (err) => toast(err.message, 'error'),
       },
     );
@@ -374,12 +374,12 @@ function RoutineStatusSelect({ demand, status }: { demand: DemandSummary; status
       <select
         value={status}
         disabled={save.isPending}
-        onChange={(e) => change(e.target.value as RoutineStatus)}
+        onChange={(e) => change(e.target.value as TaskStatus)}
         className="cursor-pointer appearance-none bg-transparent pr-5 font-medium outline-none [&>option]:bg-surface [&>option]:text-ink"
       >
-        {ROUTINE_STATUSES.map((s) => (
+        {TASK_STATUSES.map((s) => (
           <option key={s} value={s}>
-            {ROUTINE_STATUS_LABEL[s]}
+            {TASK_STATUS_LABEL[s]}
           </option>
         ))}
       </select>

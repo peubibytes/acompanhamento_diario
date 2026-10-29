@@ -17,7 +17,7 @@ import {
   formatHM,
   matchesStatusGroup,
   normalizeTicketNumber,
-  ROUTINE_STATUSES,
+  TASK_STATUSES,
   getCycle,
   isValidISODate,
   isWorkday,
@@ -46,7 +46,7 @@ const activitySchema = z
 
 /** Letras, números e - _ . # / (ex.: SCTASK0012345, RITM0001, INC-42). */
 const TICKET_NUMBER = /^[A-Z0-9][A-Z0-9_.#/-]{0,59}$/;
-const routineStatus = z.enum(ROUTINE_STATUSES, 'Status inválido.').default('nao_iniciado');
+const taskStatus = z.enum(TASK_STATUSES, 'Status inválido.').default('nao_iniciado');
 
 /**
  * Declaração de demanda, por categoria. Nenhuma tem campo de horas: o tempo é registrado
@@ -93,7 +93,7 @@ const demandSchema = (defaultStart: ISODate) =>
           .trim()
           .min(1, 'Descreva o chamado: qual o problema, quem solicitou e outras informações relevantes.')
           .max(4000),
-        status: routineStatus,
+        status: taskStatus,
       }),
       z.object({
         category: z.literal('reuniao'),
@@ -105,7 +105,7 @@ const demandSchema = (defaultStart: ISODate) =>
         category: z.literal('treinamento'),
         title: z.string('Informe o nome do treinamento.').trim().min(1, 'Informe o nome do treinamento.').max(200),
         description: z.string().trim().max(4000).default(''),
-        status: routineStatus,
+        status: taskStatus,
       }),
     ],
     { error: 'Tipo de demanda inválido (use ciclo, chamado, reuniao ou treinamento).' },

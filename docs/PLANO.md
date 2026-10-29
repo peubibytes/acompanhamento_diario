@@ -15,15 +15,17 @@ metas e relatórios de prestação de contas (daily, 1:1, relatório mensal).
 | Módulo | Situação | Descrição |
 |---|---|---|
 | Apontamento de horas | Existente (seções 1–7 e 9) | Ciclo sex→qui, meta, apontamentos sobre demandas, métricas, conformidade |
-| Demandas | Existente (seções 6, 8.1 e 9) | Declarações: Atividades (chamados, reuniões, treinamentos) e Ciclos (prazo, linha do tempo, impedimentos) |
-| Treinamentos | Existente como Atividade (seção 9) | Nome, descrição e status; as horas de estudo são apontadas |
+| Demandas | Existente (seções 6, 8.1 e 9) | Declarações: Tarefas (chamados, reuniões, treinamentos) e Ciclos (prazo, linha do tempo, impedimentos) |
+| Treinamentos | Existente como Tarefa (seção 9) | Nome, descrição e status; as horas de estudo são apontadas |
 | Metas | Novo (seção 8) | Objetivos com prazo e progresso, ligados a atividades/demandas/treinamentos |
 | Relatórios | Novo (seção 8) | Status diário/semanal/mensal exportável |
 | Integração Azure | Futuro | Fora de escopo por enquanto |
 
 ### Glossário
-- **Demanda:** o que o colaborador declara que faz. Não tem horas. Duas famílias: Atividades e Ciclo.
-- **Atividade:** demanda de rotina: **chamado**, **reunião** ou **treinamento**.
+- **Demanda:** o que o colaborador declara que faz. Não tem horas. Duas famílias: Tarefas e Ciclo.
+- **Tarefa:** demanda de rotina: **chamado**, **reunião** ou **treinamento**. (Até a v0.6 era
+  chamada "Atividade"; o nome mudou para não se confundir com o apontamento, que no código é
+  `activity`.)
 - **Chamado:** número do chamado (único), descrição (problema, solicitante, contexto) e status.
 - **Reunião:** tipo (ex.: Daily, Semanal, Planejamento), com quem e assunto; declarada uma vez,
   apontada a cada ocorrência.
@@ -157,8 +159,8 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
    linha, e a lista (por horário ou por demanda) ocupando a tela. O formulário (demanda, início,
    fim, duração ao vivo, o que foi feito, observações, status) abre num painel deslizante pelo
    botão "Novo apontamento" ou ao editar. Ver seção 9.
-3. **Demandas (`/demandas`)** — uma barra só: abas **Atividades | Ciclo** (com a contagem dos
-   abertos), o tipo da atividade (chamado, reunião ou treinamento) num menu, e o status (em
+3. **Demandas (`/demandas`)** — uma barra só: abas **Tarefas | Ciclo** (com a contagem dos
+   abertos), o tipo da tarefa (chamado, reunião ou treinamento) num menu, e o status (em
    aberto, encerrados, todos) à direita. A lista é de linhas compactas; o formulário abre num
    painel deslizante pelo botão "Declarar {tipo}" ou ao editar. Ver seção 9.
 4. **Detalhes (`/detalhes`)** — tabela fiel à planilha: data, dia, meta, horas, diferença, qtd
@@ -299,7 +301,7 @@ em destaque, um título, uma ação principal e um filtro por tela.
 
 - **Fase 4 — Demandas (pronta):**
   - **Uma barra de navegação** no lugar de três níveis empilhados (cartões de família, seletor de
-    tipo e filtro de status). Tipos de atividade em menu; o seletor de status some em Reuniões,
+    tipo e filtro de status). Tipos de tarefa em menu; o seletor de status some em Reuniões,
     que não têm status.
   - **Formulário no painel deslizante** (o mesmo `SlideOver` de Apontamentos, com confirmação ao
     descartar). O botão principal acompanha o tipo: "Declarar chamado", "Declarar reunião"…
@@ -370,8 +372,8 @@ Como ficou (decisão em `docs/decisions/0001-demandas-viram-chamados.md`):
   Linha do tempo (entrada rápida: data, tipo e texto), Impedimentos (resolver com um clique) e Apontamentos.
 - **Formulário:** vínculos técnicos numa seção recolhível, aberta só se já houver algum preenchido.
 
-### 8.2 Treinamentos — ✅ como Atividade (v0.5)
-Declarados em Demandas → Atividades → Treinamentos: nome, descrição e status (não iniciado,
+### 8.2 Treinamentos — ✅ como Tarefa (v0.5)
+Declarados em Demandas → Tarefas → Treinamentos: nome, descrição e status (não iniciado,
 iniciado, em andamento, concluído). Sem carga horária: as horas de estudo são apontadas.
 Vínculo com metas fica para a seção 8.3.
 
@@ -408,8 +410,8 @@ sobre uma demanda já declarada. Assim, a mesma coisa feita em horários diferen
 cada dia, um chamado retomado à tarde) aparece reunida.
 
 ### Demandas (`/demandas`)
-- Duas famílias, nas abas do topo: **Atividades** e **Ciclo**.
-- **Atividades** têm três tipos (menu ao lado das abas):
+- Duas famílias, nas abas do topo: **Tarefas** e **Ciclo**.
+- **Tarefas** têm três tipos (menu ao lado das abas):
   - **Chamados:** número do chamado (obrigatório, normalizado em maiúsculas, único), descrição
     (obrigatória: problema, quem solicitou, outras informações) e status: Não iniciado,
     Iniciado, Em andamento, Concluído. Troca rápida de status na própria linha.
