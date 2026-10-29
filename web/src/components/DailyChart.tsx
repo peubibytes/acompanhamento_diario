@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router';
-import { formatDayMonth, formatDuration, todayISO, type DayMetrics } from '@acomp/shared';
+import { formatDayMonth, formatDuration, todayISO, type DayMetrics, type DemandCategory } from '@acomp/shared';
+import { useDayActivities, useDemands } from '../api/client';
 import { dayStyle } from './Badges';
 
 /** Folga acima da barra mais alta para o valor (e o ícone de status) caber dentro do gráfico. */
@@ -83,7 +84,27 @@ const TOOLTIP_ALIGN = {
  * Ancorado à borda nas duas primeiras e nas duas últimas colunas, para não vazar da tela no
  * celular. Fechado, sai do layout (display: none): invisível mas presente, ainda criaria rolagem.
  */
+/** Tipos de demanda contados no tooltip, na ordem em que aparecem. */
+const KINDS: { category: DemandCategory; label: string }[] = [
+  { category: 'reuniao', label: 'Reuniões' },
+  { category: 'chamado', label: 'Chamados' },
+  { category: 'treinamento', label: 'Treinamentos' },
+  { category: 'ciclo', label: 'Ciclos' },
+];
+
 function Tooltip({ day, align }: { day: DayMetrics; align: keyof typeof TOOLTIP_ALIGN }) {
+  // Os apontamentos do dia (mesmo cache da tela Apontamentos) e o tipo de cada demanda apontada.
+  const activities = useDayActivities(day.date);
+  const demands = useDemands();
+  const categoryOf = new Map(demands.data?.map((d) => [d.id, d.category]));
+  // Demandas distintas por tipo: a mesma reunião apontada duas vezes no dia conta uma.
+  const apontadas = new Map<DemandCategory, Set<number>>();
+  for (const a of activities.data ?? []) {
+    const category = a.demandId !== null ? categoryOf.get(a.demandId) : undefined;
+    if (category) apontadas.set(category, (apontadas.get(category) ?? new Set()).add(a.demandId!));
+  }
+  const loaded = activities.isSuccess && demands.isSuccess;
+
   return (
     <span
       role="tooltip"
@@ -99,6 +120,16 @@ function Tooltip({ day, align }: { day: DayMetrics; align: keyof typeof TOOLTIP_
         <span className="tabular text-right font-medium text-ink">{day.diffLabel || '—'}</span>
         <span className="text-ink-3">Apontamentos</span>
         <span className="tabular text-right font-medium text-ink">{day.activityCount}</span>
+      </span>
+      <span className="mt-2 grid grid-cols-2 gap-y-1 border-t border-line pt-2 text-xs">
+        {KINDS.map((k) => (
+          <span key={k.category} className="contents">
+            <span className="text-ink-3">{k.label}</span>
+            <span className="tabular text-right font-medium text-ink">
+              {loaded ? (apontadas.get(k.category)?.size ?? 0) : '—'}
+            </span>
+          </span>
+        ))}
       </span>
       <span
         className={`mt-2 block border-t border-line pt-2 text-xs ${day.exceeded ? 'font-medium text-critical-text' : 'text-ink-2'}`}
