@@ -180,8 +180,8 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
    molduras.
 
 6. **Relatório (`/relatorio`, v0.7)** — o relatório de um dia para a daily ou o 1:1; por padrão, o
-   dia útil anterior, com navegação por dia útil. Pré-visualização em três seções e a ação
-   principal **Copiar** (Markdown); também `Baixar .md` e `Imprimir / PDF` (impressão do navegador,
+   dia útil anterior, com navegação por dia útil. Mostra o trabalho (ciclos, tarefas, reuniões), não os
+   apontamentos. Pré-visualização em três seções e a ação principal **Copiar** (Markdown); também `Baixar .md` e `Imprimir / PDF` (impressão do navegador,
    sem o menu). Ver seção 10.
 
 ## 4. Fases
@@ -491,20 +491,25 @@ Decisão em `docs/decisions/0003-status-so-na-demanda.md`.
 
 ### Relatório diário (`/relatorio`)
 
-Foco: apresentar em uma daily ou 1:1. Montado na hora (nada é gravado); regras em
-`shared/src/report.ts`, testadas com dados fictícios.
+Foco: apresentar em uma daily ou 1:1. Quem lê é a gestão e a equipe, então o relatório fala do
+**trabalho** (quais ciclos andaram, quais tarefas foram trabalhadas ou concluídas, quantas reuniões),
+não dos **apontamentos**: horários, horas, meta e conformidade ficam no módulo de Apontamento.
+Montado na hora (nada é gravado); regras em `shared/src/report.ts`, testadas com dados fictícios.
 
-1. **O que foi feito.** Métricas: horas apontadas × meta e conformidade, apontamentos, demandas
-   com tempo apontado por tipo e tarefas concluídas no dia. Por demanda (do maior tempo para o
-   menor): horas, cada apontamento ("o que foi feito" e observações), trocas de status do dia
-   (a declaração não conta) e eventos da linha do tempo na data. Apontamentos antigos, sem demanda,
-   aparecem pelo projeto. Sem apontamentos, o que mais aconteceu no dia ainda aparece.
+1. **O que foi feito.** Uma linha-resumo só com o que houve ("1 ciclo · 2 tarefas (1 concluída) ·
+   2 reuniões") e três grupos:
+   - *Ciclos:* status e o que andou: o "o que foi feito" dos apontamentos (sem repetir, com as
+     observações entre parênteses) e os eventos da linha do tempo na data.
+   - *Tarefas:* as concluídas no dia primeiro; número, o começo da descrição, a troca de status do
+     dia (ou o status atual) e o que andou. Ida e volta no mesmo dia não conta como troca.
+   - *Reuniões:* cada uma uma vez (com quem), mesmo que tenha acontecido mais de uma vez no dia.
+   Entra a demanda apontada no dia, com troca de status nele (a declaração não conta) ou com evento
+   na data. Apontamentos antigos, sem demanda, ficam de fora.
 2. **Impedimentos.** Os abertos no dia e os resolvidos nele (um resolvido antes não entra; um
-   resolvido depois ainda estava aberto). Métricas: abertos, novos, resolvidos e maior espera em
-   dias úteis. Cada item traz o ciclo, o responsável, desde quando e a espera. Sem nenhum:
-   "Sem impedimentos".
+   resolvido depois ainda estava aberto): "aguardando {responsável} desde dd/mm (N dias úteis)".
+   Sem nenhum: "Sem impedimentos".
 3. **O que será feito hoje.** Só existe se houver demanda aberta que não seja reunião. O dia é o
-   próximo dia útil depois do relatório ("hoje" quando é hoje). Traz, nesta ordem, as tarefas em
-   andamento, os ciclos abertos (ordem de urgência, com prazo e "impedimento aberto") e a fila
-   ("Na fila: N tarefas"). Na tela, cada item tem uma caixa para tirá-lo antes de copiar.
-   O status usado é o de agora, mesmo em relatório de dia passado.
+   próximo dia útil depois do relatório ("hoje" quando é hoje). Traz os ciclos abertos (ordem de
+   urgência, com prazo e "impedimento aberto"), as tarefas iniciadas ou em andamento e a fila
+   ("Na fila: N tarefas"). Na tela, cada item tem uma caixa para tirá-lo antes de copiar. O status
+   usado é o de agora, mesmo em relatório de dia passado.

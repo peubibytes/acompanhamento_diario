@@ -497,6 +497,7 @@ describe('API do relatório diário', () => {
     const cycle = (await api('POST', '/demands', { category: 'ciclo', title: 'Ciclo do relatório', dueDate: '2026-11-06' })).data as DemandSummary;
     const ticket = (await api('POST', '/demands', { category: 'chamado', ticketNumber: 'REL0000001', description: 'Fictício' })).data as DemandSummary;
     const act = await api('POST', '/activities', { ...sample, demandId: cycle.id, date: '2026-10-28', startMinute: 540, endMinute: 660 });
+    const meet = await api('POST', '/activities', { ...sample, date: '2026-10-28', startMinute: 480, endMinute: 495 }); // a Daily
     await api('POST', `/demands/${cycle.id}/events`, { date: '2026-10-28', kind: 'decisao', text: 'Escopo fechado' });
     await api('POST', `/demands/${cycle.id}/blockers`, { owner: 'Equipe Exemplo', since: '2026-10-27' });
 
@@ -504,15 +505,19 @@ describe('API do relatório diário', () => {
     const { status, data: r } = await api('GET', '/reports/daily');
     assert.equal(status, 200);
     assert.equal(r.date, '2026-10-28');
-    assert.equal(r.done.minutes, 120);
-    assert.equal(r.done.goal, (await api('GET', '/cycles/2026-10-28')).data.dailyGoal); // a meta do ciclo do dia
-    const item = r.done.items.find((i: { demandId: number }) => i.demandId === cycle.id);
+    // Fala de ciclos, tarefas e reuniões; horários e horas apontadas não entram.
+    assert.equal('minutes' in r.done, false);
+    const item = r.done.cycles.find((i: { demandId: number }) => i.demandId === cycle.id);
     assert.equal(item.label, 'Ciclo do relatório');
-    assert.deepEqual(item.events, [{ kind: 'decisao', text: 'Escopo fechado' }]);
+    assert.deepEqual(item.progress, [`${sample.description} (${sample.notes})`, 'Decisão: Escopo fechado']);
+    assert.deepEqual(
+      r.done.meetings.map((m: { label: string }) => m.label),
+      ['Daily · Status do dia'],
+    );
     assert.equal(r.blockers.open, 1);
     assert.equal(r.blockers.items[0].waitingWorkdays, 2); // ter 27 e qua 28
     assert.equal(r.next.date, '2026-10-29');
-    const next = r.next.items.map((i: { demandId: number }) => i.demandId);
+    const next = [...r.next.cycles, ...r.next.tasks].map((i: { demandId: number }) => i.demandId);
     assert.ok(next.includes(cycle.id));
     assert.equal(next.includes(ticket.id), false); // não iniciado: só na fila
     assert.ok(r.next.queued >= 1);
@@ -520,7 +525,7 @@ describe('API do relatório diário', () => {
     assert.equal((await api('GET', '/reports/daily?date=2026-10-27')).data.date, '2026-10-27');
     assert.equal((await api('GET', '/reports/daily?date=2026-13-01')).status, 400);
 
-    await api('DELETE', `/activities/${act.data.activity.id}`);
+    for (const a of [act, meet]) await api('DELETE', `/activities/${a.data.activity.id}`);
     for (const id of [cycle.id, ticket.id]) await api('DELETE', `/demands/${id}`);
   });
 });

@@ -234,7 +234,6 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
     res.json(
       buildDailyReport({
         date: date.data,
-        goal: repo.goalForCycle(getCycle(date.data).start),
         activities: repo.listActivities(date.data, date.data),
         demands: summarize(repo.listDemands()),
         events: repo.listAllEvents(),
