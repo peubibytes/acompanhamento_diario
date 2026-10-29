@@ -145,7 +145,9 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
      "Excedeu 1h", "Meta atingida"), total realizado, meta semanal e dias conformes; abaixo, o
      gráfico por dia útil (~340 px), com o valor e o ícone de status em cima de cada barra e
      a linha de meta por cima das barras. Tocar em "Meta semanal" abre a meta diária (5h30,
-     8h48 ou outro). O lembrete de dia de apontamento fica no sino.
+     8h48 ou outro). O lembrete de dia de apontamento fica no sino. Passar o mouse numa coluna
+     mostra o apontado, a diferença, o nº de apontamentos, quantas reuniões, chamados,
+     treinamentos e ciclos foram apontados no dia (demandas distintas) e o diagnóstico.
    - *Distribuição:* rosca grande do dia escolhido (Sex–Qui) e legenda com nome, horas e %.
    - *Ciclos:* barras de horas apontadas por ciclo aberto, com o selo de prazo.
    - Ação principal: "Registrar apontamentos". Link "Detalhes" no gráfico.
