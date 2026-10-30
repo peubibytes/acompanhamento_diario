@@ -52,6 +52,7 @@ interface EventRow {
   date: string;
   kind: DemandEvent['kind'];
   text: string;
+  flagged: number;
 }
 
 interface BlockerRow {
@@ -61,6 +62,7 @@ interface BlockerRow {
   description: string;
   since: string;
   resolved_at: string | null;
+  flagged: number;
 }
 
 const toActivity = (r: ActivityRow): Activity => ({
@@ -178,6 +180,7 @@ const toEvent = (r: EventRow): DemandEvent => ({
   date: r.date,
   kind: r.kind,
   text: r.text,
+  flagged: r.flagged === 1,
 });
 
 const toBlocker = (r: BlockerRow): DemandBlocker => ({
@@ -187,6 +190,7 @@ const toBlocker = (r: BlockerRow): DemandBlocker => ({
   description: r.description,
   since: r.since,
   resolvedAt: r.resolved_at,
+  flagged: r.flagged === 1,
 });
 
 const DEFAULT_GOAL_KEY = 'default_daily_goal_minutes';
@@ -269,6 +273,7 @@ export function createRepo(db: DatabaseSync) {
     updateEvent: db.prepare(`
       UPDATE demand_events SET date = :date, kind = :kind, text = :text WHERE id = :id AND demand_id = :demandId`),
     removeEvent: db.prepare('DELETE FROM demand_events WHERE id = ? AND demand_id = ?'),
+    flagEvent: db.prepare('UPDATE demand_events SET flagged = ? WHERE id = ? AND demand_id = ?'),
 
     blockers: db.prepare('SELECT * FROM demand_blockers ORDER BY since DESC, id DESC'),
     blockersOfDemand: db.prepare(
@@ -283,6 +288,7 @@ export function createRepo(db: DatabaseSync) {
         resolved_at = :resolvedAt
       WHERE id = :id AND demand_id = :demandId`),
     removeBlocker: db.prepare('DELETE FROM demand_blockers WHERE id = ? AND demand_id = ?'),
+    flagBlocker: db.prepare('UPDATE demand_blockers SET flagged = ? WHERE id = ? AND demand_id = ?'),
   };
 
   const defaultGoal = (): number => {
@@ -439,6 +445,12 @@ export function createRepo(db: DatabaseSync) {
       return q.removeEvent.run(id, demandId).changes > 0;
     },
 
+    /** Marca ou desmarca a bandeira de um evento (o texto e a data não mudam). */
+    flagEvent(demandId: number, id: number, flagged: boolean): DemandEvent | undefined {
+      const { changes } = q.flagEvent.run(flagged ? 1 : 0, id, demandId);
+      return changes ? this.getEvent(demandId, id) : undefined;
+    },
+
     /** Impedimentos de todas as demandas (para contar os abertos e os dias de espera). */
     listAllBlockers(): DemandBlocker[] {
       return (q.blockers.all() as unknown as BlockerRow[]).map(toBlocker);
@@ -466,6 +478,12 @@ export function createRepo(db: DatabaseSync) {
 
     deleteBlocker(demandId: number, id: number): boolean {
       return q.removeBlocker.run(id, demandId).changes > 0;
+    },
+
+    /** Marca ou desmarca a bandeira de um impedimento. */
+    flagBlocker(demandId: number, id: number, flagged: boolean): DemandBlocker | undefined {
+      const { changes } = q.flagBlocker.run(flagged ? 1 : 0, id, demandId);
+      return changes ? this.getBlocker(demandId, id) : undefined;
     },
 
     defaultGoal,

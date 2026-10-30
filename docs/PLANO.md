@@ -114,9 +114,10 @@ demands(id, category ('ciclo'|'chamado'|'reuniao'|'treinamento'),
         kind, priority, start_date, due_date, branch, pr_url, environment (ciclo),
         status (ciclo: 6 estados · chamado/treinamento: 4 estados · reunião: nulo),
         created_at, updated_at)
-demand_events(id, demand_id → demands (ON DELETE CASCADE), date, kind, text, created_at)
+demand_events(id, demand_id → demands (ON DELETE CASCADE), date, kind, text, flagged, created_at)
 demand_blockers(id, demand_id → demands (ON DELETE CASCADE), owner, description, since,
-                resolved_at, created_at)
+                resolved_at, flagged, created_at)
+-- flagged (v0.8): bandeira da análise da linha do tempo, nos eventos e nos impedimentos
 -- uma linha por troca de status (v0.7); a declaração entra com from_status nulo
 demand_status_changes(id, demand_id → demands (ON DELETE CASCADE), from_status, to_status,
                       changed_at, created_at)
@@ -140,6 +141,8 @@ O esquema evolui por migrações numeradas em `server/src/db.ts` (`PRAGMA user_v
 | POST/PUT/DELETE | `/api/demands/:id/events[/:eventId]` | linha do tempo (só ciclos) |
 | POST/PUT/DELETE | `/api/demands/:id/blockers[/:blockerId]` | impedimentos (só ciclos) |
 | GET | `/api/reports/daily?date=` | relatório do dia (sem `date`, o dia útil anterior): o que foi feito, impedimentos e o que será feito |
+| GET | `/api/timeline?demandId=` | linha do tempo unificada dos ciclos (eventos e impedimentos), do mais recente ao mais antigo; sem `demandId`, de todos |
+| PUT | `/api/demands/:id/events/:eventId/flag`, `/blockers/:blockerId/flag` | marca ou desmarca a bandeira (`{ flagged }`); editar não a apaga |
 | GET | `/api/metrics?date=` | tarefas (concluídas no ciclo de apontamento da data, na fila, em andamento) e ciclos abertos (última atualização, horas) |
 
 ## 3. Telas
@@ -513,3 +516,15 @@ Montado na hora (nada é gravado); regras em `shared/src/report.ts`, testadas co
    urgência, com prazo e "impedimento aberto"), as tarefas iniciadas ou em andamento e a fila
    ("Na fila: N tarefas"). Na tela, cada item tem uma caixa para tirá-lo antes de copiar. O status
    usado é o de agora, mesmo em relatório de dia passado.
+
+## 11. Linha do tempo dos ciclos: impedimentos, bandeira, análise e mapa (v0.8 — em andamento)
+
+Decisão em `docs/decisions/0004-impedimentos-na-linha-do-tempo.md`.
+
+- **Uma só lista:** eventos (ação, decisão, validação, deploy e os antigos "impedimento" em texto) e
+  impedimentos (com responsável, início e resolução) aparecem juntos como `TimelineEntry`
+  (`shared/src/timeline.ts`). A tabela de impedimentos continua sendo a fonte da espera, do
+  relatório e dos lembretes; só a separação na tela acaba.
+- **Bandeira:** qualquer entrada pode ser marcada (migração 7), para chamar atenção na análise.
+  A marcação vale em todas as telas e não se perde ao editar o texto ou resolver o impedimento.
+- **Última atualização:** o início e a resolução de um impedimento também contam.

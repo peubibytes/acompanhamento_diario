@@ -59,11 +59,11 @@ const statusChanges: DemandStatusChange[] = [
   { demandId: 2, from: 'em_andamento', to: 'concluido', date: DATE },
   { demandId: 4, from: null, to: 'nao_iniciado', date: DATE }, // declarada no dia: não é "feito"
 ];
-const events: DemandEvent[] = [{ id: 1, demandId: 1, date: DATE, kind: 'deploy', text: 'Publicado em staging' }];
+const events: DemandEvent[] = [{ id: 1, demandId: 1, date: DATE, kind: 'deploy', text: 'Publicado em staging', flagged: false }];
 const blockers: DemandBlocker[] = [
-  { id: 1, demandId: 1, owner: 'Equipe B', description: 'Libera o acesso', since: '2026-10-26', resolvedAt: null },
-  { id: 2, demandId: 1, owner: 'Equipe C', description: '', since: '2026-10-20', resolvedAt: '2026-10-27' }, // antes do dia
-  { id: 3, demandId: 1, owner: 'Equipe D', description: '', since: '2026-10-27', resolvedAt: DATE },
+  { id: 1, demandId: 1, owner: 'Equipe B', description: 'Libera o acesso', since: '2026-10-26', resolvedAt: null, flagged: false },
+  { id: 2, demandId: 1, owner: 'Equipe C', description: '', since: '2026-10-20', resolvedAt: '2026-10-27', flagged: false }, // antes do dia
+  { id: 3, demandId: 1, owner: 'Equipe D', description: '', since: '2026-10-27', resolvedAt: DATE, flagged: false },
 ];
 
 const activities = [
@@ -181,7 +181,7 @@ describe('relatório diário: impedimentos', () => {
   });
 
   it('um impedimento resolvido depois do dia ainda estava aberto nele', () => {
-    const later: DemandBlocker = { id: 9, demandId: 1, owner: 'Equipe E', description: '', since: '2026-10-27', resolvedAt: '2026-10-30' };
+    const later: DemandBlocker = { id: 9, demandId: 1, owner: 'Equipe E', description: '', since: '2026-10-27', resolvedAt: '2026-10-30', flagged: false };
     const b = report({ blockers: [later] }).blockers;
     assert.deepEqual([b.open, b.items[0].resolvedAt], [1, null]);
   });

@@ -224,8 +224,11 @@ export interface DemandEvent {
   date: ISODate;
   kind: DemandEventKind;
   text: string;
+  /** Marcado com bandeira para chamar atenção na análise da linha do tempo. */
+  flagged: boolean;
 }
-export type DemandEventInput = Omit<DemandEvent, 'id' | 'demandId'>;
+/** A bandeira tem rota própria (não se perde ao editar o texto). */
+export type DemandEventInput = Omit<DemandEvent, 'id' | 'demandId' | 'flagged'>;
 
 /** Bloqueio com responsável externo; aberto enquanto `resolvedAt` for nulo. */
 export interface DemandBlocker {
@@ -236,8 +239,9 @@ export interface DemandBlocker {
   description: string;
   since: ISODate;
   resolvedAt: ISODate | null;
+  flagged: boolean;
 }
-export type DemandBlockerInput = Omit<DemandBlocker, 'id' | 'demandId'>;
+export type DemandBlockerInput = Omit<DemandBlocker, 'id' | 'demandId' | 'flagged'>;
 
 /**
  * Dias úteis em que o ciclo esteve parado por algum impedimento (de `since` até a
@@ -337,6 +341,7 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 
 type LinkedActivity = Pick<Activity, 'demandId' | 'date' | 'startMinute' | 'endMinute'> & Partial<Pick<Activity, 'description'>>;
 type TimelineEvent = Pick<DemandEvent, 'demandId' | 'date'> & Partial<Pick<DemandEvent, 'kind' | 'text'>>;
+type TimelineBlocker = Pick<DemandBlocker, 'demandId' | 'since' | 'resolvedAt'> & Partial<Pick<DemandBlocker, 'owner'>>;
 
 export function demandMetrics(demand: Demand, activities: LinkedActivity[], today: ISODate): DemandMetrics {
   const ofDemand = activities.filter((a) => a.demandId === demand.id && a.endMinute > a.startMinute);
@@ -398,17 +403,27 @@ export function completedAtOf(demand: Demand, changes: DemandStatusChange[]): IS
 }
 
 /**
- * O mais recente entre evento, troca de status e apontamento. No mesmo dia vale esta ordem:
- * evento (o mais informativo), troca de status, apontamento.
+ * O mais recente entre evento (inclusive o início e a resolução de um impedimento), troca de
+ * status e apontamento. No mesmo dia vale esta ordem: evento (o mais informativo), troca de
+ * status, apontamento.
  */
 export function lastUpdateOf(
   demandId: number,
   events: TimelineEvent[],
   changes: DemandStatusChange[],
   activities: LinkedActivity[],
+  blockers: TimelineBlocker[] = [],
 ): LastUpdate | null {
   const candidates: LastUpdate[] = [
     ...events.filter((e) => e.demandId === demandId).map((e) => ({ date: e.date, kind: 'evento' as const, text: shortText(e.text ?? '') })),
+    ...blockers
+      .filter((b) => b.demandId === demandId)
+      .flatMap((b) => [
+        { date: b.since, kind: 'evento' as const, text: shortText(`Impedimento: ${b.owner ?? ''}`.trim()) },
+        ...(b.resolvedAt
+          ? [{ date: b.resolvedAt, kind: 'evento' as const, text: shortText(`Impedimento resolvido: ${b.owner ?? ''}`.trim()) }]
+          : []),
+      ]),
     ...changes.filter((c) => c.demandId === demandId).map((c) => ({ date: c.date, kind: 'status' as const, text: statusChangeText(c) })),
     ...activities
       .filter((a) => a.demandId === demandId && a.endMinute > a.startMinute)
@@ -446,7 +461,7 @@ export function buildDemandSummary(
   today: ISODate,
   history: {
     events?: TimelineEvent[];
-    blockers?: Pick<DemandBlocker, 'demandId' | 'since' | 'resolvedAt'>[];
+    blockers?: TimelineBlocker[];
     statusChanges?: DemandStatusChange[];
   } = {},
 ): DemandSummary {
@@ -463,7 +478,7 @@ export function buildDemandSummary(
       events,
       history.blockers ?? [],
       today,
-      lastUpdateOf(demand.id, events, changes, activities),
+      lastUpdateOf(demand.id, events, changes, activities, history.blockers ?? []),
     ),
   };
 }

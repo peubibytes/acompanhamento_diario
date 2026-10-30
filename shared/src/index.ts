@@ -4,6 +4,7 @@ export * from './demands.ts';
 export * from './metrics.ts';
 export * from './overview.ts';
 export * from './report.ts';
+export * from './timeline.ts';
 export * from './reminders.ts';
 export * from './time.ts';
 export * from './types.ts';

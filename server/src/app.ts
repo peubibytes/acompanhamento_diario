@@ -7,6 +7,7 @@ import {
   buildDailyReport,
   buildDemandSummary,
   buildOverview,
+  buildTimeline,
   compareDemands,
   CYCLE_STATUSES,
   DEMAND_CATEGORIES,
@@ -139,6 +140,12 @@ const blockerSchema = (defaultDate: ISODate) =>
       path: ['resolvedAt'],
     });
 
+const flagSchema = z.object({ flagged: z.boolean('Informe flagged (true ou false).') });
+
+const timelineFilterSchema = z.object({
+  demandId: z.coerce.number().int().positive().optional(),
+});
+
 const goalSchema = z.object({
   dailyGoalMinutes: z.int('Meta inválida.').min(1, 'A meta deve ser maior que zero.').max(24 * 60),
 });
@@ -180,6 +187,21 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
       statusChanges: repo.listAllStatusChanges(),
     };
     return demands.map((d) => buildDemandSummary(d, linked, now, history)).sort(compareDemands);
+  };
+
+  /**
+   * Linha do tempo unificada dos ciclos (eventos e impedimentos), do mais recente ao mais antigo.
+   * Sem `demandId`, a de todos os ciclos.
+   */
+  const timelineOf = (demandId?: number) => {
+    const labels = new Map<number, string>();
+    for (const d of repo.listDemands()) if (d.category === 'ciclo') labels.set(d.id, demandLabel(d));
+    return buildTimeline(
+      demandId ? repo.listDemandEvents(demandId) : repo.listAllEvents(),
+      demandId ? repo.listDemandBlockers(demandId) : repo.listAllBlockers(),
+      today(),
+      (id) => labels.get(id),
+    );
   };
 
   /** Mesma declaração já existente: chamado com o mesmo número ou reunião idêntica. */
@@ -243,6 +265,12 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
     );
   });
 
+  app.get('/api/timeline', (req, res) => {
+    const filter = timelineFilterSchema.safeParse(req.query);
+    if (!filter.success) return badRequest(res, filter.error);
+    res.json(timelineOf(filter.data.demandId));
+  });
+
   app.get('/api/activities', (req, res) => {
     const date = isoDate.safeParse(req.query.date);
     if (!date.success) return badRequest(res, date.error);
@@ -300,6 +328,7 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
       events: repo.listDemandEvents(id.data),
       blockers: repo.listDemandBlockers(id.data),
       statusChanges: repo.listDemandStatusChanges(id.data),
+      timeline: timelineOf(id.data),
     });
   });
 
@@ -385,6 +414,26 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
     if (!ids) return;
     if (!repo.deleteEvent(ids.demandId, ids.itemId)) return res.status(404).json({ error: 'Evento não encontrado.' });
     res.status(204).end();
+  });
+
+  app.put('/api/demands/:id/events/:itemId/flag', (req, res) => {
+    const ids = subIds(res, req.params);
+    if (!ids) return;
+    const body = flagSchema.safeParse(req.body);
+    if (!body.success) return badRequest(res, body.error);
+    const event = repo.flagEvent(ids.demandId, ids.itemId, body.data.flagged);
+    if (!event) return res.status(404).json({ error: 'Evento não encontrado.' });
+    res.json(event);
+  });
+
+  app.put('/api/demands/:id/blockers/:itemId/flag', (req, res) => {
+    const ids = subIds(res, req.params);
+    if (!ids) return;
+    const body = flagSchema.safeParse(req.body);
+    if (!body.success) return badRequest(res, body.error);
+    const blocker = repo.flagBlocker(ids.demandId, ids.itemId, body.data.flagged);
+    if (!blocker) return res.status(404).json({ error: 'Impedimento não encontrado.' });
+    res.json(blocker);
   });
 
   app.post('/api/demands/:id/blockers', (req, res) => {

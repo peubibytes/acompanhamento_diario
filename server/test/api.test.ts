@@ -530,7 +530,94 @@ describe('API do relatório diário', () => {
   });
 });
 
+describe('API da linha do tempo: bandeira e visão unificada', () => {
+  let cycle: DemandSummary;
+  let other: DemandSummary;
+  let ticket: DemandSummary;
+
+  before(async () => {
+    cycle = (await api('POST', '/demands', { category: 'ciclo', title: 'Ciclo da linha do tempo' })).data;
+    other = (await api('POST', '/demands', { category: 'ciclo', title: 'Outro ciclo' })).data;
+    ticket = (await api('POST', '/demands', { category: 'chamado', ticketNumber: 'LT0000001', description: 'Fictício' })).data;
+  });
+
+  after(async () => {
+    for (const d of [cycle, other, ticket]) await api('DELETE', `/demands/${d.id}`);
+  });
+
+  it('une eventos e impedimentos, com o nome do ciclo', async () => {
+    const ev = await api('POST', `/demands/${cycle.id}/events`, { date: '2026-10-26', kind: 'decisao', text: 'Escopo fechado' });
+    assert.equal(ev.data.flagged, false);
+    const bl = await api('POST', `/demands/${cycle.id}/blockers`, { owner: 'Equipe Exemplo', description: 'Liberar acesso', since: '2026-10-27' });
+    await api('POST', `/demands/${other.id}/events`, { date: '2026-10-25', kind: 'acao', text: 'Outro ciclo' });
+
+    const all = (await api('GET', '/timeline')).data as { key: string; demandLabel: string; kind: string; owner: string | null }[];
+    const mine = all.filter((e) => e.demandLabel === 'Ciclo da linha do tempo');
+    assert.deepEqual(mine.map((e) => [e.key.split(':')[0], e.kind, e.owner]), [
+      ['impedimento', 'impedimento', 'Equipe Exemplo'], // 27/10
+      ['evento', 'decisao', null], // 26/10
+    ]);
+    assert.equal(all.some((e) => e.demandLabel === 'Outro ciclo'), true);
+
+    const one = (await api('GET', `/timeline?demandId=${cycle.id}`)).data as unknown[];
+    assert.equal(one.length, 2);
+    assert.equal((await api('GET', `/demands/${cycle.id}`)).data.timeline.length, 2);
+    assert.equal((await api('GET', '/timeline?demandId=abc')).status, 400);
+    assert.equal(ev.status, 201);
+    assert.equal(bl.status, 201);
+  });
+
+  it('marca e desmarca a bandeira, e a edição não a apaga', async () => {
+    const ev = (await api('POST', `/demands/${cycle.id}/events`, { date: '2026-10-26', kind: 'acao', text: 'Marcar' })).data;
+    const bl = (await api('POST', `/demands/${cycle.id}/blockers`, { owner: 'Equipe Y', since: '2026-10-26' })).data;
+
+    assert.equal((await api('PUT', `/demands/${cycle.id}/events/${ev.id}/flag`, { flagged: true })).data.flagged, true);
+    assert.equal((await api('PUT', `/demands/${cycle.id}/blockers/${bl.id}/flag`, { flagged: true })).data.flagged, true);
+
+    // Editar o texto, a data ou resolver o impedimento mantém a bandeira.
+    const edited = await api('PUT', `/demands/${cycle.id}/events/${ev.id}`, { date: '2026-10-27', kind: 'acao', text: 'Marcar (editado)' });
+    assert.equal(edited.data.flagged, true);
+    const resolved = await api('PUT', `/demands/${cycle.id}/blockers/${bl.id}`, { owner: 'Equipe Y', description: '', since: '2026-10-26', resolvedAt: '2026-10-27' });
+    assert.equal(resolved.data.flagged, true);
+
+    const flagged = (await api('GET', `/timeline?demandId=${cycle.id}`)).data.filter((e: { flagged: boolean }) => e.flagged);
+    assert.equal(flagged.length, 2);
+
+    assert.equal((await api('PUT', `/demands/${cycle.id}/events/${ev.id}/flag`, { flagged: false })).data.flagged, false);
+    assert.equal((await api('PUT', `/demands/${cycle.id}/blockers/${bl.id}/flag`, { flagged: false })).data.flagged, false);
+  });
+
+  it('valida a marcação', async () => {
+    const ev = (await api('POST', `/demands/${cycle.id}/events`, { text: 'x' })).data;
+    assert.equal((await api('PUT', `/demands/${cycle.id}/events/${ev.id}/flag`, { flagged: 'sim' })).status, 400);
+    assert.equal((await api('PUT', `/demands/${cycle.id}/events/${ev.id}/flag`, {})).status, 400);
+    assert.equal((await api('PUT', `/demands/${cycle.id}/events/9999/flag`, { flagged: true })).status, 404);
+    assert.equal((await api('PUT', `/demands/${cycle.id}/blockers/9999/flag`, { flagged: true })).status, 404);
+    // Só os ciclos têm linha do tempo.
+    assert.equal((await api('PUT', `/demands/${ticket.id}/events/1/flag`, { flagged: true })).status, 400);
+    // O evento de outro ciclo não é alcançado pelo ciclo errado.
+    assert.equal((await api('PUT', `/demands/${other.id}/events/${ev.id}/flag`, { flagged: true })).status, 404);
+  });
+});
+
 describe('migração do banco', () => {
+  it('a bandeira nasce desmarcada nos eventos e impedimentos existentes', () => {
+    const db = new DatabaseSync(':memory:');
+    migrate(db, 6);
+    db.exec(`
+      INSERT INTO demands (category, title, kind, priority, status, start_date)
+        VALUES ('ciclo', 'Ciclo fictício', 'planejada', 'media', 'novo', '2026-10-01');
+      INSERT INTO demand_events (demand_id, date, kind, text) VALUES (1, '2026-10-02', 'acao', 'Evento antigo');
+      INSERT INTO demand_blockers (demand_id, owner, since) VALUES (1, 'Equipe Exemplo', '2026-10-03');
+    `);
+
+    migrate(db);
+
+    const repo = createRepo(db);
+    assert.equal(repo.listDemandEvents(1)[0].flagged, false);
+    assert.equal(repo.listDemandBlockers(1)[0].flagged, false);
+  });
+
   it('cria o histórico de status das demandas existentes, datado pelo último update', () => {
     const db = new DatabaseSync(':memory:');
     migrate(db, 5);

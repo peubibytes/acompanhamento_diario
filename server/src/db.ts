@@ -204,6 +204,11 @@ const MIGRATIONS = [
   INSERT INTO demand_status_changes (demand_id, from_status, to_status, changed_at)
   SELECT id, NULL, status, substr(updated_at, 1, 10) FROM demands WHERE status IS NOT NULL;
   `,
+  // 7 — bandeira (marcação) nos eventos e impedimentos da linha do tempo (docs/decisions/0004).
+  `
+  ALTER TABLE demand_events ADD COLUMN flagged INTEGER NOT NULL DEFAULT 0 CHECK (flagged IN (0, 1));
+  ALTER TABLE demand_blockers ADD COLUMN flagged INTEGER NOT NULL DEFAULT 0 CHECK (flagged IN (0, 1));
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;
