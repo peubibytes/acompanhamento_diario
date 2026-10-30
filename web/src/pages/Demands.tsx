@@ -73,7 +73,7 @@ const PAGE_HINT = (
     </span>
     <span className="mt-1.5 block">
       <strong className="font-semibold text-ink">Ciclo:</strong> trabalhos longos, com prazo, prioridade, linha do tempo
-      e impedimentos.
+      (com os impedimentos).
     </span>
   </>
 );
@@ -249,7 +249,7 @@ interface RowProps {
 
 /**
  * Uma linha: título, status, prazo e horas apontadas. Descrição, identificadores, ambiente e o
- * acompanhamento (linha do tempo, impedimentos, apontamentos) aparecem ao expandir; um resumo
+ * acompanhamento (linha do tempo com os impedimentos, apontamentos) aparecem ao expandir; um resumo
  * da descrição aparece ao passar o mouse. Editar e excluir aparecem no hover (celular: expandido).
  */
 function DemandRow(row: RowProps) {

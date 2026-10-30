@@ -386,7 +386,7 @@ Como ficou (decisão em `docs/decisions/0001-demandas-viram-chamados.md`):
 - **Tela Demandas:** filtros Abertas / Encerradas / Todas; cartão com identificadores, sistema,
   selos de status, tipo (só se não for planejada), prioridade (só alta/urgente) e ambiente; o
   indicador "Espera" aparece quando não há ritmo necessário a mostrar. "Acompanhamento" abre as abas
-  Linha do tempo (entrada rápida: data, tipo e texto), Impedimentos (resolver com um clique) e Apontamentos.
+  Linha do tempo (entrada rápida: data, tipo e texto; os impedimentos ficam nela, v0.8) e Apontamentos.
 - **Formulário:** vínculos técnicos numa seção recolhível, aberta só se já houver algum preenchido.
 
 ### 8.2 Treinamentos — ✅ como Tarefa (v0.5)
@@ -528,3 +528,8 @@ Decisão em `docs/decisions/0004-impedimentos-na-linha-do-tempo.md`.
 - **Bandeira:** qualquer entrada pode ser marcada (migração 7), para chamar atenção na análise.
   A marcação vale em todas as telas e não se perde ao editar o texto ou resolver o impedimento.
 - **Última atualização:** o início e a resolução de um impedimento também contam.
+- **Demandas (v0.8):** o acompanhamento do ciclo tem duas abas, **Linha do tempo** e **Apontamentos**;
+  a aba Impedimentos deixou de existir. Escolher o tipo *Impedimento* na entrada rápida pede o
+  responsável e registra o bloqueio; cada linha de impedimento tem **Resolver/Reabrir** e a espera
+  em dias úteis. Cada entrada tem a **bandeira**: marcada, a linha ganha uma faixa vermelha à
+  esquerda, fundo suave e o ícone de bandeira preenchido.

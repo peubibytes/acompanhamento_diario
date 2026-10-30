@@ -208,3 +208,10 @@ export const PieIcon = (p: IconProps) => (
     <path d="M15 3.8A8.5 8.5 0 0120.2 9H15V3.8z" />
   </Icon>
 );
+
+/** Bandeira: marca uma entrada da linha do tempo para chamar atenção. */
+export const FlagIcon = ({ filled = false, ...p }: IconProps & { filled?: boolean }) => (
+  <Icon {...p} fill={filled ? 'currentColor' : 'none'}>
+    <path d="M5 21V4M5 4h11l-2 4 2 4H5" />
+  </Icon>
+);
