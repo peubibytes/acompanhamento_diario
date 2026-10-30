@@ -162,8 +162,8 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
    - *Distribuição:* rosca grande do dia escolhido (Sex–Qui) e legenda com nome, horas e %.
    - *Tarefas (v0.7):* concluídas no ciclo, na fila e em andamento, e a divisão entre chamados e
      treinamentos (barra empilhada, com os números escritos).
-   - *Ciclos:* barras de horas apontadas por ciclo aberto, com o selo de prazo, a última
-     atualização e o selo "Parado há N dias úteis".
+   - *Ciclos:* cada ciclo aberto com o selo de prazo, a última atualização, as horas apontadas
+     (como número) e o **mapa da linha do tempo** em serpentina (v0.8, seção 11), no lugar da barra.
    - Ação principal: "Registrar apontamentos". Link "Detalhes" no gráfico.
 2. **Apontamentos (`/apontamentos`; `/atividades` redireciona)** — abas Sex/Seg/Ter/Qua/Qui
    (dia, horas e uma barrinha de progresso); mostra só o dia escolhido: resumo do dia em uma
@@ -202,6 +202,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 | 7 | Próximos passos: autocompletar projetos, copiar atividade de outro dia, exportar semana | a definir |
 | 8 | Expansão para gestão do colaborador (seção 8) | a definir |
 | 9 | v0.7: status só na demanda, Tarefas, métricas, relatório diário (seção 10) | ✅ código; falta a documentação técnica (PDF) |
+| 10 | v0.8: linha do tempo dos ciclos: impedimentos dentro dela, bandeira, Detalhes → Ciclos e mapa no Painel (seção 11) | ✅ |
 | — | Integração com o Azure | futuro |
 
 ### Decisões registradas
@@ -518,7 +519,7 @@ Montado na hora (nada é gravado); regras em `shared/src/report.ts`, testadas co
    ("Na fila: N tarefas"). Na tela, cada item tem uma caixa para tirá-lo antes de copiar. O status
    usado é o de agora, mesmo em relatório de dia passado.
 
-## 11. Linha do tempo dos ciclos: impedimentos, bandeira, análise e mapa (v0.8 — em andamento)
+## 11. Linha do tempo dos ciclos: impedimentos, bandeira, análise e mapa (v0.8)
 
 Decisão em `docs/decisions/0004-impedimentos-na-linha-do-tempo.md`.
 
@@ -545,3 +546,17 @@ Decisão em `docs/decisions/0004-impedimentos-na-linha-do-tempo.md`.
     de um. Aqui só se marca a bandeira; resolver e excluir ficam em Demandas.
   - Vazios: "Nenhum registro na linha do tempo" (com o link para os ciclos) e "Nada com estes
     filtros" (com "Limpar filtros").
+- **Painel → Ciclos: o mapa (`TimelineMap`).** Cada ciclo aberto mostra a sua linha do tempo na
+  horizontal, como um mapa: **Início** → registros (ação, decisão, impedimento, validação, deploy,
+  em ordem cronológica) → **Prazo** (tracejado, se houver).
+  - *Serpentina:* começa na esquerda, vai até a direita e, no limite, **desce e volta da direita para
+    a esquerda**, e assim por diante. O número de colunas vem da largura (mínimo 2, máximo 8; 2 em
+    320 px). A posição de cada nó e a curva saem de `snakeLayout` (`shared/src/layout.ts`, testada).
+    O DOM fica em ordem cronológica (ordem de leitura de teclado e leitor de tela).
+  - *Nó:* círculo com o ícone do tipo, a data e o nome do tipo embaixo; o texto completo aparece ao
+    passar o mouse ou focar (a cor nunca é a única pista: ícone e rótulo sempre acompanham).
+    Impedimento em âmbar; **marcado** com anel vermelho e bandeira.
+  - *Limite:* os **12 registros mais recentes**; antes deles o nó "+N anteriores" leva a
+    Detalhes → Ciclos. Ciclo sem registros mostra só Início e Prazo.
+  - Cada ciclo ganha o link **Analisar linha do tempo** (também em Demandas), que abre Detalhes →
+    Ciclos já filtrado por ele.

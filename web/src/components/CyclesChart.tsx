@@ -7,10 +7,12 @@ import {
   type CycleProgress,
   type DemandSummary,
   type LastUpdate,
+  type TimelineEntry,
 } from '@acomp/shared';
 import { DeadlineBadge, StalledBadge } from './DemandVisuals';
 import { SectionTitle } from './SectionTitle';
 import { ArrowRight, PlusIcon, TargetIcon } from './icons';
+import { TimelineMap } from './TimelineMap';
 
 const MAX_ROWS = 6;
 
@@ -22,8 +24,15 @@ const updateText = (u: LastUpdate) =>
 
 const HINT = (
   <>
-    <span className="block">Horas apontadas em cada ciclo aberto, dos mais urgentes para os demais.</span>
-    <span className="mt-1.5 block">As barras comparam os ciclos entre si: a maior ocupa a largura toda.</span>
+    <span className="block">Os ciclos abertos, dos mais urgentes para os demais.</span>
+    <span className="mt-1.5 block">
+      O mapa é a linha do tempo do ciclo: do início ao prazo, com as ações, decisões, impedimentos, validações e deploys
+      registrados. Ele segue da esquerda para a direita e, no limite, desce e volta da direita para a esquerda. Passe o
+      mouse ou foque um ponto para ler o registro.
+    </span>
+    <span className="mt-1.5 block">
+      <strong className="font-semibold text-ink">Bandeira vermelha:</strong> registro marcado para chamar atenção.
+    </span>
     <span className="mt-1.5 block">
       <strong className="font-semibold text-ink">Última atualização:</strong> o evento, a troca de status ou o
       apontamento mais recente. Sem nenhuma há 3 dias úteis ou mais, o ciclo aparece como parado.
@@ -31,13 +40,24 @@ const HINT = (
   </>
 );
 
-/** Painel: horas apontadas em cada ciclo aberto. Prazo, apontamentos e lembrete aparecem no hover/foco. */
-export function CyclesChart({ demands, progress }: { demands: DemandSummary[]; progress: CycleProgress[] }) {
+/**
+ * Painel: cada ciclo aberto com o mapa da sua linha do tempo (serpentina), o prazo, a última
+ * atualização e as horas apontadas (como número: o mapa conta o que aconteceu, não o esforço).
+ */
+export function CyclesChart({
+  demands,
+  progress,
+  timeline,
+}: {
+  demands: DemandSummary[];
+  progress: CycleProgress[];
+  timeline: TimelineEntry[];
+}) {
   const cycles = demands.filter((d) => d.category === 'ciclo');
-  const progressOf = (id: number) => progress.find((p) => p.id === id);
   const shown = cycles.slice(0, MAX_ROWS);
   const logged = cycles.reduce((sum, d) => sum + d.metrics.logged, 0);
-  const max = Math.max(1, ...shown.map((d) => d.metrics.logged));
+  const progressOf = (id: number) => progress.find((p) => p.id === id);
+  const entriesByCycle = Map.groupBy(timeline, (e) => e.demandId);
 
   return (
     <section className="card rise p-5 sm:p-6">
@@ -73,66 +93,44 @@ export function CyclesChart({ demands, progress }: { demands: DemandSummary[]; p
       ) : (
         <>
           <p className="tabular mt-1 text-xs text-ink-3">
-            {formatDuration(logged)} no total · {cycles.length} {cycles.length === 1 ? 'ciclo' : 'ciclos'}
+            {formatDuration(logged)} apontadas no total · {cycles.length} {cycles.length === 1 ? 'ciclo' : 'ciclos'}
           </p>
-          <ul className="mt-5 space-y-1">
+          <ul className="mt-5 divide-y divide-line">
             {shown.map((d) => {
-              const due = d.category === 'ciclo' ? d.dueDate : null;
-              const pct = (d.metrics.logged / max) * 100;
+              if (d.category !== 'ciclo') return null;
               const p = progressOf(d.id);
+              const entries = entriesByCycle.get(d.id) ?? [];
               return (
-                <li key={d.id}>
-                  <Link
-                    to={`/demandas#demanda-${d.id}`}
-                    className="group relative block rounded-xl px-3 py-3 outline-none transition hover:bg-surface-2/70 focus-visible:ring-2 focus-visible:ring-accent"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="min-w-0 truncate text-sm font-medium text-ink">{d.label}</span>
-                      <span className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-                        {p?.stalled && <StalledBadge idleWorkdays={p.idleWorkdays!} />}
-                        <DeadlineBadge status={d.metrics.deadline} />
-                      </span>
-                    </div>
-                    <div className="mt-2.5 flex items-center gap-3">
-                      <div
-                        className="h-3 flex-1 overflow-hidden rounded-full bg-grid"
-                        role="img"
-                        aria-label={`${d.label}: ${formatDuration(d.metrics.logged)} apontadas`}
-                      >
-                        <div
-                          className="h-full rounded-full bg-accent transition-[width] duration-700 ease-out"
-                          style={{ width: `${d.metrics.logged > 0 ? Math.max(2, pct) : 0}%` }}
-                        />
-                      </div>
-                      <span className="tabular w-14 shrink-0 text-right text-sm font-semibold text-ink">
-                        {formatDuration(d.metrics.logged)}
-                      </span>
-                    </div>
-                    <p className="mt-1.5 truncate text-xs text-ink-3">
-                      {p?.lastUpdate ? `Atualizado ${updateText(p.lastUpdate)}` : 'Sem atualizações'}
-                    </p>
-
-                    <span
-                      role="tooltip"
-                      className="tip-surface pointer-events-none absolute top-full left-3 z-20 mt-1 hidden w-64 max-w-[calc(100%-1.5rem)] p-3 text-left text-xs text-ink-2 group-hover:block group-focus-visible:block"
+                <li key={d.id} className="py-5 first:pt-0 last:pb-0">
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                    <Link
+                      to={`/demandas#demanda-${d.id}`}
+                      className="min-w-0 truncate rounded text-sm font-semibold text-ink outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent"
                     >
-                      <span className="tabular block">
-                        {d.metrics.activityCount === 0
-                          ? 'Nenhum apontamento'
-                          : `${d.metrics.activityCount} ${d.metrics.activityCount === 1 ? 'apontamento' : 'apontamentos'}${
-                              d.metrics.dayCount > 1 ? ` em ${d.metrics.dayCount} dias` : ''
-                            }`}
-                      </span>
-                      {p && (
-                        <span className="tabular mt-1 block">{formatDuration(p.loggedInPeriod)} no ciclo de apontamento</span>
-                      )}
-                      {due && (
-                        <span className="tabular mt-1 block">
-                          Prazo {WEEKDAY_SHORT[weekdayOf(due)]} {formatDayMonth(due)}
-                        </span>
-                      )}
-                      {d.metrics.reminder && <span className="mt-1 block font-medium text-ink">{d.metrics.reminder}</span>}
+                      {d.label}
+                    </Link>
+                    <span className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                      {p?.stalled && <StalledBadge idleWorkdays={p.idleWorkdays!} />}
+                      <DeadlineBadge status={d.metrics.deadline} />
                     </span>
+                  </div>
+                  <p className="tabular mt-1 text-xs text-ink-3">
+                    {d.metrics.logged > 0 ? `${formatDuration(d.metrics.logged)} apontadas` : 'Nenhum apontamento'}
+                    {p && p.loggedInPeriod > 0 && ` · ${formatDuration(p.loggedInPeriod)} neste ciclo de apontamento`}
+                    {' · '}
+                    {p?.lastUpdate ? `Atualizado ${updateText(p.lastUpdate)}` : 'Sem atualizações'}
+                  </p>
+                  {d.metrics.reminder && <p className="mt-1 text-xs font-medium text-ink">{d.metrics.reminder}</p>}
+
+                  <div className="mt-4">
+                    <TimelineMap demand={d} label={d.label} entries={entries} />
+                  </div>
+
+                  <Link
+                    to={`/detalhes?aba=ciclos&ciclo=${d.id}`}
+                    className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-accent hover:underline"
+                  >
+                    Analisar linha do tempo <ArrowRight size={13} />
                   </Link>
                 </li>
               );

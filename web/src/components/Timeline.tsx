@@ -78,12 +78,13 @@ export function TimelineRow({ entry, showCycle = false, actions = 'flag' }: RowP
 
   return (
     <li className={rowClass(entry.flagged)}>
-      <div className="flex items-start gap-2">
+      <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
         <span className="tabular w-[4.5rem] shrink-0 pt-0.5 font-medium whitespace-nowrap text-ink">{dayLabel(entry.date)}</span>
         <span className="pt-0.5">
           <KindBadge kind={entry.kind} />
         </span>
-        <div className="min-w-0 flex-1">
+        {/* No celular o texto desce para a linha de baixo, em largura total. */}
+        <div className="order-last min-w-0 basis-full sm:order-none sm:flex-1 sm:basis-0">
           {showCycle && <p className="truncate text-xs font-medium text-ink-3">{entry.demandLabel}</p>}
           {isBlocker ? (
             <>
@@ -102,7 +103,7 @@ export function TimelineRow({ entry, showCycle = false, actions = 'flag' }: RowP
             <p className="text-ink-2">{entry.text}</p>
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-0.5">
+        <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:ml-0">
           {actions === 'full' && isBlocker && <ResolveButton entry={entry} />}
           {actions === 'full' && <DeleteButton entry={entry} />}
           <FlagButton entry={entry} />

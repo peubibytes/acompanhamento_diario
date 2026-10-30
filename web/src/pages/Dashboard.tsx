@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
 import { Link } from 'react-router';
 import { formatDuration, WORKDAYS_PER_CYCLE, type CycleSummary } from '@acomp/shared';
-import { useCycle, useDemands, useOverview } from '../api/client';
+import { useCycle, useDemands, useOverview, useTimeline } from '../api/client';
 import { toneStyle, type DayTone } from '../components/Badges';
 import { CycleNav } from '../components/CycleNav';
 import { CyclesChart } from '../components/CyclesChart';
@@ -119,10 +119,12 @@ function TasksView({ date }: { date: string }) {
 function CyclesView({ date }: { date: string }) {
   const demands = useDemands('abertas');
   const overview = useOverview(date);
-  if (demands.isPending || overview.isPending) return <Skeleton className="h-96" />;
+  const timeline = useTimeline();
+  if (demands.isPending || overview.isPending || timeline.isPending) return <Skeleton className="h-96" />;
   if (demands.isError) return <ErrorState message={demands.error.message} onRetry={() => demands.refetch()} />;
   if (overview.isError) return <ErrorState message={overview.error.message} onRetry={() => overview.refetch()} />;
-  return <CyclesChart demands={demands.data} progress={overview.data.cycles} />;
+  if (timeline.isError) return <ErrorState message={timeline.error.message} onRetry={() => timeline.refetch()} />;
+  return <CyclesChart demands={demands.data} progress={overview.data.cycles} timeline={timeline.data} />;
 }
 
 /** Situação da semana em um selo curto (ícone + texto; a cor acompanha, nunca é a única pista). */
