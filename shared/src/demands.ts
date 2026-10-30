@@ -1,5 +1,5 @@
 // Demandas: o que o colaborador declara que faz. São de duas famílias:
-// - Atividades (rotina): chamados, reuniões e treinamentos;
+// - Tarefas (rotina): chamados, reuniões e treinamentos;
 // - Ciclo: trabalhos longos, com prazo, prioridade, linha do tempo e impedimentos.
 // A declaração não tem horas: o tempo gasto é registrado em Apontamentos, sempre sobre uma
 // demanda já declarada. Ver docs/decisions/0002-demandas-declaradas-e-apontamentos.md.
@@ -12,9 +12,9 @@ import type { Activity } from './types.ts';
 export const DEMAND_CATEGORIES = ['ciclo', 'chamado', 'reuniao', 'treinamento'] as const;
 export type DemandCategory = (typeof DEMAND_CATEGORIES)[number];
 
-/** Categorias da família "Atividades" (rotina). */
-export const ROUTINE_CATEGORIES = ['chamado', 'reuniao', 'treinamento'] as const;
-export type RoutineCategory = (typeof ROUTINE_CATEGORIES)[number];
+/** Categorias da família "Tarefas" (rotina). */
+export const TASK_CATEGORIES = ['chamado', 'reuniao', 'treinamento'] as const;
+export type TaskCategory = (typeof TASK_CATEGORIES)[number];
 
 export const DEMAND_CATEGORY_LABEL: Record<DemandCategory, string> = {
   ciclo: 'Ciclo',
@@ -76,12 +76,12 @@ export const DEMAND_ENVIRONMENT_LABEL: Record<DemandEnvironment, string> = {
   producao: 'Produção (PRD)',
 };
 
-// ── Atividades (chamados e treinamentos têm status; reuniões, não) ─────────────
+// ── Tarefas (chamados e treinamentos têm status; reuniões, não) ─────────────
 
-export const ROUTINE_STATUSES = ['nao_iniciado', 'iniciado', 'em_andamento', 'concluido'] as const;
-export type RoutineStatus = (typeof ROUTINE_STATUSES)[number];
+export const TASK_STATUSES = ['nao_iniciado', 'iniciado', 'em_andamento', 'concluido'] as const;
+export type TaskStatus = (typeof TASK_STATUSES)[number];
 
-export const ROUTINE_STATUS_LABEL: Record<RoutineStatus, string> = {
+export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   nao_iniciado: 'Não iniciado',
   iniciado: 'Iniciado',
   em_andamento: 'Em andamento',
@@ -117,7 +117,7 @@ export interface TicketDemand {
   ticketNumber: string;
   /** Qual o problema, quem solicitou e outras informações relevantes. */
   description: string;
-  status: RoutineStatus;
+  status: TaskStatus;
 }
 
 export interface MeetingDemand {
@@ -136,7 +136,7 @@ export interface TrainingDemand {
   /** Nome do treinamento. */
   title: string;
   description: string;
-  status: RoutineStatus;
+  status: TaskStatus;
 }
 
 export type Demand = CycleDemand | TicketDemand | MeetingDemand | TrainingDemand;
@@ -224,8 +224,11 @@ export interface DemandEvent {
   date: ISODate;
   kind: DemandEventKind;
   text: string;
+  /** Marcado com bandeira para chamar atenção na análise da linha do tempo. */
+  flagged: boolean;
 }
-export type DemandEventInput = Omit<DemandEvent, 'id' | 'demandId'>;
+/** A bandeira tem rota própria (não se perde ao editar o texto). */
+export type DemandEventInput = Omit<DemandEvent, 'id' | 'demandId' | 'flagged'>;
 
 /** Bloqueio com responsável externo; aberto enquanto `resolvedAt` for nulo. */
 export interface DemandBlocker {
@@ -236,8 +239,9 @@ export interface DemandBlocker {
   description: string;
   since: ISODate;
   resolvedAt: ISODate | null;
+  flagged: boolean;
 }
-export type DemandBlockerInput = Omit<DemandBlocker, 'id' | 'demandId'>;
+export type DemandBlockerInput = Omit<DemandBlocker, 'id' | 'demandId' | 'flagged'>;
 
 /**
  * Dias úteis em que o ciclo esteve parado por algum impedimento (de `since` até a
@@ -253,11 +257,27 @@ export function waitingWorkdays(blockers: Pick<DemandBlocker, 'since' | 'resolve
   return days.size;
 }
 
+/** Troca de status de uma demanda; `from` é nulo na declaração. */
+export interface DemandStatusChange {
+  demandId: number;
+  from: string | null;
+  to: string;
+  date: ISODate;
+}
+
+/** A última coisa que aconteceu numa demanda: um evento, uma troca de status ou um apontamento. */
+export interface LastUpdate {
+  date: ISODate;
+  kind: 'evento' | 'status' | 'apontamento';
+  text: string;
+}
+
 export interface DemandTracking {
   eventCount: number;
   lastEventDate: ISODate | null;
   openBlockers: number;
   waitingWorkdays: number;
+  lastUpdate: LastUpdate | null;
 }
 
 // ── Métricas (vindas dos apontamentos) ─────────────────────────────────────────
@@ -303,6 +323,8 @@ export interface DemandMetrics {
 export interface DemandSummaryExtras {
   label: string;
   subtitle: string;
+  /** Data em que a demanda passou a Concluído (a última vez); nula se não está concluída. */
+  completedAt: ISODate | null;
   metrics: DemandMetrics;
   tracking: DemandTracking;
 }
@@ -317,7 +339,9 @@ export function workdaysBetween(from: ISODate, to: ISODate): number {
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-type LinkedActivity = Pick<Activity, 'demandId' | 'date' | 'startMinute' | 'endMinute'>;
+type LinkedActivity = Pick<Activity, 'demandId' | 'date' | 'startMinute' | 'endMinute'> & Partial<Pick<Activity, 'description'>>;
+type TimelineEvent = Pick<DemandEvent, 'demandId' | 'date'> & Partial<Pick<DemandEvent, 'kind' | 'text'>>;
+type TimelineBlocker = Pick<DemandBlocker, 'demandId' | 'since' | 'resolvedAt'> & Partial<Pick<DemandBlocker, 'owner'>>;
 
 export function demandMetrics(demand: Demand, activities: LinkedActivity[], today: ISODate): DemandMetrics {
   const ofDemand = activities.filter((a) => a.demandId === demand.id && a.endMinute > a.startMinute);
@@ -361,11 +385,64 @@ export function demandMetrics(demand: Demand, activities: LinkedActivity[], toda
   };
 }
 
+const shortText = (text: string, max = 80) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
+
+/** Rótulo de um status de qualquer categoria (ciclo ou tarefa). */
+export const statusLabel = (status: string): string =>
+  (CYCLE_STATUS_LABEL as Record<string, string>)[status] ?? (TASK_STATUS_LABEL as Record<string, string>)[status] ?? status;
+
+/** "Em andamento → Concluído" (na declaração, só o status inicial). */
+export const statusChangeText = (c: Pick<DemandStatusChange, 'from' | 'to'>) =>
+  c.from === null ? `Declarada como ${statusLabel(c.to)}` : `${statusLabel(c.from)} → ${statusLabel(c.to)}`;
+
+/** Data em que a demanda passou a Concluído pela última vez; nula se hoje não está concluída. */
+export function completedAtOf(demand: Demand, changes: DemandStatusChange[]): ISODate | null {
+  if (demand.category === 'reuniao' || demand.status !== 'concluido') return null;
+  const done = changes.filter((c) => c.demandId === demand.id && c.to === 'concluido');
+  return done.reduce<ISODate | null>((last, c) => (!last || c.date > last ? c.date : last), null);
+}
+
+/**
+ * O mais recente entre evento (inclusive o início e a resolução de um impedimento), troca de
+ * status e apontamento. No mesmo dia vale esta ordem: evento (o mais informativo), troca de
+ * status, apontamento.
+ */
+export function lastUpdateOf(
+  demandId: number,
+  events: TimelineEvent[],
+  changes: DemandStatusChange[],
+  activities: LinkedActivity[],
+  blockers: TimelineBlocker[] = [],
+): LastUpdate | null {
+  const candidates: LastUpdate[] = [
+    ...events.filter((e) => e.demandId === demandId).map((e) => ({ date: e.date, kind: 'evento' as const, text: shortText(e.text ?? '') })),
+    ...blockers
+      .filter((b) => b.demandId === demandId)
+      .flatMap((b) => [
+        { date: b.since, kind: 'evento' as const, text: shortText(`Impedimento: ${b.owner ?? ''}`.trim()) },
+        ...(b.resolvedAt
+          ? [{ date: b.resolvedAt, kind: 'evento' as const, text: shortText(`Impedimento resolvido: ${b.owner ?? ''}`.trim()) }]
+          : []),
+      ]),
+    ...changes.filter((c) => c.demandId === demandId).map((c) => ({ date: c.date, kind: 'status' as const, text: statusChangeText(c) })),
+    ...activities
+      .filter((a) => a.demandId === demandId && a.endMinute > a.startMinute)
+      .map((a) => ({ date: a.date, kind: 'apontamento' as const, text: shortText(a.description ?? '') })),
+  ];
+  const rank = { evento: 0, status: 1, apontamento: 2 };
+  // Empate no mesmo dia e tipo: vale o primeiro da lista (o servidor ordena do mais recente).
+  return candidates.reduce<LastUpdate | null>(
+    (best, c) => (!best || c.date > best.date || (c.date === best.date && rank[c.kind] < rank[best.kind]) ? c : best),
+    null,
+  );
+}
+
 export function demandTracking(
   demandId: number,
   events: Pick<DemandEvent, 'demandId' | 'date'>[],
   blockers: Pick<DemandBlocker, 'demandId' | 'since' | 'resolvedAt'>[],
   today: ISODate,
+  lastUpdate: LastUpdate | null = null,
 ): DemandTracking {
   const ofEvents = events.filter((e) => e.demandId === demandId);
   const ofBlockers = blockers.filter((b) => b.demandId === demandId);
@@ -374,6 +451,7 @@ export function demandTracking(
     lastEventDate: ofEvents.reduce<ISODate | null>((last, e) => (!last || e.date > last ? e.date : last), null),
     openBlockers: ofBlockers.filter((b) => b.resolvedAt === null).length,
     waitingWorkdays: waitingWorkdays(ofBlockers, today),
+    lastUpdate,
   };
 }
 
@@ -382,16 +460,26 @@ export function buildDemandSummary(
   activities: LinkedActivity[],
   today: ISODate,
   history: {
-    events?: Pick<DemandEvent, 'demandId' | 'date'>[];
-    blockers?: Pick<DemandBlocker, 'demandId' | 'since' | 'resolvedAt'>[];
+    events?: TimelineEvent[];
+    blockers?: TimelineBlocker[];
+    statusChanges?: DemandStatusChange[];
   } = {},
 ): DemandSummary {
+  const events = history.events ?? [];
+  const changes = history.statusChanges ?? [];
   return {
     ...demand,
     label: demandLabel(demand),
     subtitle: demandSubtitle(demand),
+    completedAt: completedAtOf(demand, changes),
     metrics: demandMetrics(demand, activities, today),
-    tracking: demandTracking(demand.id, history.events ?? [], history.blockers ?? [], today),
+    tracking: demandTracking(
+      demand.id,
+      events,
+      history.blockers ?? [],
+      today,
+      lastUpdateOf(demand.id, events, changes, activities, history.blockers ?? []),
+    ),
   };
 }
 
@@ -411,7 +499,7 @@ const PRIORITY_ORDER: Record<DemandPriority, number> = { urgente: 0, alta: 1, me
 
 /**
  * Por categoria; dentro dela, as abertas primeiro. Ciclos seguem a urgência do prazo e a
- * prioridade; as atividades, da declarada mais recente para a mais antiga.
+ * prioridade; as tarefas, da declarada mais recente para a mais antiga.
  */
 export function compareDemands(a: DemandSummary, b: DemandSummary): number {
   const byCategory = CATEGORY_ORDER[a.category] - CATEGORY_ORDER[b.category];

@@ -3,9 +3,11 @@ import { join } from 'node:path';
 import express, { type ErrorRequestHandler, type Response } from 'express';
 import { z } from 'zod';
 import {
-  ACTIVITY_STATUSES,
   buildCycleSummary,
+  buildDailyReport,
   buildDemandSummary,
+  buildOverview,
+  buildTimeline,
   compareDemands,
   CYCLE_STATUSES,
   DEMAND_CATEGORIES,
@@ -18,7 +20,8 @@ import {
   formatHM,
   matchesStatusGroup,
   normalizeTicketNumber,
-  ROUTINE_STATUSES,
+  previousWorkday,
+  TASK_STATUSES,
   getCycle,
   isValidISODate,
   isWorkday,
@@ -39,7 +42,6 @@ const activitySchema = z
     demandId: z.int('Escolha a demanda apontada.').positive('Escolha a demanda apontada.'),
     description: z.string().trim().max(2000).default(''),
     notes: z.string().trim().max(2000).default(''),
-    status: z.enum(ACTIVITY_STATUSES, 'Status inválido.'),
   })
   .refine((a) => a.endMinute > a.startMinute, {
     message: 'O horário de fim deve ser depois do início.',
@@ -48,7 +50,7 @@ const activitySchema = z
 
 /** Letras, números e - _ . # / (ex.: SCTASK0012345, RITM0001, INC-42). */
 const TICKET_NUMBER = /^[A-Z0-9][A-Z0-9_.#/-]{0,59}$/;
-const routineStatus = z.enum(ROUTINE_STATUSES, 'Status inválido.').default('nao_iniciado');
+const taskStatus = z.enum(TASK_STATUSES, 'Status inválido.').default('nao_iniciado');
 
 /**
  * Declaração de demanda, por categoria. Nenhuma tem campo de horas: o tempo é registrado
@@ -95,7 +97,7 @@ const demandSchema = (defaultStart: ISODate) =>
           .trim()
           .min(1, 'Descreva o chamado: qual o problema, quem solicitou e outras informações relevantes.')
           .max(4000),
-        status: routineStatus,
+        status: taskStatus,
       }),
       z.object({
         category: z.literal('reuniao'),
@@ -107,7 +109,7 @@ const demandSchema = (defaultStart: ISODate) =>
         category: z.literal('treinamento'),
         title: z.string('Informe o nome do treinamento.').trim().min(1, 'Informe o nome do treinamento.').max(200),
         description: z.string().trim().max(4000).default(''),
-        status: routineStatus,
+        status: taskStatus,
       }),
     ],
     { error: 'Tipo de demanda inválido (use ciclo, chamado, reuniao ou treinamento).' },
@@ -137,6 +139,12 @@ const blockerSchema = (defaultDate: ISODate) =>
       message: 'A resolução não pode ser anterior ao início do impedimento.',
       path: ['resolvedAt'],
     });
+
+const flagSchema = z.object({ flagged: z.boolean('Informe flagged (true ou false).') });
+
+const timelineFilterSchema = z.object({
+  demandId: z.coerce.number().int().positive().optional(),
+});
 
 const goalSchema = z.object({
   dailyGoalMinutes: z.int('Meta inválida.').min(1, 'A meta deve ser maior que zero.').max(24 * 60),
@@ -173,8 +181,27 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
   const summarize = (demands: Demand[]) => {
     const now = today();
     const linked = repo.listLinkedActivities();
-    const history = { events: repo.listAllEvents(), blockers: repo.listAllBlockers() };
+    const history = {
+      events: repo.listAllEvents(),
+      blockers: repo.listAllBlockers(),
+      statusChanges: repo.listAllStatusChanges(),
+    };
     return demands.map((d) => buildDemandSummary(d, linked, now, history)).sort(compareDemands);
+  };
+
+  /**
+   * Linha do tempo unificada dos ciclos (eventos e impedimentos), do mais recente ao mais antigo.
+   * Sem `demandId`, a de todos os ciclos.
+   */
+  const timelineOf = (demandId?: number) => {
+    const labels = new Map<number, string>();
+    for (const d of repo.listDemands()) if (d.category === 'ciclo') labels.set(d.id, demandLabel(d));
+    return buildTimeline(
+      demandId ? repo.listDemandEvents(demandId) : repo.listAllEvents(),
+      demandId ? repo.listDemandBlockers(demandId) : repo.listAllBlockers(),
+      today(),
+      (id) => labels.get(id),
+    );
   };
 
   /** Mesma declaração já existente: chamado com o mesmo número ou reunião idêntica. */
@@ -212,6 +239,36 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
     const makeDefault = start >= getCycle(today()).start;
     repo.setCycleGoal(start, body.data.dailyGoalMinutes, makeDefault);
     res.json({ cycleStart: start, dailyGoalMinutes: body.data.dailyGoalMinutes, appliesToNextCycles: makeDefault });
+  });
+
+  /** Métricas de acompanhamento do ciclo de apontamento da data: tarefas e ciclos. */
+  app.get('/api/metrics', (req, res) => {
+    const date = isoDate.default(today()).safeParse(req.query.date);
+    if (!date.success) return badRequest(res, date.error);
+    const { start, end } = getCycle(date.data);
+    res.json(buildOverview(summarize(repo.listDemands()), repo.listLinkedActivities(), { start, end }, today()));
+  });
+
+  /** Relatório do dia para a daily ou o 1:1; sem `date`, o dia útil anterior a hoje. */
+  app.get('/api/reports/daily', (req, res) => {
+    const date = isoDate.default(previousWorkday(today())).safeParse(req.query.date);
+    if (!date.success) return badRequest(res, date.error);
+    res.json(
+      buildDailyReport({
+        date: date.data,
+        activities: repo.listActivities(date.data, date.data),
+        demands: summarize(repo.listDemands()),
+        events: repo.listAllEvents(),
+        blockers: repo.listAllBlockers(),
+        statusChanges: repo.listAllStatusChanges(),
+      }),
+    );
+  });
+
+  app.get('/api/timeline', (req, res) => {
+    const filter = timelineFilterSchema.safeParse(req.query);
+    if (!filter.success) return badRequest(res, filter.error);
+    res.json(timelineOf(filter.data.demandId));
   });
 
   app.get('/api/activities', (req, res) => {
@@ -270,6 +327,8 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
       activities: repo.listDemandActivities(id.data),
       events: repo.listDemandEvents(id.data),
       blockers: repo.listDemandBlockers(id.data),
+      statusChanges: repo.listDemandStatusChanges(id.data),
+      timeline: timelineOf(id.data),
     });
   });
 
@@ -278,7 +337,7 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
     if (!body.success) return badRequest(res, body.error);
     const duplicate = duplicateOf(body.data);
     if (duplicate) return res.status(409).json({ error: duplicate });
-    res.status(201).json(summarize([repo.createDemand(body.data)])[0]);
+    res.status(201).json(summarize([repo.createDemand(body.data, today())])[0]);
   });
 
   app.put('/api/demands/:id', (req, res) => {
@@ -294,7 +353,7 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
     const duplicate = duplicateOf(body.data, id.data);
     if (duplicate) return res.status(409).json({ error: duplicate });
 
-    res.json(summarize([repo.updateDemand(id.data, body.data)!])[0]);
+    res.json(summarize([repo.updateDemand(id.data, body.data, today())!])[0]);
   });
 
   app.delete('/api/demands/:id', (req, res) => {
@@ -355,6 +414,26 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
     if (!ids) return;
     if (!repo.deleteEvent(ids.demandId, ids.itemId)) return res.status(404).json({ error: 'Evento não encontrado.' });
     res.status(204).end();
+  });
+
+  app.put('/api/demands/:id/events/:itemId/flag', (req, res) => {
+    const ids = subIds(res, req.params);
+    if (!ids) return;
+    const body = flagSchema.safeParse(req.body);
+    if (!body.success) return badRequest(res, body.error);
+    const event = repo.flagEvent(ids.demandId, ids.itemId, body.data.flagged);
+    if (!event) return res.status(404).json({ error: 'Evento não encontrado.' });
+    res.json(event);
+  });
+
+  app.put('/api/demands/:id/blockers/:itemId/flag', (req, res) => {
+    const ids = subIds(res, req.params);
+    if (!ids) return;
+    const body = flagSchema.safeParse(req.body);
+    if (!body.success) return badRequest(res, body.error);
+    const blocker = repo.flagBlocker(ids.demandId, ids.itemId, body.data.flagged);
+    if (!blocker) return res.status(404).json({ error: 'Impedimento não encontrado.' });
+    res.json(blocker);
   });
 
   app.post('/api/demands/:id/blockers', (req, res) => {

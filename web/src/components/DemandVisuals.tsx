@@ -5,11 +5,12 @@ import {
   DEMAND_CATEGORY_LABEL,
   formatDayMonth,
   formatDuration,
+  TASK_STATUS_LABEL,
   type CycleStatus,
   type DeadlineStatus,
   type DemandCategory,
   type DemandMetrics,
-  type RoutineStatus,
+  type TaskStatus,
 } from '@acomp/shared';
 import {
   AlertIcon,
@@ -69,6 +70,16 @@ export function DeadlineBadge({ status }: { status: DeadlineStatus }) {
   );
 }
 
+/** Ciclo aberto sem atualização há dias úteis demais (ver STALLED_WORKDAYS). */
+export function StalledBadge({ idleWorkdays }: { idleWorkdays: number }) {
+  return (
+    <span className={`${BADGE} bg-warning-soft text-warning-text`}>
+      <HourglassIcon size={13} />
+      Parado há {idleWorkdays} dias úteis
+    </span>
+  );
+}
+
 export const cycleStatusStyle: Record<CycleStatus, { badge: string; icon: (s: number) => ReactNode }> = {
   novo: { badge: 'bg-neutral-soft text-ink-2', icon: (s) => <DashIcon size={s} /> },
   em_andamento: { badge: 'bg-accent-soft text-accent', icon: (s) => <ClockIcon size={s} /> },
@@ -88,12 +99,22 @@ export function CycleStatusBadge({ status }: { status: CycleStatus }) {
   );
 }
 
-export const routineStatusStyle: Record<RoutineStatus, { badge: string; icon: (s: number) => ReactNode }> = {
+export const taskStatusStyle: Record<TaskStatus, { badge: string; icon: (s: number) => ReactNode }> = {
   nao_iniciado: { badge: 'bg-neutral-soft text-ink-2', icon: (s) => <DashIcon size={s} /> },
   iniciado: { badge: 'bg-accent-soft text-accent', icon: (s) => <ClockIcon size={s} /> },
   em_andamento: { badge: 'bg-accent-soft text-accent', icon: (s) => <ClockIcon size={s} /> },
   concluido: { badge: 'bg-good-soft text-good-text', icon: (s) => <CheckIcon size={s} /> },
 };
+
+export function TaskStatusBadge({ status }: { status: TaskStatus }) {
+  const style = taskStatusStyle[status];
+  return (
+    <span className={`${BADGE} ${style.badge}`}>
+      {style.icon(13)}
+      {TASK_STATUS_LABEL[status]}
+    </span>
+  );
+}
 
 /** "3h20 apontadas · 4 apontamentos em 3 dias · último em 28/10" (ou o convite a apontar). */
 export function LoggedSummary({ metrics: m, compact = false }: { metrics: DemandMetrics; compact?: boolean }) {

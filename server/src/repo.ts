@@ -12,6 +12,7 @@ import {
   type DemandEvent,
   type DemandEventInput,
   type DemandInput,
+  type DemandStatusChange,
   type ISODate,
 } from '@acomp/shared';
 
@@ -23,7 +24,6 @@ interface ActivityRow {
   project: string;
   description: string;
   notes: string;
-  status: Activity['status'];
   demand_id: number | null;
 }
 
@@ -52,6 +52,7 @@ interface EventRow {
   date: string;
   kind: DemandEvent['kind'];
   text: string;
+  flagged: number;
 }
 
 interface BlockerRow {
@@ -61,6 +62,7 @@ interface BlockerRow {
   description: string;
   since: string;
   resolved_at: string | null;
+  flagged: number;
 }
 
 const toActivity = (r: ActivityRow): Activity => ({
@@ -71,7 +73,6 @@ const toActivity = (r: ActivityRow): Activity => ({
   project: r.project,
   description: r.description,
   notes: r.notes,
-  status: r.status,
   demandId: r.demand_id,
 });
 
@@ -156,12 +157,30 @@ function demandParams(d: DemandInput) {
   }
 }
 
+interface StatusChangeRow {
+  demand_id: number;
+  from_status: string | null;
+  to_status: string;
+  changed_at: string;
+}
+
+const toStatusChange = (r: StatusChangeRow): DemandStatusChange => ({
+  demandId: r.demand_id,
+  from: r.from_status,
+  to: r.to_status,
+  date: r.changed_at,
+});
+
+/** Reuniões não têm status. */
+const statusOf = (d: DemandInput): string | null => ('status' in d ? d.status : null);
+
 const toEvent = (r: EventRow): DemandEvent => ({
   id: r.id,
   demandId: r.demand_id,
   date: r.date,
   kind: r.kind,
   text: r.text,
+  flagged: r.flagged === 1,
 });
 
 const toBlocker = (r: BlockerRow): DemandBlocker => ({
@@ -171,6 +190,7 @@ const toBlocker = (r: BlockerRow): DemandBlocker => ({
   description: r.description,
   since: r.since,
   resolvedAt: r.resolved_at,
+  flagged: r.flagged === 1,
 });
 
 const DEFAULT_GOAL_KEY = 'default_daily_goal_minutes';
@@ -184,11 +204,11 @@ export function createRepo(db: DatabaseSync) {
     ),
     byId: db.prepare('SELECT * FROM activities WHERE id = ?'),
     insert: db.prepare(`
-      INSERT INTO activities (date, start_minute, end_minute, project, description, notes, status, demand_id)
-      VALUES (:date, :startMinute, :endMinute, :project, :description, :notes, :status, :demandId)`),
+      INSERT INTO activities (date, start_minute, end_minute, project, description, notes, demand_id)
+      VALUES (:date, :startMinute, :endMinute, :project, :description, :notes, :demandId)`),
     update: db.prepare(`
       UPDATE activities SET date = :date, start_minute = :startMinute, end_minute = :endMinute,
-        project = :project, description = :description, notes = :notes, status = :status,
+        project = :project, description = :description, notes = :notes,
         demand_id = :demandId, updated_at = CURRENT_TIMESTAMP
       WHERE id = :id`),
     remove: db.prepare('DELETE FROM activities WHERE id = ?'),
@@ -237,6 +257,14 @@ export function createRepo(db: DatabaseSync) {
       'SELECT * FROM activities WHERE demand_id = ? ORDER BY date DESC, start_minute DESC, id DESC',
     ),
 
+    statusChanges: db.prepare('SELECT * FROM demand_status_changes ORDER BY changed_at DESC, id DESC'),
+    statusChangesOfDemand: db.prepare(
+      'SELECT * FROM demand_status_changes WHERE demand_id = ? ORDER BY changed_at DESC, id DESC',
+    ),
+    insertStatusChange: db.prepare(`
+      INSERT INTO demand_status_changes (demand_id, from_status, to_status, changed_at)
+      VALUES (:demandId, :from, :to, :date)`),
+
     events: db.prepare('SELECT * FROM demand_events ORDER BY date DESC, id DESC'),
     eventsOfDemand: db.prepare('SELECT * FROM demand_events WHERE demand_id = ? ORDER BY date DESC, id DESC'),
     eventById: db.prepare('SELECT * FROM demand_events WHERE id = ? AND demand_id = ?'),
@@ -245,6 +273,7 @@ export function createRepo(db: DatabaseSync) {
     updateEvent: db.prepare(`
       UPDATE demand_events SET date = :date, kind = :kind, text = :text WHERE id = :id AND demand_id = :demandId`),
     removeEvent: db.prepare('DELETE FROM demand_events WHERE id = ? AND demand_id = ?'),
+    flagEvent: db.prepare('UPDATE demand_events SET flagged = ? WHERE id = ? AND demand_id = ?'),
 
     blockers: db.prepare('SELECT * FROM demand_blockers ORDER BY since DESC, id DESC'),
     blockersOfDemand: db.prepare(
@@ -259,6 +288,7 @@ export function createRepo(db: DatabaseSync) {
         resolved_at = :resolvedAt
       WHERE id = :id AND demand_id = :demandId`),
     removeBlocker: db.prepare('DELETE FROM demand_blockers WHERE id = ? AND demand_id = ?'),
+    flagBlocker: db.prepare('UPDATE demand_blockers SET flagged = ? WHERE id = ? AND demand_id = ?'),
   };
 
   const defaultGoal = (): number => {
@@ -307,17 +337,56 @@ export function createRepo(db: DatabaseSync) {
       return row && toDemand(row);
     },
 
-    createDemand(input: DemandInput): Demand {
-      const { lastInsertRowid } = q.insertDemand.run(demandParams(input));
-      return this.getDemand(Number(lastInsertRowid))!;
+    /** Declara a demanda e registra o status inicial no histórico (`today` = data da declaração). */
+    createDemand(input: DemandInput, today: ISODate): Demand {
+      db.exec('BEGIN');
+      try {
+        const { lastInsertRowid } = q.insertDemand.run(demandParams(input));
+        const id = Number(lastInsertRowid);
+        const status = statusOf(input);
+        if (status) q.insertStatusChange.run({ demandId: id, from: null, to: status, date: today });
+        db.exec('COMMIT');
+        return this.getDemand(id)!;
+      } catch (err) {
+        db.exec('ROLLBACK');
+        throw err;
+      }
     },
 
-    /** Atualiza a demanda e o nome gravado nos seus apontamentos (coluna "projeto"). */
-    updateDemand(id: number, input: DemandInput): Demand | undefined {
-      const { changes } = q.updateDemand.run({ ...demandParams(input), id });
-      if (!changes) return undefined;
-      q.relabelActivities.run(demandLabel(input), id);
-      return this.getDemand(id);
+    /**
+     * Atualiza a demanda e o nome gravado nos seus apontamentos (coluna "projeto"). Se o status
+     * mudou, a troca entra no histórico com a data de `today`.
+     */
+    updateDemand(id: number, input: DemandInput, today: ISODate): Demand | undefined {
+      const before = this.getDemand(id);
+      if (!before) return undefined;
+      db.exec('BEGIN');
+      try {
+        const { changes } = q.updateDemand.run({ ...demandParams(input), id });
+        if (!changes) {
+          db.exec('ROLLBACK');
+          return undefined;
+        }
+        q.relabelActivities.run(demandLabel(input), id);
+        const from = statusOf(before);
+        const to = statusOf(input);
+        if (to && to !== from) q.insertStatusChange.run({ demandId: id, from, to, date: today });
+        db.exec('COMMIT');
+        return this.getDemand(id);
+      } catch (err) {
+        db.exec('ROLLBACK');
+        throw err;
+      }
+    },
+
+    /** Trocas de status de todas as demandas (para a data de conclusão e a última atualização). */
+    listAllStatusChanges(): DemandStatusChange[] {
+      return (q.statusChanges.all() as unknown as StatusChangeRow[]).map(toStatusChange);
+    },
+
+    /** Histórico de status de uma demanda, da troca mais recente para a mais antiga. */
+    listDemandStatusChanges(demandId: number): DemandStatusChange[] {
+      return (q.statusChangesOfDemand.all(demandId) as unknown as StatusChangeRow[]).map(toStatusChange);
     },
 
     /** Outro chamado já declarado com o mesmo número (normalizado). */
@@ -376,6 +445,12 @@ export function createRepo(db: DatabaseSync) {
       return q.removeEvent.run(id, demandId).changes > 0;
     },
 
+    /** Marca ou desmarca a bandeira de um evento (o texto e a data não mudam). */
+    flagEvent(demandId: number, id: number, flagged: boolean): DemandEvent | undefined {
+      const { changes } = q.flagEvent.run(flagged ? 1 : 0, id, demandId);
+      return changes ? this.getEvent(demandId, id) : undefined;
+    },
+
     /** Impedimentos de todas as demandas (para contar os abertos e os dias de espera). */
     listAllBlockers(): DemandBlocker[] {
       return (q.blockers.all() as unknown as BlockerRow[]).map(toBlocker);
@@ -403,6 +478,12 @@ export function createRepo(db: DatabaseSync) {
 
     deleteBlocker(demandId: number, id: number): boolean {
       return q.removeBlocker.run(id, demandId).changes > 0;
+    },
+
+    /** Marca ou desmarca a bandeira de um impedimento. */
+    flagBlocker(demandId: number, id: number, flagged: boolean): DemandBlocker | undefined {
+      const { changes } = q.flagBlocker.run(flagged ? 1 : 0, id, demandId);
+      return changes ? this.getBlocker(demandId, id) : undefined;
     },
 
     defaultGoal,

@@ -174,6 +174,41 @@ const MIGRATIONS = [
   ALTER TABLE demands_v4 RENAME TO demands;
   CREATE UNIQUE INDEX idx_demands_ticket ON demands(ticket_number) WHERE category = 'chamado';
   `,
+  // 5 — o status passa a existir só na demanda (docs/decisions/0003). Os status do apontamento
+  // diferentes de 'Concluído' (o padrão do formulário) são preservados no fim das observações.
+  `
+  UPDATE activities
+  SET notes = CASE WHEN notes = '' THEN '' ELSE notes || char(10) END
+              || 'Status anterior: ' || CASE status
+                   WHEN 'nao_concluido' THEN 'Não concluído'
+                   WHEN 'pendente_aprovacao' THEN 'Pendente de aprovação'
+                   ELSE 'Não iniciado' END || '.'
+  WHERE status <> 'concluido';
+
+  ALTER TABLE activities DROP COLUMN status;
+  `,
+  // 6 — histórico de status das demandas (docs/decisions/0003): uma linha por troca, com a data.
+  // Cada demanda existente ganha a linha do status atual, datada pelo último update (aproximação,
+  // em UTC): é o melhor que se sabe de quando ela chegou até aqui.
+  `
+  CREATE TABLE demand_status_changes (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    demand_id   INTEGER NOT NULL REFERENCES demands(id) ON DELETE CASCADE,
+    from_status TEXT,
+    to_status   TEXT    NOT NULL,
+    changed_at  TEXT    NOT NULL,
+    created_at  TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX idx_demand_status_changes_demand ON demand_status_changes(demand_id, changed_at);
+
+  INSERT INTO demand_status_changes (demand_id, from_status, to_status, changed_at)
+  SELECT id, NULL, status, substr(updated_at, 1, 10) FROM demands WHERE status IS NOT NULL;
+  `,
+  // 7 — bandeira (marcação) nos eventos e impedimentos da linha do tempo (docs/decisions/0004).
+  `
+  ALTER TABLE demand_events ADD COLUMN flagged INTEGER NOT NULL DEFAULT 0 CHECK (flagged IN (0, 1));
+  ALTER TABLE demand_blockers ADD COLUMN flagged INTEGER NOT NULL DEFAULT 0 CHECK (flagged IN (0, 1));
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

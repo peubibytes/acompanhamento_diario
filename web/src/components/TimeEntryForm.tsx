@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import {
-  ACTIVITY_STATUSES,
   DEMAND_CATEGORIES,
   DEMAND_CATEGORY_LABEL,
   DEMAND_CATEGORY_PLURAL,
@@ -9,15 +8,12 @@ import {
   formatHM,
   isOpenDemand,
   parseHM,
-  STATUS_LABEL,
   type Activity,
-  type ActivityStatus,
   type DemandSummary,
   type ISODate,
 } from '@acomp/shared';
 import { useDemands, useSaveActivity } from '../api/client';
-import { statusStyle } from './Badges';
-import { CategoryAvatar, categoryIcon, LoggedSummary } from './DemandVisuals';
+import { CategoryAvatar, categoryIcon, CycleStatusBadge, LoggedSummary, TaskStatusBadge } from './DemandVisuals';
 import { Field } from './Field';
 import { AlertIcon, ArrowRight, ClockIcon } from './icons';
 import { useToast } from './Toast';
@@ -57,7 +53,6 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone, onDirtyCh
   const [end, setEnd] = useState(editing ? formatHM(editing.endMinute) : '');
   const [description, setDescription] = useState(editing?.description ?? '');
   const [notes, setNotes] = useState(editing?.notes ?? '');
-  const [status, setStatus] = useState<ActivityStatus>(editing?.status ?? 'concluido');
 
   const all = demands.data ?? [];
   const chosen = all.find((d) => d.id === demandId);
@@ -83,9 +78,8 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone, onDirtyCh
       start !== formatHM(editing.startMinute) ||
       end !== formatHM(editing.endMinute) ||
       description !== editing.description ||
-      notes !== editing.notes ||
-      status !== editing.status
-    : demandId !== null || end !== '' || description !== '' || notes !== '' || status !== 'concluido';
+      notes !== editing.notes
+    : demandId !== null || end !== '' || description !== '' || notes !== '';
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
 
   const persist = (keepOpen: boolean) => {
@@ -94,7 +88,7 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone, onDirtyCh
     if (invalidRange) return toast('O horário de fim deve ser depois do início.', 'error');
 
     save.mutate(
-      { id: editing?.id, input: { date, startMinute: startMin, endMinute: endMin, demandId, description, notes, status } },
+      { id: editing?.id, input: { date, startMinute: startMin, endMinute: endMin, demandId, description, notes } },
       {
         onSuccess: ({ activity, warnings }) => {
           toast(editing ? 'Apontamento atualizado.' : 'Apontamento registrado.');
@@ -105,7 +99,6 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone, onDirtyCh
             setEnd('');
             setDescription('');
             setNotes('');
-            setStatus('concluido');
           }
           onDone(activity, keepOpen);
         },
@@ -186,6 +179,21 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone, onDirtyCh
             </p>
             <LoggedSummary metrics={chosen.metrics} compact />
           </div>
+          {(chosen.category === 'ciclo' || chosen.category === 'chamado' || chosen.category === 'treinamento') && (
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              {chosen.category === 'ciclo' ? (
+                <CycleStatusBadge status={chosen.status} />
+              ) : (
+                <TaskStatusBadge status={chosen.status} />
+              )}
+              <Link
+                to={`/demandas#demanda-${chosen.id}`}
+                className="text-2xs font-medium text-ink-3 hover:text-ink hover:underline"
+              >
+                Alterar em Demandas
+              </Link>
+            </div>
+          )}
         </div>
       ) : (
         recent.length > 0 && (
@@ -275,27 +283,6 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone, onDirtyCh
           className="field"
         />
       </Field>
-
-      <fieldset>
-        <legend className="mb-1.5 text-xs font-semibold text-ink-2">Status do apontamento</legend>
-        <div className="grid grid-cols-2 gap-2">
-          {ACTIVITY_STATUSES.map((s) => {
-            const active = status === s;
-            return (
-              <label
-                key={s}
-                className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent ${
-                  active ? `${statusStyle[s].badge} border-transparent font-semibold` : 'border-line text-ink-2 hover:bg-surface-2'
-                }`}
-              >
-                <input type="radio" name="status" value={s} checked={active} onChange={() => setStatus(s)} className="sr-only" />
-                {statusStyle[s].icon(15)}
-                {STATUS_LABEL[s]}
-              </label>
-            );
-          })}
-        </div>
-      </fieldset>
 
       <div className="space-y-2 pt-1">
         <button type="submit" disabled={save.isPending} className="btn-primary w-full">

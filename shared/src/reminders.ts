@@ -40,7 +40,7 @@ const dayLabel = (iso: ISODate) => `${WEEKDAY_SHORT[weekdayOf(iso)]} ${formatDay
 
 type CycleSummaryItem = DemandSummary & CycleDemand;
 
-/** Só os ciclos têm prazo; as atividades (chamados, reuniões, treinamentos) não entram aqui. */
+/** Só os ciclos têm prazo; as tarefas (chamados, reuniões, treinamentos) não entram aqui. */
 const openCycles = (demands: DemandSummary[]) =>
   demands.filter((d): d is CycleSummaryItem => d.category === 'ciclo' && isOpenDemand(d));
 

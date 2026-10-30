@@ -9,6 +9,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Demands } from './pages/Demands';
 import { Details } from './pages/Details';
 import { Reminders } from './pages/Reminders';
+import { Report } from './pages/Report';
 import { TimeEntries } from './pages/TimeEntries';
 
 /** A tela "Atividades" virou "Apontamentos": links antigos seguem valendo, com a data. */
@@ -33,6 +34,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="atividades" element={<LegacyActivitiesRedirect />} />
               <Route path="demandas" element={<Demands />} />
               <Route path="detalhes" element={<Details />} />
+              <Route path="relatorio" element={<Report />} />
               {/* Fora do seletor de telas: acessível apenas pelo sino do header. */}
               <Route path="lembretes" element={<Reminders />} />
               <Route path="*" element={<Navigate to="/" replace />} />

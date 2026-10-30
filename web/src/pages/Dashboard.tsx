@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
 import { Link } from 'react-router';
 import { formatDuration, WORKDAYS_PER_CYCLE, type CycleSummary } from '@acomp/shared';
-import { useCycle, useDemands } from '../api/client';
+import { useCycle, useDemands, useOverview, useTimeline } from '../api/client';
 import { toneStyle, type DayTone } from '../components/Badges';
 import { CycleNav } from '../components/CycleNav';
 import { CyclesChart } from '../components/CyclesChart';
@@ -14,14 +14,16 @@ import { ArrowRight, CheckIcon, HourglassIcon, PlusIcon, TrendUpIcon } from '../
 import { ProgressRing } from '../components/ProgressRing';
 import { Segmented } from '../components/Segmented';
 import { ErrorState, Skeleton } from '../components/States';
+import { TasksOverview } from '../components/TasksOverview';
 import { useRefDate, withDate } from '../hooks';
 
-type View = 'semana' | 'distribuicao' | 'demandas';
+type View = 'semana' | 'distribuicao' | 'tarefas' | 'demandas';
 
 /** As visões do painel: o usuário vê uma de cada vez, a que escolher. */
 const VIEWS: { value: View; label: string }[] = [
   { value: 'semana', label: 'Dia útil' },
   { value: 'distribuicao', label: 'Distribuição' },
+  { value: 'tarefas', label: 'Tarefas' },
   { value: 'demandas', label: 'Ciclos' },
 ];
 
@@ -48,7 +50,10 @@ const PAGE_HINT = (
       <strong className="font-semibold text-ink">Distribuição:</strong> quais demandas ocuparam mais tempo em um dia.
     </span>
     <span className="mt-1.5 block">
-      <strong className="font-semibold text-ink">Ciclos:</strong> horas apontadas e prazo de cada ciclo aberto.
+      <strong className="font-semibold text-ink">Tarefas:</strong> concluídas no ciclo, na fila e em andamento.
+    </span>
+    <span className="mt-1.5 block">
+      <strong className="font-semibold text-ink">Ciclos:</strong> horas apontadas, prazo e última atualização de cada ciclo aberto.
     </span>
   </>
 );
@@ -81,12 +86,14 @@ export function Dashboard() {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Segmented label="Métricas do painel" value={view} onChange={choose} options={VIEWS} stretch />
-        {view !== 'demandas' && <CycleNav date={date} onChange={setDate} />}
+        <CycleNav date={date} onChange={setDate} />
       </div>
 
       <div id="painel-visao" role="tabpanel" aria-label={VIEWS.find((v) => v.value === view)!.label} className="min-w-0">
-        {view === 'demandas' ? (
-          <CyclesView />
+        {view === 'tarefas' ? (
+          <TasksView date={date} />
+        ) : view === 'demandas' ? (
+          <CyclesView date={date} />
         ) : cycle.isPending ? (
           <Skeleton className="h-[34rem]" />
         ) : cycle.isError ? (
@@ -102,11 +109,22 @@ export function Dashboard() {
   );
 }
 
-function CyclesView() {
+function TasksView({ date }: { date: string }) {
+  const overview = useOverview(date);
+  if (overview.isPending) return <Skeleton className="h-96" />;
+  if (overview.isError) return <ErrorState message={overview.error.message} onRetry={() => overview.refetch()} />;
+  return <TasksOverview tasks={overview.data.tasks} />;
+}
+
+function CyclesView({ date }: { date: string }) {
   const demands = useDemands('abertas');
-  if (demands.isPending) return <Skeleton className="h-96" />;
+  const overview = useOverview(date);
+  const timeline = useTimeline();
+  if (demands.isPending || overview.isPending || timeline.isPending) return <Skeleton className="h-96" />;
   if (demands.isError) return <ErrorState message={demands.error.message} onRetry={() => demands.refetch()} />;
-  return <CyclesChart demands={demands.data} />;
+  if (overview.isError) return <ErrorState message={overview.error.message} onRetry={() => overview.refetch()} />;
+  if (timeline.isError) return <ErrorState message={timeline.error.message} onRetry={() => timeline.refetch()} />;
+  return <CyclesChart demands={demands.data} progress={overview.data.cycles} timeline={timeline.data} />;
 }
 
 /** Situação da semana em um selo curto (ícone + texto; a cor acompanha, nunca é a única pista). */
@@ -188,12 +206,12 @@ function WeekView({ summary, date }: { summary: CycleSummary; date: string }) {
   );
 }
 
-/** Demandas concluídas (chamados, treinamentos e ciclos); o cartão suspenso separa atividades de ciclos. */
+/** Demandas concluídas (chamados, treinamentos e ciclos); o cartão suspenso separa tarefas de ciclos. */
 function FulfilledStat() {
   const demands = useDemands();
   const done = (demands.data ?? []).filter((d) => d.category !== 'reuniao' && d.status === 'concluido');
   const cycles = done.filter((d) => d.category === 'ciclo').length;
-  const activities = done.length - cycles;
+  const tasks = done.length - cycles;
   const id = useId();
 
   return (
@@ -206,7 +224,7 @@ function FulfilledStat() {
         className="tip-surface hint-in absolute top-full right-0 z-30 mt-2 hidden w-52 p-3 text-sm group-focus-within:block group-hover:block sm:right-auto sm:left-0"
       >
         <p className="flex items-baseline justify-between gap-4 text-ink-2">
-          Atividades concluídas <strong className="tabular font-semibold text-ink">{activities}</strong>
+          Tarefas concluídas <strong className="tabular font-semibold text-ink">{tasks}</strong>
         </p>
         <p className="mt-1.5 flex items-baseline justify-between gap-4 text-ink-2">
           Ciclos concluídos <strong className="tabular font-semibold text-ink">{cycles}</strong>

@@ -9,9 +9,13 @@ import {
   type DemandEvent,
   type DemandEventInput,
   type DemandInput,
+  type DailyReport,
+  type TimelineEntry,
+  type DemandStatusChange,
   type DemandStatusGroup,
   type DemandSummary,
   type ISODate,
+  type Overview,
 } from '@acomp/shared';
 
 export class ApiError extends Error {}
@@ -43,12 +47,15 @@ const keys = {
   activities: (date: ISODate) => ['activities', date] as const,
   demands: (filter?: DemandStatusGroup) => ['demands', 'list', filter ?? 'todas'] as const,
   demand: (id: number) => ['demands', 'detail', id] as const,
+  metrics: (date: ISODate) => ['metrics', getCycle(date).start] as const,
 };
 
 export type DemandDetail = DemandSummary & {
   activities: Activity[];
   events: DemandEvent[];
   blockers: DemandBlocker[];
+  statusChanges: DemandStatusChange[];
+  timeline: TimelineEntry[];
 };
 
 export function useCycle(date: ISODate) {
@@ -72,6 +79,30 @@ export function useDemands(filter?: DemandStatusGroup) {
   });
 }
 
+/** Tarefas (concluídas, fila, em andamento) e ciclos abertos, no ciclo de apontamento da data. */
+export function useOverview(date: ISODate) {
+  return useQuery({
+    queryKey: keys.metrics(date),
+    queryFn: () => request<Overview>('GET', `/metrics?date=${date}`),
+  });
+}
+
+/** Relatório do dia (daily / 1:1): o que foi feito, impedimentos e o que será feito. */
+export function useDailyReport(date: ISODate) {
+  return useQuery({
+    queryKey: ['reports', 'daily', date] as const,
+    queryFn: () => request<DailyReport>('GET', `/reports/daily?date=${date}`),
+  });
+}
+
+/** Linha do tempo (eventos e impedimentos) de todos os ciclos, ou de um. */
+export function useTimeline(demandId?: number) {
+  return useQuery({
+    queryKey: ['timeline', demandId ?? 'todos'] as const,
+    queryFn: () => request<TimelineEntry[]>('GET', `/timeline${demandId ? `?demandId=${demandId}` : ''}`),
+  });
+}
+
 export function useDemand(id: number, enabled = true) {
   return useQuery({
     queryKey: keys.demand(id),
@@ -88,7 +119,7 @@ function useInvalidate() {
   const client = useQueryClient();
   return () =>
     Promise.all(
-      ['cycle', 'activities', 'demands'].map((key) => client.invalidateQueries({ queryKey: [key] })),
+      ['cycle', 'activities', 'demands', 'metrics', 'reports', 'timeline'].map((key) => client.invalidateQueries({ queryKey: [key] })),
     );
 }
 
@@ -144,6 +175,20 @@ export function useSaveEvent(demandId: number) {
       id
         ? request<DemandEvent>('PUT', `/demands/${demandId}/events/${id}`, input)
         : request<DemandEvent>('POST', `/demands/${demandId}/events`, input),
+    onSuccess: invalidate,
+  });
+}
+
+/** Marca ou desmarca a bandeira de uma entrada da linha do tempo (evento ou impedimento). */
+export function useFlagEntry() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ entry, flagged }: { entry: TimelineEntry; flagged: boolean }) =>
+      request<unknown>(
+        'PUT',
+        `/demands/${entry.demandId}/${entry.source === 'evento' ? 'events' : 'blockers'}/${entry.id}/flag`,
+        { flagged },
+      ),
     onSuccess: invalidate,
   });
 }

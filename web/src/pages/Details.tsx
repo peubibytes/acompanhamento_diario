@@ -1,17 +1,76 @@
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { formatDayMonth, formatDuration, formatHM, WORKDAYS_PER_CYCLE, type CycleSummary } from '@acomp/shared';
 import { useCycle } from '../api/client';
 import { ConformityBadge } from '../components/Badges';
 import { CycleNav } from '../components/CycleNav';
+import { CycleTimelineAnalysis } from '../components/CycleTimelineAnalysis';
 import { AlertIcon, CheckIcon } from '../components/icons';
 import { PageHeader } from '../components/PageHeader';
+import { Segmented } from '../components/Segmented';
 import { ErrorState, Skeleton } from '../components/States';
 import { useRefDate } from '../hooks';
 
-/** Detalhes do ciclo, dia a dia — espelha a primeira tabela da planilha. */
+type Tab = 'dia' | 'ciclos';
+
+/**
+ * Detalhes: a aba "Dia a dia" espelha a primeira tabela da planilha (o ciclo de apontamento);
+ * a aba "Ciclos" analisa a linha do tempo dos ciclos de trabalho (v0.8).
+ */
 export function Details() {
+  const [params, setParams] = useSearchParams();
+  const tab: Tab = params.get('aba') === 'ciclos' ? 'ciclos' : 'dia';
   const [date, setDate] = useRefDate();
   const cycle = useCycle(date);
+
+  const chooseTab = (next: Tab) =>
+    setParams(
+      (current) => {
+        // Cada aba tem seus filtros; trocar de aba começa limpo (a data de referência fica).
+        const kept = new URLSearchParams();
+        const data = current.get('data');
+        if (data) kept.set('data', data);
+        if (next === 'ciclos') kept.set('aba', 'ciclos');
+        return kept;
+      },
+      { replace: true },
+    );
+
+  const tabs = (
+    <Segmented
+      label="Detalhes"
+      value={tab}
+      onChange={chooseTab}
+      stretch
+      options={[
+        { value: 'dia', label: 'Dia a dia' },
+        { value: 'ciclos', label: 'Ciclos' },
+      ]}
+    />
+  );
+
+  if (tab === 'ciclos') {
+    return (
+      <div className="space-y-section">
+        <PageHeader
+          title="Detalhes"
+          hint={
+            <>
+              <span className="block">A linha do tempo dos ciclos para analisar: ações, decisões, impedimentos, validações e deploys.</span>
+              <span className="mt-1.5 block">
+                Filtre por ciclo e por tipo (os números são o que já foi registrado). Marque com a bandeira o que merece
+                atenção: a linha ganha uma faixa vermelha, também nas telas Demandas e Painel.
+              </span>
+              <span className="mt-1.5 block">
+                O padrão é todos os ciclos abertos. Os filtros ficam no endereço da página.
+              </span>
+            </>
+          }
+        />
+        {tabs}
+        <CycleTimelineAnalysis />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-section">
@@ -34,6 +93,7 @@ export function Details() {
         }
         action={<CycleNav date={date} onChange={setDate} />}
       />
+      {tabs}
 
       {cycle.isPending ? (
         <Skeleton className="h-96" />

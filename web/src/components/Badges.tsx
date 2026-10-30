@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { CONFORMITY_LABEL, STATUS_LABEL, type ActivityStatus, type DayMetrics } from '@acomp/shared';
-import { AlertIcon, CheckIcon, DashIcon, HourglassIcon, TrendUpIcon, XIcon } from './icons';
+import { CONFORMITY_LABEL, type DayMetrics } from '@acomp/shared';
+import { AlertIcon, CheckIcon, DashIcon, TrendUpIcon } from './icons';
 
 function Badge({ className, icon, children }: { className: string; icon: ReactNode; children: ReactNode }) {
   return (
@@ -70,18 +70,3 @@ export function ConformityBadge({ day }: { day: Pick<DayMetrics, 'conformity' | 
   );
 }
 
-export const statusStyle: Record<ActivityStatus, { badge: string; text: string; icon: (size: number) => ReactNode }> = {
-  concluido: { badge: 'bg-good-soft text-good-text', text: 'text-good-text', icon: (s) => <CheckIcon size={s} /> },
-  nao_concluido: { badge: 'bg-critical-soft text-critical-text', text: 'text-critical-text', icon: (s) => <XIcon size={s} /> },
-  pendente_aprovacao: { badge: 'bg-warning-soft text-warning-text', text: 'text-warning-text', icon: (s) => <HourglassIcon size={s} /> },
-  nao_iniciado: { badge: 'bg-neutral-soft text-ink-2', text: 'text-ink-3', icon: (s) => <DashIcon size={s} /> },
-};
-
-export function StatusBadge({ value }: { value: ActivityStatus }) {
-  const style = statusStyle[value];
-  return (
-    <Badge className={style.badge} icon={style.icon(13)}>
-      {STATUS_LABEL[value]}
-    </Badge>
-  );
-}

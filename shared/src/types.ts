@@ -1,21 +1,5 @@
 import type { ISODate } from './cycle.ts';
 
-export const ACTIVITY_STATUSES = [
-  'concluido',
-  'nao_concluido',
-  'pendente_aprovacao',
-  'nao_iniciado',
-] as const;
-
-export type ActivityStatus = (typeof ACTIVITY_STATUSES)[number];
-
-export const STATUS_LABEL: Record<ActivityStatus, string> = {
-  concluido: 'Concluído',
-  nao_concluido: 'Não concluído',
-  pendente_aprovacao: 'Pendente de aprovação',
-  nao_iniciado: 'Não iniciado',
-};
-
 /**
  * Apontamento: um intervalo de tempo gasto em uma demanda declarada. No código e no banco
  * mantém o nome histórico "activity" (tabela `activities`, rota `/api/activities`).
@@ -32,7 +16,6 @@ export interface Activity {
   project: string;
   description: string;
   notes: string;
-  status: ActivityStatus;
   /** Demanda apontada; nula só nos apontamentos anteriores à v0.5. */
   demandId: number | null;
 }

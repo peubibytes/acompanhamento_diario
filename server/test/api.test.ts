@@ -30,7 +30,6 @@ const sample = {
   demandId: 0,
   description: 'Leitura da documentação',
   notes: 'Resumo enviado',
-  status: 'concluido',
 };
 
 before(async () => {
@@ -67,9 +66,11 @@ describe('API de apontamentos e ciclos', () => {
     assert.equal(list.data.length, 1);
     assert.equal(list.data[0].demandId, sample.demandId);
 
-    const edited = await api('PUT', `/activities/${id}`, { ...sample, status: 'pendente_aprovacao' });
+    // O status existe só na demanda: o apontamento não o tem, e um status enviado é ignorado.
+    const edited = await api('PUT', `/activities/${id}`, { ...sample, notes: 'Revisado', status: 'pendente_aprovacao' });
     assert.equal(edited.status, 200);
-    assert.equal(edited.data.activity.status, 'pendente_aprovacao');
+    assert.equal(edited.data.activity.notes, 'Revisado');
+    assert.equal('status' in edited.data.activity, false);
 
     assert.equal((await api('DELETE', `/activities/${id}`)).status, 204);
     assert.equal((await api('DELETE', `/activities/${id}`)).status, 404);
@@ -86,12 +87,11 @@ describe('API de apontamentos e ciclos', () => {
     assert.match(unknown.data.error, /Demanda não encontrada/);
   });
 
-  it('valida horários, dias úteis e status', async () => {
+  it('valida horários e dias úteis', async () => {
     const cases: [object, RegExp][] = [
       [{ ...sample, endMinute: 480 }, /fim deve ser depois/],
       [{ ...sample, date: '2026-10-24' }, /dias úteis/],
       [{ ...sample, date: '2026-13-01' }, /Data inválida/],
-      [{ ...sample, status: 'em_andamento' }, /Status inválido/],
     ];
     for (const [body, message] of cases) {
       const res = await api('POST', '/activities', body);
@@ -369,7 +369,9 @@ describe('API de demandas: ciclos', () => {
     assert.equal(detail.events.length, 2);
     assert.equal(detail.events[0].date, '2026-10-27'); // mais recentes primeiro
     assert.equal(detail.blockers.length, 1);
-    assert.deepEqual(detail.tracking, { eventCount: 2, lastEventDate: '2026-10-27', openBlockers: 1, waitingWorkdays: 2 });
+    const { lastUpdate, ...counts } = detail.tracking;
+    assert.deepEqual(counts, { eventCount: 2, lastEventDate: '2026-10-27', openBlockers: 1, waitingWorkdays: 2 });
+    assert.deepEqual(lastUpdate, { date: '2026-10-27', kind: 'evento', text: 'Ajuste enviado para validação' });
 
     await api('PUT', `/demands/${d.id}/blockers/${b.data.id}`, { ...b.data, resolvedAt: '2026-10-26' });
     detail = (await api('GET', `/demands/${d.id}`)).data;
@@ -385,11 +387,17 @@ describe('API de demandas: ciclos', () => {
     // Excluir o ciclo leva junto a linha do tempo e os impedimentos.
     await api('DELETE', `/demands/${d.id}`);
     const again = (await api('POST', '/demands', cycleBody)).data as DemandSummary;
-    assert.deepEqual(again.tracking, { eventCount: 0, lastEventDate: null, openBlockers: 0, waitingWorkdays: 0 });
+    assert.deepEqual(again.tracking, {
+      eventCount: 0,
+      lastEventDate: null,
+      openBlockers: 0,
+      waitingWorkdays: 0,
+      lastUpdate: { date: '2026-10-27', kind: 'status', text: 'Declarada como Em andamento' },
+    });
     await api('DELETE', `/demands/${again.id}`);
   });
 
-  it('atividades de rotina não têm linha do tempo nem impedimentos', async () => {
+  it('tarefas não têm linha do tempo nem impedimentos', async () => {
     const res = await api('POST', `/demands/${sample.demandId}/events`, { text: 'x' });
     assert.equal(res.status, 400);
     assert.match(res.data.error, /só nos ciclos/);
@@ -397,7 +405,256 @@ describe('API de demandas: ciclos', () => {
   });
 });
 
+describe('API de tarefas: histórico de status e métricas', () => {
+  const ticketBody = { category: 'chamado', ticketNumber: 'HIST0000001', description: 'Descrição fictícia' };
+  const metrics = async (date = today) => (await api('GET', `/metrics?date=${date}`)).data;
+
+  it('registra cada troca de status com a data e informa quando foi concluída', async () => {
+    const created = (await api('POST', '/demands', ticketBody)).data as DemandSummary;
+    today = '2026-10-28';
+    await api('PUT', `/demands/${created.id}`, { ...ticketBody, status: 'em_andamento' });
+    // Editar sem trocar o status não entra no histórico.
+    await api('PUT', `/demands/${created.id}`, { ...ticketBody, status: 'em_andamento', description: 'Descrição revisada' });
+    today = '2026-10-29';
+    const done = (await api('PUT', `/demands/${created.id}`, { ...ticketBody, status: 'concluido' })).data as DemandSummary;
+    assert.equal(done.completedAt, '2026-10-29');
+    assert.deepEqual(done.tracking.lastUpdate, { date: '2026-10-29', kind: 'status', text: 'Em andamento → Concluído' });
+
+    const { data: detail } = await api('GET', `/demands/${created.id}`);
+    assert.deepEqual(
+      detail.statusChanges.map((c: { from: string | null; to: string; date: string }) => [c.from, c.to, c.date]),
+      [
+        ['em_andamento', 'concluido', '2026-10-29'],
+        ['nao_iniciado', 'em_andamento', '2026-10-28'],
+        [null, 'nao_iniciado', '2026-10-27'],
+      ],
+    );
+
+    // Reabrir apaga a data de conclusão, mas o histórico fica.
+    const reopened = (await api('PUT', `/demands/${created.id}`, { ...ticketBody, status: 'iniciado' })).data;
+    assert.equal(reopened.completedAt, null);
+
+    await api('DELETE', `/demands/${created.id}`);
+    assert.equal((await api('GET', `/demands/${created.id}`)).status, 404);
+  });
+
+  it('reunião não tem status e não entra no histórico', async () => {
+    const m = (await api('POST', '/demands', {
+      category: 'reuniao',
+      meetingType: 'Semanal',
+      participants: 'Equipe Exemplo',
+      subject: 'Histórico',
+    })).data as DemandSummary;
+    const { data: detail } = await api('GET', `/demands/${m.id}`);
+    assert.deepEqual(detail.statusChanges, []);
+    assert.equal(detail.completedAt, null);
+    await api('DELETE', `/demands/${m.id}`);
+  });
+
+  it('métricas: concluídas no ciclo, na fila e em andamento', async () => {
+    today = '2026-10-29'; // quinta, fecha o ciclo 23/10 → 29/10
+    const before = (await metrics()).tasks;
+    const mk = async (n: number, status: string) =>
+      ((await api('POST', '/demands', { ...ticketBody, ticketNumber: `METR000000${n}`, status })).data as DemandSummary).id;
+    const ids = [await mk(1, 'nao_iniciado'), await mk(2, 'em_andamento'), await mk(3, 'concluido')];
+
+    const after = await metrics();
+    assert.deepEqual(after.period, { start: '2026-10-23', end: '2026-10-29' });
+    assert.equal(after.tasks.queued - before.queued, 1);
+    assert.equal(after.tasks.inProgress - before.inProgress, 1);
+    assert.equal(after.tasks.completed - before.completed, 1); // concluída hoje, dentro do ciclo
+
+    // No ciclo seguinte, a mesma tarefa não conta como concluída; a fila e o andamento seguem.
+    const next = await metrics('2026-10-30');
+    assert.equal(next.tasks.completed, 0);
+    assert.equal(next.tasks.queued - before.queued, 1);
+
+    for (const id of ids) await api('DELETE', `/demands/${id}`);
+  });
+
+  it('métricas dos ciclos: última atualização e horas no período', async () => {
+    const c = (await api('POST', '/demands', { category: 'ciclo', title: 'Ciclo das métricas' })).data as DemandSummary;
+    await api('POST', `/demands/${c.id}/events`, { date: '2026-10-26', kind: 'deploy', text: 'Publicado em staging' });
+    const act = await api('POST', '/activities', { ...sample, demandId: c.id, date: '2026-10-28', startMinute: 480, endMinute: 600 });
+    today = '2026-10-29';
+
+    const row = (await metrics()).cycles.find((x: { id: number }) => x.id === c.id);
+    assert.deepEqual(row.lastUpdate, { date: '2026-10-28', kind: 'apontamento', text: sample.description });
+    assert.equal(row.loggedInPeriod, 120);
+    assert.equal(row.logged, 120);
+    assert.equal(row.idleWorkdays, 1);
+    assert.equal(row.stalled, false);
+
+    assert.equal((await api('GET', '/metrics?date=2026-13-01')).status, 400);
+    await api('DELETE', `/activities/${act.data.activity.id}`);
+    await api('DELETE', `/demands/${c.id}`);
+  });
+});
+
+describe('API do relatório diário', () => {
+  it('reúne o que foi feito, os impedimentos e o que será feito', async () => {
+    today = '2026-10-29';
+    const cycle = (await api('POST', '/demands', { category: 'ciclo', title: 'Ciclo do relatório', dueDate: '2026-11-06' })).data as DemandSummary;
+    const ticket = (await api('POST', '/demands', { category: 'chamado', ticketNumber: 'REL0000001', description: 'Fictício' })).data as DemandSummary;
+    const act = await api('POST', '/activities', { ...sample, demandId: cycle.id, date: '2026-10-28', startMinute: 540, endMinute: 660 });
+    const meet = await api('POST', '/activities', { ...sample, date: '2026-10-28', startMinute: 480, endMinute: 495 }); // a Daily
+    await api('POST', `/demands/${cycle.id}/events`, { date: '2026-10-28', kind: 'decisao', text: 'Escopo fechado' });
+    await api('POST', `/demands/${cycle.id}/blockers`, { owner: 'Equipe Exemplo', since: '2026-10-27' });
+
+    // Sem `date`, o relatório é do dia útil anterior a hoje.
+    const { status, data: r } = await api('GET', '/reports/daily');
+    assert.equal(status, 200);
+    assert.equal(r.date, '2026-10-28');
+    // Fala de ciclos, tarefas e reuniões; horários e horas apontadas não entram.
+    assert.equal('minutes' in r.done, false);
+    const item = r.done.cycles.find((i: { demandId: number }) => i.demandId === cycle.id);
+    assert.equal(item.label, 'Ciclo do relatório');
+    assert.deepEqual(item.progress, [`${sample.description} (${sample.notes})`, 'Decisão: Escopo fechado']);
+    assert.deepEqual(
+      r.done.meetings.map((m: { label: string }) => m.label),
+      ['Daily · Status do dia'],
+    );
+    assert.equal(r.blockers.open, 1);
+    assert.equal(r.blockers.items[0].waitingWorkdays, 2); // ter 27 e qua 28
+    assert.equal(r.next.date, '2026-10-29');
+    const next = [...r.next.cycles, ...r.next.tasks].map((i: { demandId: number }) => i.demandId);
+    assert.ok(next.includes(cycle.id));
+    assert.equal(next.includes(ticket.id), false); // não iniciado: só na fila
+    assert.ok(r.next.queued >= 1);
+
+    assert.equal((await api('GET', '/reports/daily?date=2026-10-27')).data.date, '2026-10-27');
+    assert.equal((await api('GET', '/reports/daily?date=2026-13-01')).status, 400);
+
+    for (const a of [act, meet]) await api('DELETE', `/activities/${a.data.activity.id}`);
+    for (const id of [cycle.id, ticket.id]) await api('DELETE', `/demands/${id}`);
+  });
+});
+
+describe('API da linha do tempo: bandeira e visão unificada', () => {
+  let cycle: DemandSummary;
+  let other: DemandSummary;
+  let ticket: DemandSummary;
+
+  before(async () => {
+    cycle = (await api('POST', '/demands', { category: 'ciclo', title: 'Ciclo da linha do tempo' })).data;
+    other = (await api('POST', '/demands', { category: 'ciclo', title: 'Outro ciclo' })).data;
+    ticket = (await api('POST', '/demands', { category: 'chamado', ticketNumber: 'LT0000001', description: 'Fictício' })).data;
+  });
+
+  after(async () => {
+    for (const d of [cycle, other, ticket]) await api('DELETE', `/demands/${d.id}`);
+  });
+
+  it('une eventos e impedimentos, com o nome do ciclo', async () => {
+    const ev = await api('POST', `/demands/${cycle.id}/events`, { date: '2026-10-26', kind: 'decisao', text: 'Escopo fechado' });
+    assert.equal(ev.data.flagged, false);
+    const bl = await api('POST', `/demands/${cycle.id}/blockers`, { owner: 'Equipe Exemplo', description: 'Liberar acesso', since: '2026-10-27' });
+    await api('POST', `/demands/${other.id}/events`, { date: '2026-10-25', kind: 'acao', text: 'Outro ciclo' });
+
+    const all = (await api('GET', '/timeline')).data as { key: string; demandLabel: string; kind: string; owner: string | null }[];
+    const mine = all.filter((e) => e.demandLabel === 'Ciclo da linha do tempo');
+    assert.deepEqual(mine.map((e) => [e.key.split(':')[0], e.kind, e.owner]), [
+      ['impedimento', 'impedimento', 'Equipe Exemplo'], // 27/10
+      ['evento', 'decisao', null], // 26/10
+    ]);
+    assert.equal(all.some((e) => e.demandLabel === 'Outro ciclo'), true);
+
+    const one = (await api('GET', `/timeline?demandId=${cycle.id}`)).data as unknown[];
+    assert.equal(one.length, 2);
+    assert.equal((await api('GET', `/demands/${cycle.id}`)).data.timeline.length, 2);
+    assert.equal((await api('GET', '/timeline?demandId=abc')).status, 400);
+    assert.equal(ev.status, 201);
+    assert.equal(bl.status, 201);
+  });
+
+  it('marca e desmarca a bandeira, e a edição não a apaga', async () => {
+    const ev = (await api('POST', `/demands/${cycle.id}/events`, { date: '2026-10-26', kind: 'acao', text: 'Marcar' })).data;
+    const bl = (await api('POST', `/demands/${cycle.id}/blockers`, { owner: 'Equipe Y', since: '2026-10-26' })).data;
+
+    assert.equal((await api('PUT', `/demands/${cycle.id}/events/${ev.id}/flag`, { flagged: true })).data.flagged, true);
+    assert.equal((await api('PUT', `/demands/${cycle.id}/blockers/${bl.id}/flag`, { flagged: true })).data.flagged, true);
+
+    // Editar o texto, a data ou resolver o impedimento mantém a bandeira.
+    const edited = await api('PUT', `/demands/${cycle.id}/events/${ev.id}`, { date: '2026-10-27', kind: 'acao', text: 'Marcar (editado)' });
+    assert.equal(edited.data.flagged, true);
+    const resolved = await api('PUT', `/demands/${cycle.id}/blockers/${bl.id}`, { owner: 'Equipe Y', description: '', since: '2026-10-26', resolvedAt: '2026-10-27' });
+    assert.equal(resolved.data.flagged, true);
+
+    const flagged = (await api('GET', `/timeline?demandId=${cycle.id}`)).data.filter((e: { flagged: boolean }) => e.flagged);
+    assert.equal(flagged.length, 2);
+
+    assert.equal((await api('PUT', `/demands/${cycle.id}/events/${ev.id}/flag`, { flagged: false })).data.flagged, false);
+    assert.equal((await api('PUT', `/demands/${cycle.id}/blockers/${bl.id}/flag`, { flagged: false })).data.flagged, false);
+  });
+
+  it('valida a marcação', async () => {
+    const ev = (await api('POST', `/demands/${cycle.id}/events`, { text: 'x' })).data;
+    assert.equal((await api('PUT', `/demands/${cycle.id}/events/${ev.id}/flag`, { flagged: 'sim' })).status, 400);
+    assert.equal((await api('PUT', `/demands/${cycle.id}/events/${ev.id}/flag`, {})).status, 400);
+    assert.equal((await api('PUT', `/demands/${cycle.id}/events/9999/flag`, { flagged: true })).status, 404);
+    assert.equal((await api('PUT', `/demands/${cycle.id}/blockers/9999/flag`, { flagged: true })).status, 404);
+    // Só os ciclos têm linha do tempo.
+    assert.equal((await api('PUT', `/demands/${ticket.id}/events/1/flag`, { flagged: true })).status, 400);
+    // O evento de outro ciclo não é alcançado pelo ciclo errado.
+    assert.equal((await api('PUT', `/demands/${other.id}/events/${ev.id}/flag`, { flagged: true })).status, 404);
+  });
+});
+
 describe('migração do banco', () => {
+  it('a bandeira nasce desmarcada nos eventos e impedimentos existentes', () => {
+    const db = new DatabaseSync(':memory:');
+    migrate(db, 6);
+    db.exec(`
+      INSERT INTO demands (category, title, kind, priority, status, start_date)
+        VALUES ('ciclo', 'Ciclo fictício', 'planejada', 'media', 'novo', '2026-10-01');
+      INSERT INTO demand_events (demand_id, date, kind, text) VALUES (1, '2026-10-02', 'acao', 'Evento antigo');
+      INSERT INTO demand_blockers (demand_id, owner, since) VALUES (1, 'Equipe Exemplo', '2026-10-03');
+    `);
+
+    migrate(db);
+
+    const repo = createRepo(db);
+    assert.equal(repo.listDemandEvents(1)[0].flagged, false);
+    assert.equal(repo.listDemandBlockers(1)[0].flagged, false);
+  });
+
+  it('cria o histórico de status das demandas existentes, datado pelo último update', () => {
+    const db = new DatabaseSync(':memory:');
+    migrate(db, 5);
+    db.exec(`
+      INSERT INTO demands (category, ticket_number, description, status, updated_at)
+        VALUES ('chamado', 'MIG0000001', 'Descrição fictícia', 'em_andamento', '2026-10-20 12:00:00');
+      INSERT INTO demands (category, title, meeting_type, participants)
+        VALUES ('reuniao', 'Assunto', 'Daily', 'Equipe Exemplo');
+    `);
+
+    migrate(db);
+
+    assert.deepEqual(createRepo(db).listAllStatusChanges(), [
+      { demandId: 1, from: null, to: 'em_andamento', date: '2026-10-20' },
+    ]);
+  });
+
+  it('remove o status do apontamento e preserva o que não era o padrão nas observações', () => {
+    const db = new DatabaseSync(':memory:');
+    migrate(db, 4);
+    db.exec(`
+      INSERT INTO activities (date, start_minute, end_minute, project, notes, status) VALUES
+        ('2026-10-26', 480, 525, 'A', '', 'concluido'),
+        ('2026-10-26', 540, 600, 'B', '', 'pendente_aprovacao'),
+        ('2026-10-26', 600, 660, 'C', 'Resumo enviado', 'nao_concluido');
+    `);
+
+    migrate(db);
+
+    const columns = (db.prepare('PRAGMA table_info(activities)').all() as { name: string }[]).map((c) => c.name);
+    assert.equal(columns.includes('status'), false);
+    const [a, b, c] = createRepo(db).listActivities('2026-10-26', '2026-10-26');
+    assert.equal(a.notes, '');
+    assert.equal(b.notes, 'Status anterior: Pendente de aprovação.');
+    assert.equal(c.notes, 'Resumo enviado\nStatus anterior: Não concluído.');
+  });
+
   it('atualiza um banco da versão inicial sem perder dados', () => {
     const db = new DatabaseSync(':memory:');
     db.exec(`
