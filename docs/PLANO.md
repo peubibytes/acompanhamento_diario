@@ -174,7 +174,8 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
    abertos), o tipo da tarefa (chamado, reunião ou treinamento) num menu, e o status (em
    aberto, encerrados, todos) à direita. A lista é de linhas compactas; o formulário abre num
    painel deslizante pelo botão "Declarar {tipo}" ou ao editar. Ver seção 9.
-4. **Detalhes (`/detalhes`)** — tabela fiel à planilha: data, dia, meta, horas, diferença, qtd
+4. **Detalhes (`/detalhes`)** — duas abas, **Dia a dia** e **Ciclos** (v0.8, ver seção 11). Dia a dia:
+   tabela fiel à planilha: data, dia, meta, horas, diferença, qtd
    apontamentos, conformidade, diagnóstico e linha de total geral. Linhas com listras suaves em
    vez de bordas, números à direita (algarismos tabulares) e cabeçalho fixo; clicar num dia abre
    os apontamentos dele.
@@ -533,3 +534,14 @@ Decisão em `docs/decisions/0004-impedimentos-na-linha-do-tempo.md`.
   responsável e registra o bloqueio; cada linha de impedimento tem **Resolver/Reabrir** e a espera
   em dias úteis. Cada entrada tem a **bandeira**: marcada, a linha ganha uma faixa vermelha à
   esquerda, fundo suave e o ícone de bandeira preenchido.
+- **Detalhes → Ciclos (`/detalhes?aba=ciclos`):** a análise da linha do tempo dos ciclos.
+  - *Filtros* (na URL): ciclo (padrão **Todos os abertos**; também Todos ou um ciclo), tipo (ação,
+    decisão, impedimento, validação, deploy; várias ao mesmo tempo, cada um com a quantidade já
+    registrada) e **Só marcados**.
+  - *Métricas* do ciclo escolhido, antes do filtro de tipo: registros, marcados, impedimentos
+    abertos (com a maior espera) e há quantos dias úteis foi o último registro (a resolução de um
+    impedimento conta como registro).
+  - *Lista* do mais recente ao mais antigo, agrupada por mês, com o nome do ciclo quando há mais
+    de um. Aqui só se marca a bandeira; resolver e excluir ficam em Demandas.
+  - Vazios: "Nenhum registro na linha do tempo" (com o link para os ciclos) e "Nada com estes
+    filtros" (com "Limpar filtros").
