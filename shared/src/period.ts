@@ -60,6 +60,15 @@ export function shiftPeriod(ref: ISODate, scale: PeriodScale, delta: number): IS
   return firstOfMonth(Math.floor(index / 12), (index % 12) + 1);
 }
 
+/**
+ * Dia em que as ações do período se ancoram (a meta, o link para Apontamentos): hoje, se cair no
+ * período; senão o último dia útil de um período passado ou o primeiro de um futuro.
+ */
+export function anchorDate(period: PeriodWindow, today: ISODate): ISODate {
+  if (today >= period.start && today <= period.end) return today;
+  return today > period.end ? period.workdays.at(-1)! : period.workdays[0];
+}
+
 /** O período equivalente imediatamente anterior (mesma escala). */
 export function previousPeriod(period: PeriodWindow): PeriodWindow {
   return getPeriod(shiftPeriod(period.start, period.scale, -1), period.scale);

@@ -1,51 +1,85 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { formatDayMonth, formatDuration, todayISO, type DayMetrics, type DemandCategory } from '@acomp/shared';
+import { formatDayMonth, formatDuration, todayISO, type DayMetrics, type DemandCategory, type PeriodScale } from '@acomp/shared';
 import { useDayActivities, useDemands } from '../api/client';
 import { dayStyle } from './Badges';
 
 /** Folga acima da barra mais alta para o valor (e o ícone de status) caber dentro do gráfico. */
 const HEADROOM = 1.14;
 
+/** Espaço entre as colunas (e entre os rótulos de baixo, que acompanham as colunas). */
+const GAP = {
+  week: 'gap-2 sm:gap-4',
+  month: 'gap-px @lg:gap-1',
+};
+
+/**
+ * No mês, quando há valores sobre as colunas, a etiqueta "Meta" da linha ganha uma faixa à direita
+ * (fora das colunas) para não cobrir o valor da última.
+ */
+const SIDE_GUTTER = { inset: '@[58rem]:right-[4.5rem]', pad: '@[58rem]:pr-[4.5rem]' };
+
 /**
  * Horas apontadas por dia útil contra a linha de meta. O status de cada dia aparece na cor da
  * barra e no ícone ao lado do valor (a cor nunca é a única pista); o diagnóstico completo está
  * no tooltip. Clicar numa coluna abre o dia. Alturas em %, para o gráfico crescer com a tela.
+ *
+ * No mês são ~22 colunas: o ícone e o valor só aparecem quando cabem (pela largura do gráfico,
+ * não da tela); o rótulo de baixo é só o dia (dd), e em gráficos estreitos só de 5 em 5. O que
+ * não cabe fica no tooltip e no aria-label de cada coluna.
  */
-export function DailyChart({ days, goal }: { days: DayMetrics[]; goal: number }) {
+export function DailyChart({ days, goal, scale = 'week' }: { days: DayMetrics[]; goal: number; scale?: PeriodScale }) {
   const navigate = useNavigate();
   const today = todayISO();
+  const month = scale === 'month';
   const max = Math.max(goal * 1.2, ...days.map((d) => d.minutes * HEADROOM));
+  // Só uma coluna mostra o tooltip por vez; ele fica dentro da largura do gráfico (ver Tooltip).
+  const [open, setOpen] = useState<number | null>(null);
 
   return (
-    <div>
+    <div className="@container">
       <div className="relative h-72 sm:h-[21rem]">
         <div className="pointer-events-none absolute inset-x-0 bottom-0 border-t border-baseline" />
 
-        <div className="absolute inset-0 flex items-end gap-2 sm:gap-4">
+        <div className={`absolute inset-0 flex items-end ${GAP[scale]} ${month ? SIDE_GUTTER.inset : ''}`}>
           {days.map((d, i) => {
             const style = dayStyle(d);
             return (
               <button
                 key={d.date}
                 onClick={() => navigate(`/apontamentos?data=${d.date}`)}
-                className={`group relative flex h-full min-w-0 flex-1 flex-col items-center justify-end rounded-t-xl outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                onMouseEnter={() => setOpen(i)}
+                onMouseLeave={() => setOpen(null)}
+                onFocus={() => setOpen(i)}
+                onBlur={() => setOpen(null)}
+                className={`relative flex h-full min-w-0 flex-1 flex-col items-center justify-end rounded-t-xl outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                   d.date === today ? 'bg-surface-2/70' : 'hover:bg-surface-2/50'
                 }`}
                 aria-label={`${d.weekdayLong} ${formatDayMonth(d.date)}: ${formatDuration(d.minutes)} apontadas, ${style.label}. ${d.diagnosis}.`}
               >
-                <span className={`tabular mb-1.5 inline-flex flex-col items-center gap-0.5 text-sm font-semibold sm:flex-row sm:gap-1 ${d.minutes > 0 ? 'text-ink' : 'text-ink-3'}`}>
-                  <span className={style.text}>{style.icon(13)}</span>
-                  {d.minutes > 0 ? formatDuration(d.minutes) : '—'}
-                </span>
+                {month ? (
+                  <span
+                    className={`tabular mb-1.5 hidden flex-col items-center gap-0.5 text-xs font-semibold @lg:flex ${d.minutes > 0 ? 'text-ink' : 'text-ink-3'}`}
+                  >
+                    <span className={style.text}>{style.icon(13)}</span>
+                    <span className="hidden @[58rem]:inline">{d.minutes > 0 ? formatDuration(d.minutes) : '—'}</span>
+                  </span>
+                ) : (
+                  <span
+                    className={`tabular mb-1.5 inline-flex flex-col items-center gap-0.5 text-sm font-semibold sm:flex-row sm:gap-1 ${d.minutes > 0 ? 'text-ink' : 'text-ink-3'}`}
+                  >
+                    <span className={style.text}>{style.icon(13)}</span>
+                    {d.minutes > 0 ? formatDuration(d.minutes) : '—'}
+                  </span>
+                )}
                 <span
-                  className="w-full max-w-16 rounded-t-md transition-[height] duration-700 ease-out"
+                  className={`w-full rounded-t-md transition-[height] duration-700 ease-out ${month ? 'max-w-10' : 'max-w-16'}`}
                   style={{
                     height: `${(d.minutes / max) * 100}%`,
                     minHeight: d.minutes > 0 ? 3 : 0,
                     background: style.bar,
                   }}
                 />
-                <Tooltip day={d} align={i < 2 ? 'start' : i > days.length - 3 ? 'end' : 'center'} />
               </button>
             );
           })}
@@ -60,13 +94,27 @@ export function DailyChart({ days, goal }: { days: DayMetrics[]; goal: number })
             Meta {formatDuration(goal)}
           </span>
         </div>
+
+        {open !== null && <Tooltip day={days[open]} center={((open + 0.5) / days.length) * 100} />}
       </div>
 
-      <div className="mt-3 flex gap-2 sm:gap-4">
-        {days.map((d) => (
-          <div key={d.date} className="flex flex-1 flex-col items-center text-center">
-            <span className="text-sm font-semibold text-ink">{d.weekdayShort}</span>
-            <span className="tabular text-xs text-ink-3">{d.date === today ? 'Hoje' : formatDayMonth(d.date)}</span>
+      <div className={`mt-3 flex ${GAP[scale]} ${month ? SIDE_GUTTER.pad : ''}`}>
+        {days.map((d, i) => (
+          <div key={d.date} className="flex min-w-0 flex-1 flex-col items-center text-center">
+            {month ? (
+              <span
+                className={`tabular text-xs whitespace-nowrap ${d.date === today ? 'font-semibold text-ink' : 'text-ink-3'} ${
+                  i % 5 === 0 ? '' : '@max-2xl:invisible'
+                }`}
+              >
+                {d.date.slice(8)}
+              </span>
+            ) : (
+              <>
+                <span className="text-sm font-semibold text-ink">{d.weekdayShort}</span>
+                <span className="tabular text-xs text-ink-3">{d.date === today ? 'Hoje' : formatDayMonth(d.date)}</span>
+              </>
+            )}
           </div>
         ))}
       </div>
@@ -74,16 +122,6 @@ export function DailyChart({ days, goal }: { days: DayMetrics[]; goal: number })
   );
 }
 
-const TOOLTIP_ALIGN = {
-  start: 'left-0',
-  center: 'left-1/2 -translate-x-1/2',
-  end: 'right-0',
-};
-
-/**
- * Ancorado à borda nas duas primeiras e nas duas últimas colunas, para não vazar da tela no
- * celular. Fechado, sai do layout (display: none): invisível mas presente, ainda criaria rolagem.
- */
 /** Tipos de demanda contados no tooltip, na ordem em que aparecem. */
 const KINDS: { category: DemandCategory; label: string }[] = [
   { category: 'reuniao', label: 'Reuniões' },
@@ -92,7 +130,11 @@ const KINDS: { category: DemandCategory; label: string }[] = [
   { category: 'ciclo', label: 'Ciclos' },
 ];
 
-function Tooltip({ day, align }: { day: DayMetrics; align: keyof typeof TOOLTIP_ALIGN }) {
+/**
+ * Centrado na coluna e preso às bordas do gráfico (clamp), para não vazar da tela no celular. Só
+ * existe enquanto uma coluna está com o mouse ou o foco: fechado, não ocupa lugar no layout.
+ */
+function Tooltip({ day, center }: { day: DayMetrics; center: number }) {
   // Os apontamentos do dia (mesmo cache da tela Apontamentos) e o tipo de cada demanda apontada.
   const activities = useDayActivities(day.date);
   const demands = useDemands();
@@ -108,7 +150,8 @@ function Tooltip({ day, align }: { day: DayMetrics; align: keyof typeof TOOLTIP_
   return (
     <span
       role="tooltip"
-      className={`tip-surface pointer-events-none absolute bottom-full z-20 mb-2 hidden w-48 ${TOOLTIP_ALIGN[align]} p-3 text-left group-hover:block group-hover:animate-[hint-in_0.15s_ease-out_both] group-focus-visible:block group-focus-visible:animate-[hint-in_0.15s_ease-out_both]`}
+      style={{ left: `clamp(0px, calc(${center}% - 6rem), calc(100% - 12rem))` }}
+      className="tip-surface pointer-events-none absolute bottom-full z-20 mb-2 w-48 animate-[hint-in_0.15s_ease-out_both] p-3 text-left"
     >
       <span className="block text-xs font-semibold text-ink">
         {day.weekdayLong}, {formatDayMonth(day.date)}

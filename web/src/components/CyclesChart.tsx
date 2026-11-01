@@ -37,6 +37,10 @@ const HINT = (
       <strong className="font-semibold text-ink">Última atualização:</strong> o evento, a troca de status ou o
       apontamento mais recente. Sem nenhuma há 3 dias úteis ou mais, o ciclo aparece como parado.
     </span>
+    <span className="mt-1.5 block">
+      <strong className="font-semibold text-ink">Horas no período:</strong> apontadas dentro do período escolhido (semana
+      ou mês).
+    </span>
   </>
 );
 

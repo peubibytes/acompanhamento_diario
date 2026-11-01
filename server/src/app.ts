@@ -28,6 +28,7 @@ import {
   previousPeriod,
   previousWorkday,
   TASK_STATUSES,
+  daysBetween,
   getCycle,
   isValidISODate,
   isWorkday,
@@ -154,6 +155,11 @@ const flagSchema = z.object({ flagged: z.boolean('Informe flagged (true ou false
 const timelineFilterSchema = z.object({
   demandId: z.coerce.number().int().positive().optional(),
 });
+
+const rangeSchema = z
+  .object({ from: isoDate, to: isoDate })
+  .refine((r) => r.to >= r.from, { message: 'O fim não pode ser anterior ao início.', path: ['to'] })
+  .refine((r) => daysBetween(r.from, r.to) <= 61, { message: 'Intervalo muito longo (máximo 62 dias).', path: ['to'] });
 
 const goalSchema = z.object({
   dailyGoalMinutes: z.int('Meta inválida.').min(1, 'A meta deve ser maior que zero.').max(24 * 60),
@@ -326,6 +332,12 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
   });
 
   app.get('/api/activities', (req, res) => {
+    // Faixa de datas (Painel, distribuição do mês): `from` e `to`, no máximo 62 dias.
+    if (req.query.from !== undefined || req.query.to !== undefined) {
+      const range = rangeSchema.safeParse(req.query);
+      if (!range.success) return badRequest(res, range.error);
+      return res.json(repo.listActivities(range.data.from, range.data.to));
+    }
     const date = isoDate.safeParse(req.query.date);
     if (!date.success) return badRequest(res, date.error);
     res.json(repo.listActivities(date.data, date.data));

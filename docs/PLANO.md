@@ -134,7 +134,7 @@ O esquema evolui por migrações numeradas em `server/src/db.ts` (`PRAGMA user_v
 |---|---|---|
 | GET | `/api/cycles/:date` | ciclo da data: 5 dias com métricas + totais |
 | PUT | `/api/cycles/:date/goal` | define a meta diária do ciclo (e o padrão dos próximos) |
-| GET | `/api/activities?date=` | apontamentos de um dia |
+| GET | `/api/activities?date=` ou `?from=&to=` | apontamentos de um dia ou de uma faixa de datas (v0.9; até 62 dias) |
 | POST | `/api/activities` | aponta (exige `demandId` de uma demanda declarada) |
 | PUT | `/api/activities/:id` | edita |
 | DELETE | `/api/activities/:id` | remove |
@@ -157,10 +157,19 @@ O esquema evolui por migrações numeradas em `server/src/db.ts` (`PRAGMA user_v
 Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com o texto explicativo
 (que não fica fixo na tela) e, à direita, a ação principal.
 
-1. **Painel (`/`)** — um seletor no topo escolhe a visão (**Dia útil**, **Distribuição**,
-   **Tarefas** ou **Ciclos**); a navegação entre ciclos de apontamento fica ao lado (v0.7: em todas).
+1. **Painel (`/`)** — no canto superior esquerdo, o seletor de **escala** do período (**Semana** |
+   **Mês**, v0.9, guardada na URL como `?escala=mes`) e, ao lado, o seletor da visão (**Dia útil**,
+   **Distribuição**, **Tarefas** ou **Ciclos**); a navegação entre períodos fica à direita (em todas as
+   visões). A escala vale para todas as visões; no celular, escala e visões se empilham à esquerda e a
+   navegação desce. A semana é sexta → quinta; o mês é o mês civil, com os dias úteis Seg–Sex.
+   *Visões no mês (v0.9):* **Dia útil** com uma barra por dia útil do mês (rótulo "dd"; o ícone e o valor só
+   aparecem quando cabem, pela largura do gráfico; o resto fica no tooltip), Meta do período, Total realizado
+   e Dias conformes `X/N` (a linha de meta é a meta diária mais comum do mês; o popover de meta edita a meta
+   diária do ciclo de apontamento de hoje, ou do último/primeiro dia útil num mês passado/futuro);
+   **Distribuição** com a rosca do mês inteiro, sem a escolha de dia; **Tarefas** e **Ciclos** usam o
+   período ("no período"). Na semana nada muda.
    - *Dia útil:* faixa fina com o anel de % preenchido, o selo da situação ("Faltam 17h15",
-     "Excedeu 1h", "Meta atingida"), total realizado, meta semanal e dias conformes; abaixo, o
+     "Excedeu 1h", "Meta atingida"), total realizado, meta semanal (no mês, "Meta do período") e dias conformes; abaixo, o
      gráfico por dia útil (~340 px), com o valor e o ícone de status em cima de cada barra e
      a linha de meta por cima das barras. Tocar em "Meta semanal" abre a meta diária (5h30,
      8h48 ou outro). O lembrete de dia de apontamento fica no sino. Passar o mouse numa coluna

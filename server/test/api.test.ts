@@ -633,6 +633,22 @@ describe('API de períodos e rendimento', () => {
     assert.match(month.totals.conformityLabel, /\/22 conformes$|^100% conforme$/);
   });
 
+  it('apontamentos por faixa de datas: from e to, com limites', async () => {
+    const id = await ciclo('Ciclo da faixa');
+    const a = await log(id, '2026-10-12', 480, 540);
+    const b = await log(id, '2026-10-14', 480, 540);
+    const range = (await api('GET', '/activities?from=2026-10-12&to=2026-10-14')).data as Activity[];
+    assert.deepEqual(
+      range.filter((x) => x.demandId === id).map((x) => x.date),
+      ['2026-10-12', '2026-10-14'],
+    );
+    assert.equal((await api('GET', '/activities?from=2026-10-14&to=2026-10-12')).status, 400);
+    assert.equal((await api('GET', '/activities?from=2026-10-01&to=2026-12-31')).status, 400);
+    assert.equal((await api('GET', '/activities?from=2026-10-01')).status, 400);
+    assert.equal((await api('GET', '/activities?date=2026-10-12')).status, 200); // o formato antigo segue valendo
+    for (const r of [a, b]) await api('DELETE', `/activities/${r.data.activity.id}`);
+  });
+
   it('escala inválida: 400 nas três rotas', async () => {
     for (const path of ['/periods/2026-10-27', '/metrics', '/yield']) {
       const res = await api('GET', `${path}?scale=ano`);

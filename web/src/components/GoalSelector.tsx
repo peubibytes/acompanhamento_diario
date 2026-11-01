@@ -113,11 +113,14 @@ export function GoalPopover({
   date,
   dailyGoal,
   weekGoal,
+  label = 'Meta semanal',
   className = '',
 }: {
   date: ISODate;
   dailyGoal: number;
   weekGoal: number;
+  /** "Meta semanal" na semana; "Meta do período" no mês. */
+  label?: string;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -157,7 +160,7 @@ export function GoalPopover({
         className="group -m-1 rounded-lg p-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         <span className="flex items-center gap-1 text-2xs font-semibold tracking-wider text-ink-3 uppercase">
-          Meta semanal
+          {label}
           <PencilIcon size={11} className="transition group-hover:text-ink" />
         </span>
         <span className="tabular mt-1 block text-2xl font-semibold tracking-tight text-ink sm:text-display sm:font-bold">

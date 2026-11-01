@@ -8,7 +8,7 @@ const HINT = (
     <span className="block">Chamados e treinamentos. Reuniões não têm status e não entram.</span>
     <span className="mt-1.5 block">
       <strong className="font-semibold text-ink">Concluídas:</strong> passaram a Concluído dentro do período
-      escolhido (sexta a quinta).
+      escolhido (a semana, de sexta a quinta, ou o mês).
     </span>
     <span className="mt-1.5 block">
       <strong className="font-semibold text-ink">Na fila:</strong> status Não iniciado, hoje.{' '}

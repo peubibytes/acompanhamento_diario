@@ -1,17 +1,21 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import {
+  anchorDate,
   dayBreakdown,
   DEMAND_CATEGORY_LABEL,
   foldSlices,
   formatDayMonth,
+  formatPeriodLabel,
   formatDuration,
   todayISO,
   type BreakdownSlice,
-  type CycleSummary,
+  type DayMetrics,
   type ISODate,
+  type PeriodScale,
+  type PeriodWindow,
 } from '@acomp/shared';
-import { useDayActivities, useDemands } from '../api/client';
+import { useDayActivities, useDemands, useRangeActivities } from '../api/client';
 import { SectionTitle } from './SectionTitle';
 import { Skeleton } from './States';
 import { PlusIcon } from './icons';
@@ -43,35 +47,46 @@ function colorize(slices: BreakdownSlice[]): ColoredSlice[] {
         (a.demandId ?? 0) - (b.demandId ?? 0) ||
         a.label.localeCompare(b.label, 'pt-BR'),
     )
-    .map((s, i) => ({ ...s, color: SLOT_COLORS[i] }));
+    .map((s, i) => ({ ...s, color: SLOT_COLORS[i] ?? 'var(--series-other)' }));
   const others = slices.filter((s) => s.kind === 'outros').map((s) => ({ ...s, color: 'var(--series-other)' }));
   return [...named, ...others];
 }
 
 /** Dia inicial: hoje, se estiver no ciclo; senão o último dia útil já passado (ou a sexta). */
-function initialDay(summary: CycleSummary): ISODate {
+function initialDay(days: DayMetrics[]): ISODate {
   const today = todayISO();
-  return summary.days.map((d) => d.date).filter((d) => d <= today).at(-1) ?? summary.days[0].date;
+  return days.map((d) => d.date).filter((d) => d <= today).at(-1) ?? days[0].date;
 }
 
-const HINT = (
+const HINT = (scale: PeriodScale) => (
   <>
-    <span className="block">Quais demandas ocuparam mais tempo nos apontamentos do dia escolhido.</span>
+    <span className="block">
+      {scale === 'month'
+        ? 'Quais demandas ocuparam mais tempo nos apontamentos do mês inteiro.'
+        : 'Quais demandas ocuparam mais tempo nos apontamentos do dia escolhido.'}
+    </span>
     <span className="mt-1.5 block">
       Trechos com apontamentos sobrepostos são divididos igualmente entre eles, para a soma das fatias bater com o
-      total do dia.
+      total {scale === 'month' ? 'de cada dia' : 'do dia'}.
     </span>
   </>
 );
 
-/** Painel: rosca com o tempo de um dia dividido por demanda. Detalhes no hover/foco. */
-export function DayBreakdownChart({ summary }: { summary: CycleSummary }) {
-  const [day, setDay] = useState(() => initialDay(summary));
+/**
+ * Painel: rosca com o tempo dividido por demanda. Na semana, de um dia escolhido (Sex–Qui); no mês,
+ * do mês inteiro, sem escolha de dia. Detalhes no hover/foco.
+ */
+export function DayBreakdownChart({ days, period }: { days: DayMetrics[]; period: PeriodWindow }) {
+  const month = period.scale === 'month';
+  const [day, setDay] = useState(() => initialDay(days));
   const [active, setActive] = useState<string | null>(null);
-  const activities = useDayActivities(day);
+  const dayActivities = useDayActivities(day, !month);
+  const rangeActivities = useRangeActivities(period.start, period.end, month);
+  const activities = month ? rangeActivities : dayActivities;
   const demands = useDemands();
   const today = todayISO();
-  const selected = summary.days.find((d) => d.date === day)!;
+  const selected = days.find((d) => d.date === day)!;
+  const scope = month ? 'mês' : 'dia';
 
   const breakdown = activities.data && demands.data ? dayBreakdown(activities.data, demands.data) : null;
   const categoryOf = new Map(demands.data?.map((d) => [d.id, d.category]));
@@ -99,11 +114,12 @@ export function DayBreakdownChart({ summary }: { summary: CycleSummary }) {
   return (
     <section className="card rise p-5 sm:p-6">
       <SectionTitle
-        title="Distribuição do dia"
-        hint={HINT}
+        title={`Distribuição do ${scope}`}
+        hint={HINT(period.scale)}
         aside={
+          month ? undefined : (
           <div className="flex w-full rounded-full bg-surface-2 p-1 sm:w-auto" role="tablist" aria-label="Dia analisado">
-            {summary.days.map((d) => {
+            {days.map((d) => {
               const on = d.date === day;
               return (
                 <button
@@ -126,6 +142,7 @@ export function DayBreakdownChart({ summary }: { summary: CycleSummary }) {
               );
             })}
           </div>
+          )
         }
       />
 
@@ -134,10 +151,10 @@ export function DayBreakdownChart({ summary }: { summary: CycleSummary }) {
       ) : breakdown.total === 0 ? (
         <div className="mt-6 flex flex-col items-center justify-center rounded-2xl border border-dashed border-line px-6 py-16 text-center">
           <p className="font-semibold text-ink">
-            Nenhum apontamento em {selected.weekdayShort} {formatDayMonth(day)}
+            Nenhum apontamento em {month ? formatPeriodLabel(period) : `${selected.weekdayShort} ${formatDayMonth(day)}`}
           </p>
           <Link
-            to={`/apontamentos?data=${day}`}
+            to={`/apontamentos?data=${month ? anchorDate(period, today) : day}`}
             className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:underline"
           >
             <PlusIcon size={15} /> Registrar apontamentos
@@ -150,7 +167,7 @@ export function DayBreakdownChart({ summary }: { summary: CycleSummary }) {
               viewBox={`0 0 ${SIZE} ${SIZE}`}
               className="h-auto w-full -rotate-90 overflow-visible"
               role="img"
-              aria-label={`${formatDuration(breakdown.total)} em ${selected.weekdayLong}: ${legend
+              aria-label={`${formatDuration(breakdown.total)} em ${month ? formatPeriodLabel(period) : selected.weekdayLong}: ${legend
                 .map((s) => `${s.label} ${formatDuration(s.minutes)} (${Math.round(s.share)}%)`)
                 .join(', ')}`}
             >
@@ -177,7 +194,7 @@ export function DayBreakdownChart({ summary }: { summary: CycleSummary }) {
                 <div>
                   <p className="line-clamp-2 text-xs font-medium text-ink-2">{focus.label}</p>
                   <p className="tabular mt-0.5 text-2xl font-bold text-ink">{formatDuration(focus.minutes)}</p>
-                  <p className="tabular text-xs text-ink-3">{Math.round(focus.share)}% do dia</p>
+                  <p className="tabular text-xs text-ink-3">{Math.round(focus.share)}% do {scope}</p>
                   <p className="mt-1 text-2xs text-ink-3">{detail(focus)}</p>
                 </div>
               ) : (

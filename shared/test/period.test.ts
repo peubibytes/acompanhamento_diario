@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   buildPeriodSummary,
+  anchorDate,
   formatPeriodLabel,
   getCycle,
   getPeriod,
@@ -96,6 +97,17 @@ describe('período: mês', () => {
   it('rótulo "Outubro de 2026"', () => {
     assert.equal(formatPeriodLabel(getPeriod('2026-10-05', 'month')), 'Outubro de 2026');
     assert.equal(formatPeriodLabel(getPeriod('2027-03-05', 'month')), 'Março de 2027');
+  });
+});
+
+describe('dia de ancoragem', () => {
+  it('hoje, se estiver no período; senão a ponta mais próxima', () => {
+    const nov = getPeriod('2026-11-10', 'month');
+    assert.equal(anchorDate(nov, '2026-11-01'), '2026-11-01'); // domingo dentro do mês
+    assert.equal(anchorDate(nov, '2026-12-05'), '2026-11-30'); // mês passado: último dia útil
+    assert.equal(anchorDate(nov, '2026-10-20'), '2026-11-02'); // mês futuro: primeiro dia útil
+    const week = getPeriod('2026-10-23', 'week');
+    assert.equal(anchorDate(week, '2026-11-02'), '2026-10-29');
   });
 });
 

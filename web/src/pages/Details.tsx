@@ -2,7 +2,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { formatDayMonth, formatDuration, formatHM, WORKDAYS_PER_CYCLE, type CycleSummary } from '@acomp/shared';
 import { useCycle } from '../api/client';
 import { ConformityBadge } from '../components/Badges';
-import { CycleNav } from '../components/CycleNav';
+import { PeriodNav } from '../components/PeriodNav';
 import { CycleTimelineAnalysis } from '../components/CycleTimelineAnalysis';
 import { AlertIcon, CheckIcon } from '../components/icons';
 import { PageHeader } from '../components/PageHeader';
@@ -91,7 +91,7 @@ export function Details() {
             <span className="mt-1.5 block">Clique em um dia para editar os apontamentos.</span>
           </>
         }
-        action={<CycleNav date={date} onChange={setDate} />}
+        action={<PeriodNav date={date} scale="week" onChange={setDate} />}
       />
       {tabs}
 
