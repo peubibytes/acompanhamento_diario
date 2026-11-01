@@ -31,7 +31,10 @@ metas e relatórios de prestação de contas (daily, 1:1, relatório mensal).
   apontada a cada ocorrência.
 - **Treinamento:** nome, descrição e status.
 - **Ciclo (demanda):** trabalho longo, com tipo, status, prioridade, início, prazo opcional, linha do
-  tempo e impedimentos. Não confundir com o **ciclo de apontamento** (sexta → quinta, seção 1).
+  tempo e impedimentos. Não confundir com o **Período** (sexta → quinta, seção 1).
+- **Período:** janela de tempo do apontamento e dos indicadores. Na interface é o antigo "ciclo de
+  apontamento": de **sexta a quinta** (semana) ou, a partir da v0.9, o **mês** civil (decisão
+  `docs/decisions/0005`). No código e na API continua `cycle`.
 - **Apontamento:** intervalo de tempo (data, início, fim) gasto em uma demanda declarada. Só é
   feito na tela Apontamentos. No código e no banco mantém o nome histórico `activity`.
 - **Evento:** linha datada na linha do tempo de um ciclo.
@@ -47,7 +50,9 @@ metas e relatórios de prestação de contas (daily, 1:1, relatório mensal).
 
 ## 1. Regras de negócio — módulo Apontamento
 
-### Ciclo
+### Ciclo (na interface: Período)
+- Na interface este conceito se chama **Período**; "Ciclo" fica reservado à demanda de categoria
+  `ciclo` (ver glossário). Código, tabelas e rotas mantêm `cycle`.
 - Começa na **sexta-feira** e termina na **quinta-feira** seguinte.
 - Apenas dias úteis: **Sex, Seg, Ter, Qua, Qui** (5 dias). Sábado e domingo não aceitam lançamentos.
 - O ciclo de uma data é derivado dela: `início = sexta-feira mais recente ≤ data`.

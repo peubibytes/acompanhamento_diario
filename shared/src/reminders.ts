@@ -115,7 +115,7 @@ export function buildAgenda(demands: DemandSummary[], today: ISODate): AgendaIte
       date: cycle.end,
       kind: 'apontamento',
       title: 'Dia de apontamento',
-      detail: `Fechamento do ciclo ${dayLabel(cycle.start)} → ${dayLabel(cycle.end)}`,
+      detail: `Fechamento do período ${dayLabel(cycle.start)} → ${dayLabel(cycle.end)}`,
       target: { screen: 'painel' },
     });
   }

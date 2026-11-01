@@ -34,8 +34,8 @@ export function GoalSelector({
         onSuccess: (r) => {
           toast(
             r.appliesToNextCycles
-              ? `Meta diária de ${formatHM(minutes)} definida para este ciclo e os próximos.`
-              : `Meta diária de ${formatHM(minutes)} definida apenas para este ciclo.`,
+              ? `Meta diária de ${formatHM(minutes)} definida para este período e os próximos.`
+              : `Meta diária de ${formatHM(minutes)} definida apenas para este período.`,
           );
           onSaved?.();
         },

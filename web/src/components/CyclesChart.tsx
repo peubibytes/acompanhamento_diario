@@ -116,7 +116,7 @@ export function CyclesChart({
                   </div>
                   <p className="tabular mt-1 text-xs text-ink-3">
                     {d.metrics.logged > 0 ? `${formatDuration(d.metrics.logged)} apontadas` : 'Nenhum apontamento'}
-                    {p && p.loggedInPeriod > 0 && ` · ${formatDuration(p.loggedInPeriod)} neste ciclo de apontamento`}
+                    {p && p.loggedInPeriod > 0 && ` · ${formatDuration(p.loggedInPeriod)} neste período`}
                     {' · '}
                     {p?.lastUpdate ? `Atualizado ${updateText(p.lastUpdate)}` : 'Sem atualizações'}
                   </p>

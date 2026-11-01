@@ -79,7 +79,7 @@ export function Details() {
         hint={
           <>
             <span className="block">
-              O acompanhamento diário do ciclo, como na planilha
+              O acompanhamento diário do período, como na planilha
               {cycle.data && `: meta diária de ${formatDuration(cycle.data.dailyGoal)}, ${WORKDAYS_PER_CYCLE} dias úteis`}.
             </span>
             {cycle.data && (

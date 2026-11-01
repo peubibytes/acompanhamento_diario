@@ -1,18 +1,18 @@
 import { addDays, formatDayMonth, getCycle, todayISO, type ISODate } from '@acomp/shared';
 import { CalendarIcon, ChevronLeft, ChevronRight } from './icons';
 
-/** Navegação entre ciclos (sexta → quinta). */
+/** Navegação entre períodos (sexta → quinta). */
 export function CycleNav({ date, onChange }: { date: ISODate; onChange: (date: ISODate) => void }) {
   const cycle = getCycle(date);
   const current = getCycle(todayISO()).start;
   const isCurrent = cycle.start === current;
-  const tag = isCurrent ? 'Ciclo atual' : cycle.start < current ? 'Ciclo anterior' : 'Próximo ciclo';
+  const tag = isCurrent ? 'Período atual' : cycle.start < current ? 'Período anterior' : 'Próximo período';
 
   const navButton = 'grid size-9 place-items-center rounded-full text-ink-2 transition hover:bg-surface-2 hover:text-ink';
 
   return (
     <div className="flex items-center gap-1">
-      <button className={navButton} onClick={() => onChange(addDays(cycle.start, -7))} aria-label="Ciclo anterior">
+      <button className={navButton} onClick={() => onChange(addDays(cycle.start, -7))} aria-label="Período anterior">
         <ChevronLeft />
       </button>
       <div className="min-w-0 px-1 text-center sm:text-left">
@@ -21,7 +21,7 @@ export function CycleNav({ date, onChange }: { date: ISODate; onChange: (date: I
           Sex {formatDayMonth(cycle.start)} <span className="text-ink-3">→</span> Qui {formatDayMonth(cycle.end)}
         </p>
       </div>
-      <button className={navButton} onClick={() => onChange(addDays(cycle.start, 7))} aria-label="Próximo ciclo">
+      <button className={navButton} onClick={() => onChange(addDays(cycle.start, 7))} aria-label="Próximo período">
         <ChevronRight />
       </button>
       {!isCurrent && (

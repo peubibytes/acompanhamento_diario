@@ -50,7 +50,7 @@ const PAGE_HINT = (
       <strong className="font-semibold text-ink">Distribuição:</strong> quais demandas ocuparam mais tempo em um dia.
     </span>
     <span className="mt-1.5 block">
-      <strong className="font-semibold text-ink">Tarefas:</strong> concluídas no ciclo, na fila e em andamento.
+      <strong className="font-semibold text-ink">Tarefas:</strong> concluídas no período, na fila e em andamento.
     </span>
     <span className="mt-1.5 block">
       <strong className="font-semibold text-ink">Ciclos:</strong> horas apontadas, prazo e última atualização de cada ciclo aberto.
