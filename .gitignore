@@ -2,5 +2,12 @@ node_modules/
 dist/
 server/data/
 *.log
-# Planilhas de referência com dados reais ficam só na máquina local
+# Planilhas e bancos com dados reais ficam só na máquina local
 *.xlsx
+*.xls
+*.csv
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3

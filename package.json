@@ -9,7 +9,8 @@
   ],
   "scripts": {
     "dev": "concurrently -k -n api,web -c blue,magenta \"npm run dev -w server\" \"npm run dev -w web\"",
-    "test": "node --test \"shared/test/*.test.ts\" \"server/test/*.test.ts\"",
+    "test": "node --test \"shared/test/*.test.ts\" \"server/test/*.test.ts\" \"scripts/*.test.mjs\"",
+    "check:sensitive": "node scripts/check-sensitive.mjs",
     "typecheck": "tsc -p shared && tsc -p server && tsc -p web",
     "build": "npm run build -w web",
     "start": "npm run build && npm run start -w server",

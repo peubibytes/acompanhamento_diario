@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     port: 5173,
-    proxy: { '/api': 'http://localhost:3001' },
+    // 127.0.0.1 de propósito: a API só escuta no loopback IPv4 (ver HOST em server/src/index.ts).
+    proxy: { '/api': 'http://127.0.0.1:3001' },
   },
 });

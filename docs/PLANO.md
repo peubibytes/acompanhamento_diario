@@ -224,6 +224,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 | 9 | v0.7: status só na demanda, Tarefas, métricas, relatório diário (seção 10) | ✅ código; falta a documentação técnica (PDF) |
 | 10 | v0.8: linha do tempo dos ciclos: impedimentos dentro dela, bandeira, Detalhes → Ciclos e mapa no Painel (seção 11) | ✅ |
 | 11 | v0.9: "Período" no lugar de "ciclo de apontamento", escala Semana \| Mês no Painel e visão Rendimento (seção 12) | ✅ |
+| 12 | v0.10: segurança de acesso, backup e exportação, CI e testes de front, organização e relatório do período (em andamento) | 🚧 |
 | — | Integração com o Azure | futuro |
 
 ### Decisões registradas
@@ -242,7 +243,27 @@ npm install
 npm run dev     # API em :3001 e web em :5173
 npm test        # testes das regras e da API
 npm start       # build do front + servidor único em :3001
+npm run check:sensitive   # varredura anti-vazamento (planilhas, bancos, chamados reais, e-mails)
 ```
+
+### Acesso e segurança (v0.10)
+
+A aplicação não tem login: quem alcança a porta lê e altera tudo. Por isso:
+
+- **Só a própria máquina.** O servidor escuta em `127.0.0.1` (variável `HOST`). Expor na rede exige definir
+  `HOST` explicitamente (ex.: `HOST=0.0.0.0`) e listar os nomes de acesso em `ALLOWED_HOSTS` (separados por
+  vírgula, sem porta, ex.: `ALLOWED_HOSTS=meu-pc,192.168.0.10`); o servidor avisa no início. **O risco é seu:**
+  numa rede compartilhada, qualquer pessoa nela acessa os dados. Prefira uma VPN ou um túnel com login.
+- **Host e Origin.** Toda requisição precisa de `Host` da própria máquina (ou liberado em `ALLOWED_HOSTS`), o
+  que barra o "DNS rebinding"; e, quando o navegador envia `Origin`, ele precisa ser igual ao `Host` (a
+  página da própria aplicação, inclusive o Vite em desenvolvimento, que repassa o `Host`). Uma página de
+  outro site chamando a API local recebe 403. Sem `Origin` (curl, testes) a requisição segue.
+- **Corpo e cabeçalhos.** JSON de até 100 kb por requisição (413 acima disso), sem `X-Powered-By`, com
+  `X-Content-Type-Options: nosniff` e `Referrer-Policy: no-referrer`.
+- **Varredura anti-vazamento** (`scripts/check-sensitive.mjs`): falha se o git rastrear `.xlsx`, `.csv`,
+  `.db`, `.sqlite` ou a pasta `server/data/`, se um arquivo de texto trouxer número de chamado com cara de
+  real (prefixo + 6 dígitos significativos ou mais; os fictícios do projeto são curtos, como
+  `SCTASK0000001`) ou um e-mail que não seja de exemplo. O relatório mostra arquivo e linha, nunca o valor.
 
 ## 6. Demandas de ciclo e correção de sobreposição (v0.2)
 

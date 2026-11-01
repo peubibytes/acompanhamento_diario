@@ -37,6 +37,7 @@ import {
   type ISODate,
 } from '@acomp/shared';
 import type { Repo } from './repo.ts';
+import { baseHeaders, JSON_LIMIT, localOnly } from './security.ts';
 
 /** Escala do período; sem ela vale a semana (sexta → quinta), como antes da v0.9. */
 const scaleSchema = z.enum(PERIOD_SCALES, 'Escala inválida (use week ou month).').default('week');
@@ -186,11 +187,16 @@ interface AppOptions {
   today?: () => ISODate;
   /** Pasta com o build do front, servida em produção. */
   staticDir?: string;
+  /** Nomes de host liberados além de localhost (ex.: para expor na rede com HOST definido). */
+  allowedHosts?: string[];
 }
 
-export function createApp({ repo, today = () => todayISO(), staticDir }: AppOptions) {
+export function createApp({ repo, today = () => todayISO(), staticDir, allowedHosts }: AppOptions) {
   const app = express();
-  app.use(express.json());
+  app.disable('x-powered-by');
+  app.use(baseHeaders);
+  app.use(localOnly(allowedHosts));
+  app.use(express.json({ limit: JSON_LIMIT }));
 
   /** Métricas das demandas (horas apontadas e prazo) e o resumo da linha do tempo e dos impedimentos. */
   const summarize = (demands: Demand[]) => {
@@ -541,6 +547,9 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
   const onError: ErrorRequestHandler = (err, _req, res, _next) => {
     if (err?.type === 'entity.parse.failed') {
       return res.status(400).json({ error: 'JSON inválido.' });
+    }
+    if (err?.type === 'entity.too.large') {
+      return res.status(413).json({ error: `Corpo da requisição grande demais (máximo ${JSON_LIMIT}).` });
     }
     console.error(err);
     res.status(500).json({ error: 'Erro interno no servidor.' });
