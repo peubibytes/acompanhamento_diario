@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import {
   formatDayMonth,
   formatDuration,
@@ -13,7 +13,7 @@ import {
   type PeriodScale,
 } from '@acomp/shared';
 import { ChartTooltip, COLUMN_GAP, SIDE_GUTTER } from './ChartTooltip';
-import { DashIcon, ListIcon, TargetIcon } from './icons';
+import { DashIcon, ListIcon, PlusIcon, TargetIcon } from './icons';
 import { SectionTitle } from './SectionTitle';
 
 const HINT = (
@@ -100,8 +100,22 @@ export function FamilySplitChart({ split, scale }: { split: FamilySplit; scale: 
         </div>
       </dl>
 
-      <Legend total={total} />
-      <Columns days={days} scale={scale} />
+      {total.total === 0 ? (
+        <div className="mt-6 flex flex-col items-center rounded-2xl border border-dashed border-line px-6 py-14 text-center">
+          <p className="font-semibold text-ink">Nenhum apontamento neste período</p>
+          <Link
+            to="/apontamentos"
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:underline"
+          >
+            <PlusIcon size={15} /> Registrar apontamentos
+          </Link>
+        </div>
+      ) : (
+        <>
+          <Legend total={total} />
+          <Columns days={days} scale={scale} />
+        </>
+      )}
     </div>
   );
 }
