@@ -1,6 +1,7 @@
 // Réplica das fórmulas da planilha "Acompanhamento diário.xlsx".
 
 import { getCycle, weekdayOf, WEEKDAY_LONG, WEEKDAY_SHORT, type ISODate } from './cycle.ts';
+import type { PeriodScale, PeriodWindow } from './period.ts';
 import { formatDiff, formatDuration, formatHM } from './time.ts';
 import { WORKDAYS_PER_CYCLE, type Activity } from './types.ts';
 
@@ -122,11 +123,14 @@ export function dayMetrics(date: ISODate, activities: Activity[], goal: number):
   };
 }
 
-export function weekMetrics(days: DayMetrics[], dailyGoal: number): WeekMetrics {
-  const goal = dailyGoal * WORKDAYS_PER_CYCLE;
+/**
+ * Totais de uma lista de dias. Na semana a meta é a diária × 5; num período com metas diferentes
+ * por dia (o mês cruza vários ciclos de apontamento), quem chama passa a soma das metas.
+ */
+export function weekMetrics(days: DayMetrics[], dailyGoal: number, goal = dailyGoal * WORKDAYS_PER_CYCLE): WeekMetrics {
   const total = days.reduce((sum, d) => sum + d.minutes, 0);
   const conformDays = days.filter((d) => d.conformity === 'conforme').length;
-  const allConform = conformDays === WORKDAYS_PER_CYCLE;
+  const allConform = days.length > 0 && conformDays === days.length;
 
   return {
     goal,
@@ -137,7 +141,7 @@ export function weekMetrics(days: DayMetrics[], dailyGoal: number): WeekMetrics 
     conformDays,
     exceededDays: days.filter((d) => d.exceeded).length,
     fillPercent: goal > 0 ? Math.floor((total * 100) / goal) : 0,
-    conformityLabel: allConform ? '100% conforme' : `${conformDays}/${WORKDAYS_PER_CYCLE} conformes`,
+    conformityLabel: allConform ? '100% conforme' : `${conformDays}/${days.length} conformes`,
     diagnosis: allConform ? 'Meta total atingida' : 'Ajustes pendentes',
   };
 }
@@ -151,5 +155,34 @@ export function buildCycleSummary(ref: ISODate, activities: Activity[], dailyGoa
     dailyGoal,
     days,
     week: weekMetrics(days, dailyGoal),
+  };
+}
+
+export interface PeriodSummary {
+  scale: PeriodScale;
+  start: ISODate;
+  end: ISODate;
+  days: DayMetrics[];
+  /** Meta do período (soma das metas dos dias), realizado, dias conformes e % preenchido. */
+  totals: WeekMetrics;
+}
+
+/**
+ * Resumo de um período (semana ou mês). A meta de cada dia é a do ciclo de apontamento a que o dia
+ * pertence (`goalForDay`), pois as metas continuam gravadas por `cycle_start`.
+ */
+export function buildPeriodSummary(
+  period: PeriodWindow,
+  activities: Activity[],
+  goalForDay: (date: ISODate) => number,
+): PeriodSummary {
+  const days = period.workdays.map((date) => dayMetrics(date, activities, goalForDay(date)));
+  const goal = days.reduce((sum, d) => sum + d.goal, 0);
+  return {
+    scale: period.scale,
+    start: period.start,
+    end: period.end,
+    days,
+    totals: weekMetrics(days, days.length > 0 ? Math.round(goal / days.length) : 0, goal),
   };
 }
