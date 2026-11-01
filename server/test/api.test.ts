@@ -600,6 +600,102 @@ describe('API da linha do tempo: bandeira e visão unificada', () => {
   });
 });
 
+describe('API de períodos e rendimento', () => {
+  const ciclo = async (title: string) =>
+    ((await api('POST', '/demands', { category: 'ciclo', title, startDate: '2026-10-01' })).data as DemandSummary).id;
+  const log = (demandId: number, date: string, startMinute: number, endMinute: number) =>
+    api('POST', '/activities', { ...sample, demandId, date, startMinute, endMinute });
+
+  it('resumo do período: semana por padrão, igual ao resumo do ciclo', async () => {
+    const id = await ciclo('Ciclo do período semanal');
+    await log(id, '2026-10-26', 480, 600);
+    const cycle = (await api('GET', '/cycles/2026-10-27')).data as CycleSummary;
+    const byDefault = (await api('GET', '/periods/2026-10-27')).data;
+    const explicit = (await api('GET', '/periods/2026-10-27?scale=week')).data;
+    assert.deepEqual(byDefault, explicit);
+    assert.equal(byDefault.scale, 'week');
+    assert.equal(byDefault.start, cycle.start);
+    assert.equal(byDefault.end, cycle.end);
+    assert.deepEqual(byDefault.days, cycle.days);
+    assert.deepEqual(byDefault.totals, cycle.week);
+  });
+
+  it('resumo do período: o mês tem os dias úteis Seg–Sex e soma as metas dos dias', async () => {
+    const id = await ciclo('Ciclo do período mensal');
+    await log(id, '2026-10-05', 480, 810);
+    const month = (await api('GET', '/periods/2026-10-27?scale=month')).data;
+    assert.equal(month.start, '2026-10-01');
+    assert.equal(month.end, '2026-10-31');
+    assert.equal(month.days.length, 22);
+    assert.equal(month.days[0].date, '2026-10-01');
+    assert.equal(month.totals.goal, month.days.reduce((sum: number, d: { goal: number }) => sum + d.goal, 0));
+    assert.ok(month.totals.total >= 330);
+    assert.match(month.totals.conformityLabel, /\/22 conformes$|^100% conforme$/);
+  });
+
+  it('escala inválida: 400 nas três rotas', async () => {
+    for (const path of ['/periods/2026-10-27', '/metrics', '/yield']) {
+      const res = await api('GET', `${path}?scale=ano`);
+      assert.equal(res.status, 400, path);
+      assert.match(res.data.error, /Escala inválida/);
+    }
+    assert.equal((await api('GET', '/periods/2026-13-01?scale=month')).status, 400);
+    assert.equal((await api('GET', '/yield?date=2026-13-01')).status, 400);
+  });
+
+  it('métricas: sem escala é igual à semana; no mês, o período é o mês e as concluídas contam nele', async () => {
+    today = '2026-10-29';
+    const mk = async (status: string) =>
+      ((await api('POST', '/demands', { category: 'chamado', ticketNumber: 'PERIOD0001', description: 'Descrição fictícia', status })).data as DemandSummary).id;
+    const before = (await api('GET', '/metrics?date=2026-10-15&scale=month')).data;
+    const id = await mk('concluido'); // concluída em 29/10: dentro do mês e da semana 23–29/10
+
+    const byDefault = (await api('GET', '/metrics?date=2026-10-29')).data;
+    const week = (await api('GET', '/metrics?date=2026-10-29&scale=week')).data;
+    assert.deepEqual(byDefault, week);
+    assert.deepEqual(week.period, { start: '2026-10-23', end: '2026-10-29' });
+
+    const month = (await api('GET', '/metrics?date=2026-10-15&scale=month')).data;
+    assert.deepEqual(month.period, { start: '2026-10-01', end: '2026-10-31' });
+    assert.equal(month.tasks.completed - before.tasks.completed, 1);
+    // Em outro mês a tarefa já não conta como concluída.
+    assert.equal((await api('GET', '/metrics?date=2026-11-10&scale=month')).data.tasks.completed, 0);
+    await api('DELETE', `/demands/${id}`);
+  });
+
+  it('rendimento: Tarefas × Ciclos e o rendimento de cada ciclo contra o período anterior', async () => {
+    today = '2026-11-12';
+    const c = await ciclo('Ciclo do rendimento');
+    const t = ((await api('POST', '/demands', { category: 'reuniao', meetingType: 'Daily', participants: 'Equipe Exemplo', subject: 'Rendimento' })).data as DemandSummary).id;
+    await log(c, '2026-10-06', 480, 540); // outubro: 60
+    const nov = [await log(c, '2026-11-03', 480, 600), await log(t, '2026-11-03', 600, 630)]; // novembro: 120 + 30
+
+    const y = (await api('GET', '/yield?date=2026-11-12&scale=month')).data;
+    assert.equal(y.period.start, '2026-11-01');
+    assert.equal(y.previous.start, '2026-10-01');
+    assert.equal(y.split.days.length, 21);
+    assert.ok(y.split.total.ciclos >= 120);
+    const day = y.split.days.find((d: { date: string }) => d.date === '2026-11-03');
+    assert.equal(day.ciclos, 120);
+    assert.equal(day.tarefas, 30);
+    assert.equal(day.total, 150);
+    const row = y.cycles.find((x: { id: number }) => x.id === c);
+    assert.equal(row.total, 120);
+    assert.equal(row.previousTotal, 60);
+    assert.deepEqual(row.change, { minutes: 60, percent: 100 });
+    assert.equal(row.days.length, 21);
+
+    // Sem escala, é a semana (Sex 06/11 → Qui 12/11), e o anterior é Sex 30/10 → Qui 05/11.
+    const week = (await api('GET', '/yield?date=2026-11-12')).data;
+    assert.equal(week.period.scale, 'week');
+    assert.equal(week.previous.start, '2026-10-30');
+    assert.equal(week.cycles.find((x: { id: number }) => x.id === c).total, 0);
+
+    for (const a of nov) await api('DELETE', `/activities/${a.data.activity.id}`);
+    await api('DELETE', `/demands/${t}`);
+  });
+});
+
 describe('migração do banco', () => {
   it('a bandeira nasce desmarcada nos eventos e impedimentos existentes', () => {
     const db = new DatabaseSync(':memory:');

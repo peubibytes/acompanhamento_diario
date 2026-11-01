@@ -4,11 +4,13 @@ import express, { type ErrorRequestHandler, type Response } from 'express';
 import { z } from 'zod';
 import {
   buildCycleSummary,
+  buildPeriodSummary,
   buildDailyReport,
   buildDemandSummary,
   buildOverview,
   buildTimeline,
   compareDemands,
+  cycleYield,
   CYCLE_STATUSES,
   DEMAND_CATEGORIES,
   DEMAND_ENVIRONMENTS,
@@ -17,9 +19,13 @@ import {
   DEMAND_PRIORITIES,
   DEMAND_STATUS_GROUPS,
   demandLabel,
+  familySplit,
   formatHM,
+  getPeriod,
   matchesStatusGroup,
   normalizeTicketNumber,
+  PERIOD_SCALES,
+  previousPeriod,
   previousWorkday,
   TASK_STATUSES,
   getCycle,
@@ -30,6 +36,9 @@ import {
   type ISODate,
 } from '@acomp/shared';
 import type { Repo } from './repo.ts';
+
+/** Escala do período; sem ela vale a semana (sexta → quinta), como antes da v0.9. */
+const scaleSchema = z.enum(PERIOD_SCALES, 'Escala inválida (use week ou month).').default('week');
 
 const isoDate = z.string().refine(isValidISODate, 'Data inválida (use AAAA-MM-DD).');
 
@@ -241,12 +250,57 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
     res.json({ cycleStart: start, dailyGoalMinutes: body.data.dailyGoalMinutes, appliesToNextCycles: makeDefault });
   });
 
-  /** Métricas de acompanhamento do ciclo de apontamento da data: tarefas e ciclos. */
+  /** Resumo do período da data (semana ou mês): dias úteis com métricas e totais. */
+  app.get('/api/periods/:date', (req, res) => {
+    const date = isoDate.safeParse(req.params.date);
+    if (!date.success) return badRequest(res, date.error);
+    const scale = scaleSchema.safeParse(req.query.scale);
+    if (!scale.success) return badRequest(res, scale.error);
+
+    const period = getPeriod(date.data, scale.data);
+    const activities = repo.listActivities(period.start, period.end);
+    // A meta de cada dia é a do ciclo de apontamento a que ele pertence.
+    const goals = new Map<ISODate, number>();
+    const goalForDay = (day: ISODate) => {
+      const { start } = getCycle(day);
+      if (!goals.has(start)) goals.set(start, repo.goalForCycle(start));
+      return goals.get(start)!;
+    };
+    res.json(buildPeriodSummary(period, activities, goalForDay));
+  });
+
+  /** Métricas de acompanhamento do período da data (semana por padrão): tarefas e ciclos. */
   app.get('/api/metrics', (req, res) => {
     const date = isoDate.default(today()).safeParse(req.query.date);
     if (!date.success) return badRequest(res, date.error);
-    const { start, end } = getCycle(date.data);
+    const scale = scaleSchema.safeParse(req.query.scale);
+    if (!scale.success) return badRequest(res, scale.error);
+    const { start, end } = getPeriod(date.data, scale.data);
     res.json(buildOverview(summarize(repo.listDemands()), repo.listLinkedActivities(), { start, end }, today()));
+  });
+
+  /**
+   * Rendimento do período: tempo em Tarefas × Ciclos e o rendimento de cada ciclo em relação ao
+   * período anterior equivalente.
+   */
+  app.get('/api/yield', (req, res) => {
+    const date = isoDate.default(today()).safeParse(req.query.date);
+    if (!date.success) return badRequest(res, date.error);
+    const scale = scaleSchema.safeParse(req.query.scale);
+    if (!scale.success) return badRequest(res, scale.error);
+
+    const period = getPeriod(date.data, scale.data);
+    const previous = previousPeriod(period);
+    const demands = summarize(repo.listDemands());
+    const cycles = demands.flatMap((d) =>
+      d.category === 'ciclo' ? [{ id: d.id, label: d.label, status: d.status, startDate: d.startDate }] : [],
+    );
+    res.json({
+      period,
+      previous,
+      split: familySplit(repo.listActivities(period.start, period.end), demands, period),
+      cycles: cycleYield(cycles, repo.listActivities(previous.start, period.end), timelineOf(), period, previous),
+    });
   });
 
   /** Relatório do dia para a daily ou o 1:1; sem `date`, o dia útil anterior a hoje. */

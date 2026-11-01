@@ -148,7 +148,9 @@ O esquema evolui por migrações numeradas em `server/src/db.ts` (`PRAGMA user_v
 | GET | `/api/reports/daily?date=` | relatório do dia (sem `date`, o dia útil anterior): o que foi feito, impedimentos e o que será feito |
 | GET | `/api/timeline?demandId=` | linha do tempo unificada dos ciclos (eventos e impedimentos), do mais recente ao mais antigo; sem `demandId`, de todos |
 | PUT | `/api/demands/:id/events/:eventId/flag`, `/blockers/:blockerId/flag` | marca ou desmarca a bandeira (`{ flagged }`); editar não a apaga |
-| GET | `/api/metrics?date=` | tarefas (concluídas no ciclo de apontamento da data, na fila, em andamento) e ciclos abertos (última atualização, horas) |
+| GET | `/api/metrics?date=&scale=` | tarefas (concluídas no período da data, na fila, em andamento) e ciclos abertos (última atualização, horas). `scale` opcional: `week` (padrão, sexta → quinta) ou `month` (mês civil); outro valor → 400 |
+| GET | `/api/periods/:date?scale=` | resumo do período da data (v0.9): dias úteis com métricas e totais (meta do período, realizado, dias conformes `X/N`, % preenchido). A meta de cada dia é a do ciclo de apontamento a que ele pertence. `scale` como acima |
+| GET | `/api/yield?date=&scale=` | rendimento do período (v0.9): `{ period, previous, split, cycles }` — tempo em Tarefas × Ciclos por dia útil e, por ciclo, horas por dia, total, variação sobre o período anterior e registros da linha do tempo |
 
 ## 3. Telas
 

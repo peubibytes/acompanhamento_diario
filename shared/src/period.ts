@@ -4,7 +4,8 @@
 
 import { addDays, formatDayMonth, getCycle, isWorkday, type ISODate } from './cycle.ts';
 
-export type PeriodScale = 'week' | 'month';
+export const PERIOD_SCALES = ['week', 'month'] as const;
+export type PeriodScale = (typeof PERIOD_SCALES)[number];
 
 export interface PeriodWindow {
   scale: PeriodScale;
@@ -13,8 +14,6 @@ export interface PeriodWindow {
   /** Dias úteis do período: Sex–Qui na semana, Seg–Sex no mês. */
   workdays: ISODate[];
 }
-
-export const PERIOD_SCALES: readonly PeriodScale[] = ['week', 'month'];
 
 const MONTH_NAMES = [
   'Janeiro',
