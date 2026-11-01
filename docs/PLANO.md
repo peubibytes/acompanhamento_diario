@@ -598,6 +598,10 @@ Decisão de vocabulário em `docs/decisions/0005-periodo-no-lugar-de-ciclo-de-ap
   arredonda para baixo, como na semana.
 - **API:** `GET /api/periods/:date?scale=`, `scale` em `GET /api/metrics`, `GET /api/yield` e a faixa
   `?from=&to=` em `GET /api/activities` (seção 2). Sem `scale`, vale a semana, como antes.
+- **Revisão (v0.9):** auditoria automática de rolagem horizontal e contraste AA (texto ≥ 4,5:1; grande ≥ 3:1) em
+  Painel (5 visões × semana/mês, mais o estado vazio e os ⓘ e a meta abertos), Apontamentos, Demandas, Detalhes
+  (as duas abas), Lembretes e Relatório, nos dois temas, em 1280, 390, 360 e 320 px: 152 combinações, sem falhas.
+  Achou e corrigiu uma rolagem horizontal do cabeçalho de Detalhes em ≤ 360 px (`PageHeader`).
 - **Escala no Painel:** `?escala=mes` na URL (ausente = semana), preservada ao navegar entre telas e entre
   períodos. Apontamentos e Detalhes continuam só com a semana; a visão mensal de Detalhes fica fora desta versão.
 
