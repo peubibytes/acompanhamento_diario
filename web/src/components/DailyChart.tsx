@@ -3,21 +3,10 @@ import { useNavigate } from 'react-router';
 import { formatDayMonth, formatDuration, todayISO, type DayMetrics, type DemandCategory, type PeriodScale } from '@acomp/shared';
 import { useDayActivities, useDemands } from '../api/client';
 import { dayStyle } from './Badges';
+import { ChartTooltip, COLUMN_GAP, SIDE_GUTTER } from './ChartTooltip';
 
 /** Folga acima da barra mais alta para o valor (e o ícone de status) caber dentro do gráfico. */
 const HEADROOM = 1.14;
-
-/** Espaço entre as colunas (e entre os rótulos de baixo, que acompanham as colunas). */
-const GAP = {
-  week: 'gap-2 sm:gap-4',
-  month: 'gap-px @lg:gap-1',
-};
-
-/**
- * No mês, quando há valores sobre as colunas, a etiqueta "Meta" da linha ganha uma faixa à direita
- * (fora das colunas) para não cobrir o valor da última.
- */
-const SIDE_GUTTER = { inset: '@[58rem]:right-[4.5rem]', pad: '@[58rem]:pr-[4.5rem]' };
 
 /**
  * Horas apontadas por dia útil contra a linha de meta. O status de cada dia aparece na cor da
@@ -41,7 +30,7 @@ export function DailyChart({ days, goal, scale = 'week' }: { days: DayMetrics[];
       <div className="relative h-72 sm:h-[21rem]">
         <div className="pointer-events-none absolute inset-x-0 bottom-0 border-t border-baseline" />
 
-        <div className={`absolute inset-0 flex items-end ${GAP[scale]} ${month ? SIDE_GUTTER.inset : ''}`}>
+        <div className={`absolute inset-0 flex items-end ${COLUMN_GAP[scale]} ${month ? SIDE_GUTTER.inset : ''}`}>
           {days.map((d, i) => {
             const style = dayStyle(d);
             return (
@@ -98,7 +87,7 @@ export function DailyChart({ days, goal, scale = 'week' }: { days: DayMetrics[];
         {open !== null && <Tooltip day={days[open]} center={((open + 0.5) / days.length) * 100} />}
       </div>
 
-      <div className={`mt-3 flex ${GAP[scale]} ${month ? SIDE_GUTTER.pad : ''}`}>
+      <div className={`mt-3 flex ${COLUMN_GAP[scale]} ${month ? SIDE_GUTTER.pad : ''}`}>
         {days.map((d, i) => (
           <div key={d.date} className="flex min-w-0 flex-1 flex-col items-center text-center">
             {month ? (
@@ -130,10 +119,6 @@ const KINDS: { category: DemandCategory; label: string }[] = [
   { category: 'ciclo', label: 'Ciclos' },
 ];
 
-/**
- * Centrado na coluna e preso às bordas do gráfico (clamp), para não vazar da tela no celular. Só
- * existe enquanto uma coluna está com o mouse ou o foco: fechado, não ocupa lugar no layout.
- */
 function Tooltip({ day, center }: { day: DayMetrics; center: number }) {
   // Os apontamentos do dia (mesmo cache da tela Apontamentos) e o tipo de cada demanda apontada.
   const activities = useDayActivities(day.date);
@@ -148,11 +133,7 @@ function Tooltip({ day, center }: { day: DayMetrics; center: number }) {
   const loaded = activities.isSuccess && demands.isSuccess;
 
   return (
-    <span
-      role="tooltip"
-      style={{ left: `clamp(0px, calc(${center}% - 6rem), calc(100% - 12rem))` }}
-      className="tip-surface pointer-events-none absolute bottom-full z-20 mb-2 w-48 animate-[hint-in_0.15s_ease-out_both] p-3 text-left"
-    >
+    <ChartTooltip center={center}>
       <span className="block text-xs font-semibold text-ink">
         {day.weekdayLong}, {formatDayMonth(day.date)}
       </span>
@@ -179,6 +160,6 @@ function Tooltip({ day, center }: { day: DayMetrics; center: number }) {
       >
         {day.diagnosis}
       </span>
-    </span>
+    </ChartTooltip>
   );
 }

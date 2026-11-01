@@ -10,11 +10,13 @@ import {
   type PeriodSummary,
   type WeekMetrics,
 } from '@acomp/shared';
-import { useCycle, useDemands, useOverview, usePeriod, useTimeline } from '../api/client';
+import { useCycle, useDemands, useOverview, usePeriod, useTimeline, useYield } from '../api/client';
 import { toneStyle, type DayTone } from '../components/Badges';
 import { CyclesChart } from '../components/CyclesChart';
+import { CycleYieldChart } from '../components/CycleYieldChart';
 import { DailyChart } from '../components/DailyChart';
 import { DayBreakdownChart } from '../components/DayBreakdownChart';
+import { FamilySplitChart } from '../components/FamilySplitChart';
 import { GoalPopover } from '../components/GoalSelector';
 import { InfoHint } from '../components/InfoHint';
 import { PageHeader } from '../components/PageHeader';
@@ -26,7 +28,7 @@ import { ErrorState, Skeleton } from '../components/States';
 import { TasksOverview } from '../components/TasksOverview';
 import { usePeriodScale, useRefDate, withDate } from '../hooks';
 
-type View = 'semana' | 'distribuicao' | 'tarefas' | 'demandas';
+type View = 'semana' | 'distribuicao' | 'tarefas' | 'demandas' | 'rendimento';
 
 /** As visões do painel: o usuário vê uma de cada vez, a que escolher. */
 const VIEWS: { value: View; label: string }[] = [
@@ -34,6 +36,7 @@ const VIEWS: { value: View; label: string }[] = [
   { value: 'distribuicao', label: 'Distribuição' },
   { value: 'tarefas', label: 'Tarefas' },
   { value: 'demandas', label: 'Ciclos' },
+  { value: 'rendimento', label: 'Rendimento' },
 ];
 
 const SCALES: { value: PeriodScale; label: string }[] = [
@@ -69,6 +72,10 @@ const PAGE_HINT = (
     </span>
     <span className="mt-1.5 block">
       <strong className="font-semibold text-ink">Ciclos:</strong> horas apontadas, prazo e última atualização de cada ciclo aberto.
+    </span>
+    <span className="mt-1.5 block">
+      <strong className="font-semibold text-ink">Rendimento:</strong> quanto do tempo foi em Tarefas e em Ciclos e como
+      cada ciclo rendeu em relação ao período anterior.
     </span>
   </>
 );
@@ -108,7 +115,7 @@ export function Dashboard() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex w-full flex-col items-start gap-3 sm:w-auto sm:flex-row sm:items-center">
           <Segmented size="sm" label="Escala do período" value={scale} onChange={setScale} options={SCALES} />
-          <Segmented label="Métricas do painel" value={view} onChange={choose} options={VIEWS} stretch />
+          <Segmented label="Métricas do painel" value={view} onChange={choose} options={VIEWS} stretch dense />
         </div>
         <PeriodNav date={date} scale={scale} onChange={setDate} />
       </div>
@@ -118,6 +125,8 @@ export function Dashboard() {
           <TasksView date={date} scale={scale} />
         ) : view === 'demandas' ? (
           <CyclesView date={date} scale={scale} />
+        ) : view === 'rendimento' ? (
+          <YieldView date={date} scale={scale} />
         ) : summary.isPending || goalCycle.isPending ? (
           <Skeleton className="h-[34rem]" />
         ) : summary.isError || goalCycle.isError ? (
@@ -144,6 +153,20 @@ function TasksView({ date, scale }: { date: string; scale: PeriodScale }) {
   if (overview.isPending) return <Skeleton className="h-96" />;
   if (overview.isError) return <ErrorState message={overview.error.message} onRetry={() => overview.refetch()} />;
   return <TasksOverview tasks={overview.data.tasks} />;
+}
+
+function YieldView({ date, scale }: { date: string; scale: PeriodScale }) {
+  const report = useYield(date, scale);
+  if (report.isPending) return <Skeleton className="h-[48rem]" />;
+  if (report.isError) return <ErrorState message={report.error.message} onRetry={() => report.refetch()} />;
+  return (
+    <section className="card rise p-5 sm:p-6">
+      <FamilySplitChart split={report.data.split} scale={scale} />
+      <div className="mt-6 border-t border-line pt-5">
+        <CycleYieldChart cycles={report.data.cycles} />
+      </div>
+    </section>
+  );
 }
 
 function CyclesView({ date, scale }: { date: string; scale: PeriodScale }) {

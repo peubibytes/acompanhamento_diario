@@ -19,6 +19,7 @@ import {
   type Overview,
   type PeriodScale,
   type PeriodSummary,
+  type YieldReport,
 } from '@acomp/shared';
 
 export class ApiError extends Error {}
@@ -92,6 +93,14 @@ export function usePeriod(date: ISODate, scale: PeriodScale) {
   });
 }
 
+/** Rendimento do período: Tarefas × Ciclos e o rendimento de cada ciclo contra o período anterior. */
+export function useYield(date: ISODate, scale: PeriodScale) {
+  return useQuery({
+    queryKey: ['yield', scale, getPeriod(date, scale).start] as const,
+    queryFn: () => request<YieldReport>('GET', `/yield?date=${date}&scale=${scale}`),
+  });
+}
+
 /** Apontamentos de uma faixa de datas (a distribuição do mês). */
 export function useRangeActivities(from: ISODate, to: ISODate, enabled = true) {
   return useQuery({
@@ -141,7 +150,7 @@ function useInvalidate() {
   const client = useQueryClient();
   return () =>
     Promise.all(
-      ['cycle', 'period', 'activities', 'demands', 'metrics', 'reports', 'timeline'].map((key) => client.invalidateQueries({ queryKey: [key] })),
+      ['cycle', 'period', 'yield', 'activities', 'demands', 'metrics', 'reports', 'timeline'].map((key) => client.invalidateQueries({ queryKey: [key] })),
     );
 }
 

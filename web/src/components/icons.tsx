@@ -73,6 +73,11 @@ export const TrendUpIcon = (p: IconProps) => (
     <path d="M4 16l5-5 4 4 7-7M15 8h5v5" />
   </Icon>
 );
+export const TrendDownIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 8l5 5 4-4 7 7M15 16h5v-5" />
+  </Icon>
+);
 export const SunIcon = (p: IconProps) => (
   <Icon {...p}>
     <circle cx="12" cy="12" r="4" />

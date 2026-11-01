@@ -104,6 +104,14 @@ export function familySplit(
   return { days, total, predominant };
 }
 
+/** O que `GET /api/yield` devolve. */
+export interface YieldReport {
+  period: PeriodWindow;
+  previous: PeriodWindow;
+  split: FamilySplit;
+  cycles: CycleYield[];
+}
+
 // ── Rendimento por ciclo ───────────────────────────────────────────────────────
 
 /** O que o rendimento precisa saber de um ciclo (vem do resumo da demanda). */
