@@ -145,6 +145,9 @@ O esquema evolui por migrações numeradas em `server/src/db.ts` (`PRAGMA user_v
 | DELETE | `/api/demands/:id` | remove; com apontamentos → 409 (eventos e impedimentos vão junto) |
 | POST/PUT/DELETE | `/api/demands/:id/events[/:eventId]` | linha do tempo (só ciclos) |
 | POST/PUT/DELETE | `/api/demands/:id/blockers[/:blockerId]` | impedimentos (só ciclos) |
+| GET | `/api/export` | todos os dados em JSON (`app`, `schemaVersion`, `exportedAt` e uma lista de linhas por tabela), como arquivo para baixar (v0.10) |
+| POST | `/api/import` | importa uma exportação. Só em banco vazio (sem demandas nem apontamentos); com `?replace=true` substitui o que existe, depois de guardar um backup `pre-importacao-…`. Valida com zod e o `schemaVersion` precisa ser o do aplicativo; roda numa transação (400 e nada muda se algo falhar; 409 sem `replace` em banco com dados). Aceita até 50 MB; as demais rotas, 100 kb |
+| GET | `/api/backups` | o último backup diário, quantos há e quantos ficam: `{ last, count, keep }` |
 | GET | `/api/reports/daily?date=` | relatório do dia (sem `date`, o dia útil anterior): o que foi feito, impedimentos e o que será feito |
 | GET | `/api/timeline?demandId=` | linha do tempo unificada dos ciclos (eventos e impedimentos), do mais recente ao mais antigo; sem `demandId`, de todos |
 | PUT | `/api/demands/:id/events/:eventId/flag`, `/blockers/:blockerId/flag` | marca ou desmarca a bandeira (`{ flagged }`); editar não a apaga |
@@ -245,6 +248,27 @@ npm test        # testes das regras e da API
 npm start       # build do front + servidor único em :3001
 npm run check:sensitive   # varredura anti-vazamento (planilhas, bancos, chamados reais, e-mails)
 ```
+
+### Dados e backup (v0.10)
+
+- **Onde ficam:** um arquivo SQLite em `server/data/acompanhamento.db` (`DB_PATH` muda o lugar). A pasta não
+  vai para o git.
+- **Backup diário:** ao iniciar o servidor e, enquanto ele roda, quando o dia vira, o banco é copiado com
+  `VACUUM INTO` (cópia consistente, mesmo em uso) para `server/data/backups/acompanhamento-AAAA-MM-DD.db`
+  (`BACKUP_DIR` muda o lugar). O primeiro do dia vale (não se sobrescreve); ficam os **14 mais recentes**.
+  A cópia é gravada num arquivo temporário e renomeada, então uma queda no meio não deixa backup pela metade.
+  Uma falha de backup é registrada no console e não derruba o servidor.
+- **Antes de migrar:** se o banco já existe e há migração pendente, ele é copiado antes como
+  `pre-migracao-N.db` (N = a versão de origem do esquema). Todas ficam.
+- **Antes de substituir:** `POST /api/import?replace=true` num banco com dados guarda `pre-importacao-…db`
+  (as 5 mais recentes ficam).
+- **Exportar e importar:** `GET /api/export` e `POST /api/import` (seção 2). O formato é genérico (as
+  colunas vêm do próprio banco): uma coluna nova numa migração entra sem mexer na exportação. Importar exige
+  a mesma versão do esquema.
+- **Na tela:** Lembretes e agenda → **Seus dados**: "Exportar dados" e a data e hora do último backup.
+- **Restaurar um backup:** pare o servidor, copie o arquivo escolhido de `server/data/backups/` por cima de
+  `server/data/acompanhamento.db` (apague antes os arquivos `acompanhamento.db-wal` e `-shm`, se existirem) e
+  inicie de novo. O passo a passo ficará no README.
 
 ### Acesso e segurança (v0.10)
 

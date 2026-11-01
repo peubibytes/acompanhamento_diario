@@ -9,6 +9,7 @@ import {
   type AppNotification,
   type ISODate,
 } from '@acomp/shared';
+import { useBackupStatus } from '../api/client';
 import { targetHref, useReminders } from '../api/reminders';
 import { deadlineStyle } from '../components/DemandVisuals';
 import { AlertIcon, CalendarIcon, SendIcon, TargetIcon } from '../components/icons';
@@ -58,7 +59,58 @@ export function Reminders() {
           </section>
         </div>
       )}
+
+      <YourData />
     </div>
+  );
+}
+
+const DATA_HINT = (
+  <>
+    <span className="block">
+      Seus dados ficam num arquivo na sua máquina (pasta <strong className="font-semibold text-ink">server/data</strong>).
+      Nada vai para a internet.
+    </span>
+    <span className="mt-1.5 block">
+      Um backup é feito por dia, ao iniciar o servidor e quando o dia vira (os 14 mais recentes ficam em{' '}
+      <strong className="font-semibold text-ink">server/data/backups</strong>), e outro antes de qualquer migração do
+      banco.
+    </span>
+    <span className="mt-1.5 block">
+      <strong className="font-semibold text-ink">Exportar dados</strong> baixa tudo em um arquivo JSON, para guardar ou
+      levar a outra máquina. Para restaurar um backup ou importar um arquivo, veja o README.
+    </span>
+  </>
+);
+
+const EXPORT_LINK =
+  'rounded-full bg-surface-2 px-4 py-2 text-sm font-semibold text-ink outline-none transition hover:brightness-95 focus-visible:ring-2 focus-visible:ring-accent';
+
+/** Exportar os dados e quando foi o último backup: a tela de Lembretes é a de "cuidar do que importa". */
+function YourData() {
+  const backups = useBackupStatus();
+  const last = backups.data?.last;
+  const text = backups.isPending
+    ? 'Carregando…'
+    : backups.isError
+      ? 'Não foi possível consultar os backups.'
+      : last
+        ? new Date(last.at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+        : 'Nenhum ainda';
+
+  return (
+    <section className="min-w-0 space-y-3" aria-label="Seus dados">
+      <SectionTitle title="Seus dados" hint={DATA_HINT} />
+      <div className="card flex flex-wrap items-center justify-between gap-x-6 gap-y-3 p-5">
+        <dl>
+          <dt className="text-2xs font-semibold tracking-wider text-ink-3 uppercase">Último backup</dt>
+          <dd className="tabular mt-1 text-sm font-semibold text-ink">{text}</dd>
+        </dl>
+        <a href="/api/export" download className={EXPORT_LINK}>
+          Exportar dados
+        </a>
+      </div>
+    </section>
   );
 }
 

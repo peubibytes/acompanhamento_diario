@@ -9,6 +9,9 @@ const LOOPBACK = ['localhost', '127.0.0.1', '[::1]'];
 /** Tamanho máximo do corpo JSON das rotas comuns (a maior declaração tem ~4 mil caracteres). */
 export const JSON_LIMIT = '100kb';
 
+/** Só a importação (o banco inteiro em JSON) pode mais que isso. */
+export const IMPORT_LIMIT = '50mb';
+
 /** "host:porta" → "host" (preserva o IPv6 entre colchetes). */
 export function hostnameOf(hostHeader: string): string {
   const text = hostHeader.trim().toLowerCase();

@@ -1,4 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite';
+import { exportDatabase, importDatabase, isEmptyDatabase } from './transfer.ts';
 import {
   DEFAULT_DAILY_GOAL,
   demandLabel,
@@ -297,6 +298,21 @@ export function createRepo(db: DatabaseSync) {
   };
 
   return {
+    /** Todas as tabelas num arquivo só (ver transfer.ts). */
+    exportData(now = new Date()) {
+      return exportDatabase(db, now);
+    },
+
+    /** Sem demandas e sem apontamentos. */
+    isEmpty() {
+      return isEmptyDatabase(db);
+    },
+
+    /** Importa uma exportação; só em banco vazio, ou com `replace`. */
+    importData(payload: unknown, replace: boolean) {
+      return importDatabase(db, payload, replace);
+    },
+
     listActivities(from: ISODate, to: ISODate): Activity[] {
       return (q.byRange.all(from, to) as unknown as ActivityRow[]).map(toActivity);
     },
