@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  getPeriod,
   getCycle,
   type Activity,
   type ActivityInput,
@@ -16,6 +17,9 @@ import {
   type DemandSummary,
   type ISODate,
   type Overview,
+  type PeriodScale,
+  type PeriodSummary,
+  type YieldReport,
 } from '@acomp/shared';
 
 export class ApiError extends Error {}
@@ -47,7 +51,8 @@ const keys = {
   activities: (date: ISODate) => ['activities', date] as const,
   demands: (filter?: DemandStatusGroup) => ['demands', 'list', filter ?? 'todas'] as const,
   demand: (id: number) => ['demands', 'detail', id] as const,
-  metrics: (date: ISODate) => ['metrics', getCycle(date).start] as const,
+  period: (date: ISODate, scale: PeriodScale) => ['period', scale, getPeriod(date, scale).start] as const,
+  metrics: (date: ISODate, scale: PeriodScale) => ['metrics', scale, getPeriod(date, scale).start] as const,
 };
 
 export type DemandDetail = DemandSummary & {
@@ -65,10 +70,11 @@ export function useCycle(date: ISODate) {
   });
 }
 
-export function useDayActivities(date: ISODate) {
+export function useDayActivities(date: ISODate, enabled = true) {
   return useQuery({
     queryKey: keys.activities(date),
     queryFn: () => request<Activity[]>('GET', `/activities?date=${date}`),
+    enabled,
   });
 }
 
@@ -79,11 +85,36 @@ export function useDemands(filter?: DemandStatusGroup) {
   });
 }
 
-/** Tarefas (concluídas, fila, em andamento) e ciclos abertos, no ciclo de apontamento da data. */
-export function useOverview(date: ISODate) {
+/** Resumo do período da data (semana ou mês): dias úteis com métricas e totais. */
+export function usePeriod(date: ISODate, scale: PeriodScale) {
   return useQuery({
-    queryKey: keys.metrics(date),
-    queryFn: () => request<Overview>('GET', `/metrics?date=${date}`),
+    queryKey: keys.period(date, scale),
+    queryFn: () => request<PeriodSummary>('GET', `/periods/${date}?scale=${scale}`),
+  });
+}
+
+/** Rendimento do período: Tarefas × Ciclos e o rendimento de cada ciclo contra o período anterior. */
+export function useYield(date: ISODate, scale: PeriodScale) {
+  return useQuery({
+    queryKey: ['yield', scale, getPeriod(date, scale).start] as const,
+    queryFn: () => request<YieldReport>('GET', `/yield?date=${date}&scale=${scale}`),
+  });
+}
+
+/** Apontamentos de uma faixa de datas (a distribuição do mês). */
+export function useRangeActivities(from: ISODate, to: ISODate, enabled = true) {
+  return useQuery({
+    queryKey: ['activities', 'range', from, to] as const,
+    queryFn: () => request<Activity[]>('GET', `/activities?from=${from}&to=${to}`),
+    enabled,
+  });
+}
+
+/** Tarefas (concluídas, fila, em andamento) e ciclos abertos, no período da data. */
+export function useOverview(date: ISODate, scale: PeriodScale = 'week') {
+  return useQuery({
+    queryKey: keys.metrics(date, scale),
+    queryFn: () => request<Overview>('GET', `/metrics?date=${date}&scale=${scale}`),
   });
 }
 
@@ -119,7 +150,7 @@ function useInvalidate() {
   const client = useQueryClient();
   return () =>
     Promise.all(
-      ['cycle', 'activities', 'demands', 'metrics', 'reports', 'timeline'].map((key) => client.invalidateQueries({ queryKey: [key] })),
+      ['cycle', 'period', 'yield', 'activities', 'demands', 'metrics', 'reports', 'timeline'].map((key) => client.invalidateQueries({ queryKey: [key] })),
     );
 }
 

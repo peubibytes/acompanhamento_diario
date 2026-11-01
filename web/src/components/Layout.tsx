@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Outlet } from 'react-router';
-import { useRefDate, withDate } from '../hooks';
+import { usePeriodScale, useRefDate, withDate } from '../hooks';
 import { ClockIcon, GridIcon, ListIcon, StopwatchIcon, TableIcon, TargetIcon } from './icons';
 import { NotificationBell } from './NotificationBell';
 import { ThemeToggle } from './ThemeToggle';
@@ -15,13 +15,14 @@ const links: { to: string; label: string; icon: ReactNode }[] = [
 
 export function Layout() {
   const [date] = useRefDate();
+  const [scale] = usePeriodScale();
 
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-30 border-b print:hidden border-line bg-bg/85 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-page items-center justify-between gap-3 px-gutter">
           <NavLink
-            to={withDate('/', date)}
+            to={withDate('/', date, scale)}
             className="flex items-center gap-2.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <span className="grid size-7 place-items-center rounded-lg bg-accent text-on-accent">
@@ -37,7 +38,7 @@ export function Layout() {
               {links.map((l) => (
                 <NavLink
                   key={l.to}
-                  to={withDate(l.to, date)}
+                  to={withDate(l.to, date, scale)}
                   end
                   className={({ isActive }) =>
                     `rounded-full px-3.5 py-1.5 text-sm font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-accent ${
@@ -68,7 +69,7 @@ export function Layout() {
           {links.map((l) => (
             <NavLink
               key={l.to}
-              to={withDate(l.to, date)}
+              to={withDate(l.to, date, scale)}
               end
               className={({ isActive }) =>
                 `flex flex-col items-center gap-0.5 py-2 text-2xs outline-none transition focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent ${

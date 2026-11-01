@@ -16,7 +16,7 @@ import {
 } from '@acomp/shared';
 import { useCycle, useDayActivities, useDeleteActivity, useDemands } from '../api/client';
 import { ConformityBadge, dayStyle } from '../components/Badges';
-import { CycleNav } from '../components/CycleNav';
+import { PeriodNav } from '../components/PeriodNav';
 import { IconButton } from '../components/DemandHistory';
 import { CategoryAvatar, categoryIcon } from '../components/DemandVisuals';
 import { InfoHint } from '../components/InfoHint';
@@ -120,7 +120,7 @@ export function TimeEntries() {
       />
 
       <div className="space-y-4">
-        <CycleNav date={day} onChange={changeCycle} />
+        <PeriodNav date={day} scale="week" onChange={changeCycle} />
         {cycle.data ? <DayTabs days={cycle.data.days} selected={day} onSelect={selectDay} /> : <Skeleton className="h-20" />}
       </div>
 

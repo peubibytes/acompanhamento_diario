@@ -131,7 +131,7 @@ describe('agenda', () => {
     );
     assert.equal(items[0].detail, 'Prazo do ciclo · 3h apontadas · Prazo próximo');
     assert.equal(items[2].detail, 'Início do ciclo');
-    assert.equal(items[1].detail, 'Fechamento do ciclo Sex 23/10 → Qui 29/10');
+    assert.equal(items[1].detail, 'Fechamento do período Sex 23/10 → Qui 29/10');
   });
 
   it('mantém prazos vencidos (aparecem antes de hoje)', () => {

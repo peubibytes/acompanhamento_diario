@@ -31,7 +31,10 @@ metas e relatórios de prestação de contas (daily, 1:1, relatório mensal).
   apontada a cada ocorrência.
 - **Treinamento:** nome, descrição e status.
 - **Ciclo (demanda):** trabalho longo, com tipo, status, prioridade, início, prazo opcional, linha do
-  tempo e impedimentos. Não confundir com o **ciclo de apontamento** (sexta → quinta, seção 1).
+  tempo e impedimentos. Não confundir com o **Período** (sexta → quinta, seção 1).
+- **Período:** janela de tempo do apontamento e dos indicadores. Na interface é o antigo "ciclo de
+  apontamento": de **sexta a quinta** (semana) ou, a partir da v0.9, o **mês** civil (decisão
+  `docs/decisions/0005`). No código e na API continua `cycle`.
 - **Apontamento:** intervalo de tempo (data, início, fim) gasto em uma demanda declarada. Só é
   feito na tela Apontamentos. No código e no banco mantém o nome histórico `activity`.
 - **Evento:** linha datada na linha do tempo de um ciclo.
@@ -47,7 +50,9 @@ metas e relatórios de prestação de contas (daily, 1:1, relatório mensal).
 
 ## 1. Regras de negócio — módulo Apontamento
 
-### Ciclo
+### Ciclo (na interface: Período)
+- Na interface este conceito se chama **Período**; "Ciclo" fica reservado à demanda de categoria
+  `ciclo` (ver glossário). Código, tabelas e rotas mantêm `cycle`.
 - Começa na **sexta-feira** e termina na **quinta-feira** seguinte.
 - Apenas dias úteis: **Sex, Seg, Ter, Qua, Qui** (5 dias). Sábado e domingo não aceitam lançamentos.
 - O ciclo de uma data é derivado dela: `início = sexta-feira mais recente ≤ data`.
@@ -129,7 +134,7 @@ O esquema evolui por migrações numeradas em `server/src/db.ts` (`PRAGMA user_v
 |---|---|---|
 | GET | `/api/cycles/:date` | ciclo da data: 5 dias com métricas + totais |
 | PUT | `/api/cycles/:date/goal` | define a meta diária do ciclo (e o padrão dos próximos) |
-| GET | `/api/activities?date=` | apontamentos de um dia |
+| GET | `/api/activities?date=` ou `?from=&to=` | apontamentos de um dia ou de uma faixa de datas (v0.9; até 62 dias) |
 | POST | `/api/activities` | aponta (exige `demandId` de uma demanda declarada) |
 | PUT | `/api/activities/:id` | edita |
 | DELETE | `/api/activities/:id` | remove |
@@ -143,17 +148,28 @@ O esquema evolui por migrações numeradas em `server/src/db.ts` (`PRAGMA user_v
 | GET | `/api/reports/daily?date=` | relatório do dia (sem `date`, o dia útil anterior): o que foi feito, impedimentos e o que será feito |
 | GET | `/api/timeline?demandId=` | linha do tempo unificada dos ciclos (eventos e impedimentos), do mais recente ao mais antigo; sem `demandId`, de todos |
 | PUT | `/api/demands/:id/events/:eventId/flag`, `/blockers/:blockerId/flag` | marca ou desmarca a bandeira (`{ flagged }`); editar não a apaga |
-| GET | `/api/metrics?date=` | tarefas (concluídas no ciclo de apontamento da data, na fila, em andamento) e ciclos abertos (última atualização, horas) |
+| GET | `/api/metrics?date=&scale=` | tarefas (concluídas no período da data, na fila, em andamento) e ciclos abertos (última atualização, horas). `scale` opcional: `week` (padrão, sexta → quinta) ou `month` (mês civil); outro valor → 400 |
+| GET | `/api/periods/:date?scale=` | resumo do período da data (v0.9): dias úteis com métricas e totais (meta do período, realizado, dias conformes `X/N`, % preenchido). A meta de cada dia é a do ciclo de apontamento a que ele pertence. `scale` como acima |
+| GET | `/api/yield?date=&scale=` | rendimento do período (v0.9): `{ period, previous, split, cycles }` — tempo em Tarefas × Ciclos por dia útil e, por ciclo, horas por dia, total, variação sobre o período anterior e registros da linha do tempo |
 
 ## 3. Telas
 
 Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com o texto explicativo
 (que não fica fixo na tela) e, à direita, a ação principal.
 
-1. **Painel (`/`)** — um seletor no topo escolhe a visão (**Dia útil**, **Distribuição**,
-   **Tarefas** ou **Ciclos**); a navegação entre ciclos de apontamento fica ao lado (v0.7: em todas).
+1. **Painel (`/`)** — no canto superior esquerdo, o seletor de **escala** do período (**Semana** |
+   **Mês**, v0.9, guardada na URL como `?escala=mes`) e, ao lado, o seletor da visão (**Dia útil**,
+   **Distribuição**, **Tarefas** ou **Ciclos**); a navegação entre períodos fica à direita (em todas as
+   visões). A escala vale para todas as visões; no celular, escala e visões se empilham à esquerda e a
+   navegação desce. A semana é sexta → quinta; o mês é o mês civil, com os dias úteis Seg–Sex.
+   *Visões no mês (v0.9):* **Dia útil** com uma barra por dia útil do mês (rótulo "dd"; o ícone e o valor só
+   aparecem quando cabem, pela largura do gráfico; o resto fica no tooltip), Meta do período, Total realizado
+   e Dias conformes `X/N` (a linha de meta é a meta diária mais comum do mês; o popover de meta edita a meta
+   diária do ciclo de apontamento de hoje, ou do último/primeiro dia útil num mês passado/futuro);
+   **Distribuição** com a rosca do mês inteiro, sem a escolha de dia; **Tarefas** e **Ciclos** usam o
+   período ("no período"). Na semana nada muda.
    - *Dia útil:* faixa fina com o anel de % preenchido, o selo da situação ("Faltam 17h15",
-     "Excedeu 1h", "Meta atingida"), total realizado, meta semanal e dias conformes; abaixo, o
+     "Excedeu 1h", "Meta atingida"), total realizado, meta semanal (no mês, "Meta do período") e dias conformes; abaixo, o
      gráfico por dia útil (~340 px), com o valor e o ícone de status em cima de cada barra e
      a linha de meta por cima das barras. Tocar em "Meta semanal" abre a meta diária (5h30,
      8h48 ou outro). O lembrete de dia de apontamento fica no sino. Passar o mouse numa coluna
@@ -164,6 +180,10 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
      treinamentos (barra empilhada, com os números escritos).
    - *Ciclos:* cada ciclo aberto com o selo de prazo, a última atualização, as horas apontadas
      (como número) e o **mapa da linha do tempo** em serpentina (v0.8, seção 11), no lugar da barra.
+   - *Rendimento (v0.9):* em semana e em mês, dois blocos num só cartão: **Tarefas × Ciclos** (horas em
+     cada família, quem predominou e barras empilhadas por dia útil) e **Rendimento por ciclo** (uma linha
+     por ciclo: total no período, variação sobre o período anterior, registros da linha do tempo e um
+     mini-gráfico por dia útil com a média dos dias anteriores). Ver seção 12.
    - Ação principal: "Registrar apontamentos". Link "Detalhes" no gráfico.
 2. **Apontamentos (`/apontamentos`; `/atividades` redireciona)** — abas Sex/Seg/Ter/Qua/Qui
    (dia, horas e uma barrinha de progresso); mostra só o dia escolhido: resumo do dia em uma
@@ -203,6 +223,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 | 8 | Expansão para gestão do colaborador (seção 8) | a definir |
 | 9 | v0.7: status só na demanda, Tarefas, métricas, relatório diário (seção 10) | ✅ código; falta a documentação técnica (PDF) |
 | 10 | v0.8: linha do tempo dos ciclos: impedimentos dentro dela, bandeira, Detalhes → Ciclos e mapa no Painel (seção 11) | ✅ |
+| 11 | v0.9: "Período" no lugar de "ciclo de apontamento", escala Semana \| Mês no Painel e visão Rendimento (seção 12) | ✅ |
 | — | Integração com o Azure | futuro |
 
 ### Decisões registradas
@@ -560,3 +581,50 @@ Decisão em `docs/decisions/0004-impedimentos-na-linha-do-tempo.md`.
     Detalhes → Ciclos. Ciclo sem registros mostra só Início e Prazo.
   - Cada ciclo ganha o link **Analisar linha do tempo** (também em Demandas), que abre Detalhes →
     Ciclos já filtrado por ele.
+
+## 12. Períodos, visão mensal e Rendimento (v0.9)
+
+Decisão de vocabulário em `docs/decisions/0005-periodo-no-lugar-de-ciclo-de-apontamento.md`.
+
+- **Período:** na interface, o "ciclo de apontamento" passou a se chamar **Período**; "Ciclo" fica só para
+  a demanda de categoria `ciclo`. Código, tabelas e rotas mantêm `cycle`. O período tem duas escalas:
+  `week` (sexta → quinta, como sempre) e `month` (mês civil, dias úteis Seg–Sex).
+- **Regras** (`shared/src/period.ts`, testadas): `getPeriod`, `shiftPeriod` (±7 dias ou ±1 mês, ancorado no
+  dia 1º), `previousPeriod` (o equivalente anterior), `formatPeriodLabel` ("Sex 30/10 → Qui 05/11" ou
+  "Outubro de 2026") e `anchorDate` (hoje, se cair no período; senão a ponta mais próxima).
+- **Resumo do período** (`buildPeriodSummary`, em `metrics.ts`): reaproveita `dayMetrics` e `weekMetrics`.
+  A meta de cada dia é a do ciclo de apontamento a que ele pertence (as metas continuam gravadas por
+  `cycle_start`); a meta do período é a soma das metas dos dias. Dias conformes `X/N`; % preenchido
+  arredonda para baixo, como na semana.
+- **API:** `GET /api/periods/:date?scale=`, `scale` em `GET /api/metrics`, `GET /api/yield` e a faixa
+  `?from=&to=` em `GET /api/activities` (seção 2). Sem `scale`, vale a semana, como antes.
+- **Revisão (v0.9):** auditoria automática de rolagem horizontal e contraste AA (texto ≥ 4,5:1; grande ≥ 3:1) em
+  Painel (5 visões × semana/mês, mais o estado vazio e os ⓘ e a meta abertos), Apontamentos, Demandas, Detalhes
+  (as duas abas), Lembretes e Relatório, nos dois temas, em 1280, 390, 360 e 320 px: 152 combinações, sem falhas.
+  Achou e corrigiu uma rolagem horizontal do cabeçalho de Detalhes em ≤ 360 px (`PageHeader`).
+- **Escala no Painel:** `?escala=mes` na URL (ausente = semana), preservada ao navegar entre telas e entre
+  períodos. Apontamentos e Detalhes continuam só com a semana; a visão mensal de Detalhes fica fora desta versão.
+
+### Rendimento (`/` → Rendimento)
+
+Princípio: mostrar para onde o tempo foi (Tarefas ou Ciclos) e se cada ciclo rendeu mais ou menos que antes.
+Só leitura dos apontamentos: nada é gravado. Regras em `shared/src/yield.ts`.
+
+1. **Tarefas × Ciclos** (`familySplit`). Tarefas = chamados, reuniões e treinamentos; Ciclos = a categoria
+   `ciclo`; apontamentos antigos, sem demanda, ficam num terceiro grupo, "Sem demanda".
+   - Dentro de uma família, horários sobrepostos contam uma vez (união); o trecho em que famílias
+     diferentes se sobrepõem é dividido igualmente entre elas (a mesma ideia da Distribuição, seção 6).
+     A soma por dia bate com o total do dia nas métricas; os minutos são inteiros (maior resto).
+   - Faixa: horas em Tarefas, horas em Ciclos e quem **predominou** ("Mais em Ciclos · 62%": a fatia da
+     família maior no total do período; empate ou período vazio não têm predominante).
+   - Barras empilhadas por dia útil (Tarefas, Ciclos e Sem demanda, esta só se houver), com legenda
+     escrita (nome, horas e %), valor do dia em cima quando cabe e tooltip com horas e % de cada parte.
+2. **Rendimento por ciclo** (`cycleYield`). Entram os ciclos com apontamento ou registro no período e os
+   abertos já iniciados; do maior total para o menor.
+   - *Total no período* e *variação* sobre o período anterior equivalente, em minutos e %, com selo de
+     seta e texto escrito ("+2h10 vs. período anterior"). Sem apontamento no anterior, só os minutos.
+   - *Registros da linha do tempo no período:* eventos, mais o início e a resolução de cada impedimento.
+   - *Mini-gráfico:* barras com as horas de cada dia útil e uma linha tracejada com a **média dos dias
+     anteriores** do período em que o ciclo teve apontamento (o primeiro dia não tem média). Tooltip:
+     apontado, média anterior e diferença.
+   - Sem nenhum apontamento em ciclos no período: "Nenhum apontamento em ciclos neste período".

@@ -15,6 +15,7 @@ export function Segmented<T extends string>({
   label,
   size = 'md',
   stretch = false,
+  dense = false,
 }: {
   options: SegmentedOption<T>[];
   value: T;
@@ -24,6 +25,8 @@ export function Segmented<T extends string>({
   size?: 'sm' | 'md';
   /** No celular, ocupa a largura toda com as opções divididas por igual; de sm em diante, o tamanho do conteúdo. */
   stretch?: boolean;
+  /** No celular, texto e margem menores, para caberem muitas opções sem truncar (só com `stretch`). */
+  dense?: boolean;
 }) {
   return (
     <div
@@ -40,8 +43,8 @@ export function Segmented<T extends string>({
             aria-selected={on}
             onClick={() => onChange(o.value)}
             className={`inline-flex items-center justify-center gap-1.5 rounded-full font-medium whitespace-nowrap transition ${
-              stretch ? 'min-w-0 flex-1 sm:flex-none' : ''
-            } ${size === 'sm' ? 'px-3 py-1 text-xs' : stretch ? 'px-2 py-1.5 text-sm sm:px-3.5' : 'px-3.5 py-1.5 text-sm'} ${
+              stretch ? `min-w-0 ${dense ? 'flex-auto' : 'flex-1'} sm:flex-none` : ''
+            } ${size === 'sm' ? 'px-3 py-1 text-xs' : stretch ? `${dense ? 'px-1 text-xs max-[22.5rem]:px-0.5 max-[22.5rem]:text-2xs' : 'px-2 text-sm'} py-1.5 sm:px-3.5 sm:text-sm` : 'px-3.5 py-1.5 text-sm'} ${
               on ? 'bg-surface text-ink shadow-sm' : 'text-ink-2 hover:text-ink'
             }`}
           >

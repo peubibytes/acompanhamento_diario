@@ -7,8 +7,8 @@ const HINT = (
   <>
     <span className="block">Chamados e treinamentos. Reuniões não têm status e não entram.</span>
     <span className="mt-1.5 block">
-      <strong className="font-semibold text-ink">Concluídas:</strong> passaram a Concluído dentro do ciclo de
-      apontamento escolhido (sexta a quinta).
+      <strong className="font-semibold text-ink">Concluídas:</strong> passaram a Concluído dentro do período
+      escolhido (a semana, de sexta a quinta, ou o mês).
     </span>
     <span className="mt-1.5 block">
       <strong className="font-semibold text-ink">Na fila:</strong> status Não iniciado, hoje.{' '}
@@ -27,7 +27,7 @@ const PARTS = [
   { key: 'queued', label: 'Na fila', bar: 'bg-neutral', icon: <DashIcon size={13} /> },
 ] as const satisfies readonly { key: keyof TaskCounts; label: string; bar: string; icon: unknown }[];
 
-/** Painel: tarefas concluídas no ciclo, na fila e em andamento, e a divisão por tipo. */
+/** Painel: tarefas concluídas no período, na fila e em andamento, e a divisão por tipo. */
 export function TasksOverview({ tasks }: { tasks: TaskOverview }) {
   const total = tasks.completed + tasks.queued + tasks.inProgress;
 
@@ -49,7 +49,7 @@ export function TasksOverview({ tasks }: { tasks: TaskOverview }) {
 
       {total === 0 ? (
         <p className="mt-6 text-sm text-ink-2">
-          Nenhuma tarefa no ciclo.{' '}
+          Nenhuma tarefa no período.{' '}
           <Link to="/demandas?tipo=chamado" className="font-semibold text-accent hover:underline">
             Declarar tarefa
           </Link>

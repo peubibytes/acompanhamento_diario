@@ -37,6 +37,10 @@ const HINT = (
       <strong className="font-semibold text-ink">Última atualização:</strong> o evento, a troca de status ou o
       apontamento mais recente. Sem nenhuma há 3 dias úteis ou mais, o ciclo aparece como parado.
     </span>
+    <span className="mt-1.5 block">
+      <strong className="font-semibold text-ink">Horas no período:</strong> apontadas dentro do período escolhido (semana
+      ou mês).
+    </span>
   </>
 );
 
@@ -116,7 +120,7 @@ export function CyclesChart({
                   </div>
                   <p className="tabular mt-1 text-xs text-ink-3">
                     {d.metrics.logged > 0 ? `${formatDuration(d.metrics.logged)} apontadas` : 'Nenhum apontamento'}
-                    {p && p.loggedInPeriod > 0 && ` · ${formatDuration(p.loggedInPeriod)} neste ciclo de apontamento`}
+                    {p && p.loggedInPeriod > 0 && ` · ${formatDuration(p.loggedInPeriod)} neste período`}
                     {' · '}
                     {p?.lastUpdate ? `Atualizado ${updateText(p.lastUpdate)}` : 'Sem atualizações'}
                   </p>
