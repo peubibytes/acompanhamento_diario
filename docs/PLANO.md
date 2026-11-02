@@ -102,7 +102,13 @@ acompanhamento_diario/
 - **SQLite via `node:sqlite`** (embutido no Node ≥ 22): sem dependência nativa para compilar.
 - **TypeScript executado direto pelo Node** (type stripping) — sem etapa de build no servidor.
 - **Front:** React, React Router, TanStack Query, Tailwind CSS; gráficos em SVG próprio.
-- **Testes:** `node --test` para as regras (`shared`) e para a API (`server`).
+- **Testes:** `node --test` para as regras (`shared`), para a API (`server`) e para a varredura (`scripts`).
+- **CI (v0.10):** `.github/workflows/ci.yml` roda, em todo PR e em todo push na `main`, `npm ci`,
+  `check:sensitive`, `typecheck`, `test` e `build`, com o Node do `.nvmrc`. A `main` só recebe o que passou nele
+  (`docs/decisions/0006`).
+- **Versões (v0.10):** Node fixado no `.nvmrc` (26; `engines` guarda o mínimo); dependências com versão exata
+  no `package.json` (sem `^`) e `save-exact` no `.npmrc`. Atualização uma vez por mês, uma dependência
+  maior por vez, cada uma no seu PR com o CI verde; correções de segurança entram quando saem.
 
 ### Modelo de dados
 ```sql
@@ -268,7 +274,7 @@ npm run check:sensitive   # varredura anti-vazamento (planilhas, bancos, chamado
 - **Na tela:** Lembretes e agenda → **Seus dados**: "Exportar dados" e a data e hora do último backup.
 - **Restaurar um backup:** pare o servidor, copie o arquivo escolhido de `server/data/backups/` por cima de
   `server/data/acompanhamento.db` (apague antes os arquivos `acompanhamento.db-wal` e `-shm`, se existirem) e
-  inicie de novo. O passo a passo ficará no README.
+  inicie de novo. O passo a passo está no `README.md`.
 
 ### Acesso e segurança (v0.10)
 
