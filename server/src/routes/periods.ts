@@ -11,6 +11,7 @@ import {
   getCycle,
   getPeriod,
   previousPeriod,
+  unplannedTime,
   type ISODate,
 } from '@acomp/shared';
 import { badRequest, isoDate, scaleSchema, type RouteContext } from '../http.ts';
@@ -90,6 +91,7 @@ export function registerPeriodRoutes(app: Express, { repo, today, summarize, tim
       period,
       previous,
       split: familySplit(repo.listActivities(period.start, period.end), demands, period),
+      unplanned: unplannedTime(repo.listActivities(period.start, period.end), demands, period),
       cycles: cycleYield(cycles, repo.listActivities(previous.start, period.end), timelineOf(), period, previous),
     });
   });

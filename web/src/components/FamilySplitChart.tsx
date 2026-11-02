@@ -11,9 +11,10 @@ import {
   type FamilySplit,
   type FamilySplitDay,
   type PeriodScale,
+  type UnplannedTime,
 } from '@acomp/shared';
 import { ChartTooltip, COLUMN_GAP, SIDE_GUTTER } from './ChartTooltip';
-import { DashIcon, ListIcon, PlusIcon, TargetIcon } from './icons';
+import { AlertIcon, DashIcon, ListIcon, PlusIcon, TargetIcon } from './icons';
 import { SectionTitle } from './SectionTitle';
 
 const HINT = (
@@ -30,6 +31,10 @@ const HINT = (
     <span className="mt-1.5 block">
       <strong className="font-semibold text-ink">Predominou:</strong> a família com mais tempo e a fatia dela no total do
       período. Em empate, equilibrado.
+    </span>
+    <span className="mt-1.5 block">
+      <strong className="font-semibold text-ink">Não planejado:</strong> a fatia do tempo em ciclos do tipo Intempestiva.
+      Só os ciclos têm tipo; o trecho dividido com outra demanda vale metade.
     </span>
   </>
 );
@@ -71,19 +76,46 @@ function Predominance({ split }: { split: FamilySplit }) {
   );
 }
 
+/** Selo do trabalho não planejado: ícone e fatia escritos; âmbar quando houve. */
+function Unplanned({ unplanned }: { unplanned: UnplannedTime }) {
+  const badge = 'mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap';
+  if (unplanned.percent === null || unplanned.minutes === 0) {
+    return (
+      <span className={`${badge} bg-neutral-soft text-ink-2`}>
+        <DashIcon size={13} />
+        {unplanned.percent === null ? 'Sem apontamentos' : 'Nenhum · 0%'}
+      </span>
+    );
+  }
+  return (
+    <span className={`${badge} bg-warning-soft text-warning-text`}>
+      <AlertIcon size={13} />
+      Intempestivo · {unplanned.percent}%
+    </span>
+  );
+}
+
 /**
  * Rendimento, bloco 1: o tempo do período dividido entre Tarefas e Ciclos. Faixa de indicadores
  * e barras empilhadas por dia útil (mesmo padrão do gráfico de horas por dia: tooltip no hover e no
  * foco, valor em cima só quando cabe).
  */
-export function FamilySplitChart({ split, scale }: { split: FamilySplit; scale: PeriodScale }) {
+export function FamilySplitChart({
+  split,
+  unplanned,
+  scale,
+}: {
+  split: FamilySplit;
+  unplanned: UnplannedTime;
+  scale: PeriodScale;
+}) {
   const { total, days } = split;
 
   return (
     <div>
       <SectionTitle title="Tarefas × Ciclos" hint={HINT} />
 
-      <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+      <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div>
           <dt className={LABEL}>Horas em Tarefas</dt>
           <dd className={NUMBER}>{formatDuration(total.tarefas)}</dd>
@@ -92,10 +124,16 @@ export function FamilySplitChart({ split, scale }: { split: FamilySplit; scale: 
           <dt className={LABEL}>Horas em Ciclos</dt>
           <dd className={NUMBER}>{formatDuration(total.ciclos)}</dd>
         </div>
-        <div className="col-span-2 sm:col-span-1">
+        <div>
           <dt className={LABEL}>Predominou</dt>
           <dd>
             <Predominance split={split} />
+          </dd>
+        </div>
+        <div>
+          <dt className={LABEL}>Não planejado</dt>
+          <dd>
+            <Unplanned unplanned={unplanned} />
           </dd>
         </div>
       </dl>

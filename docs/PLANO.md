@@ -18,7 +18,7 @@ metas e relatórios de prestação de contas (daily, 1:1, relatório mensal).
 | Demandas | Existente (seções 6, 8.1 e 9) | Declarações: Tarefas (chamados, reuniões, treinamentos) e Ciclos (prazo, linha do tempo, impedimentos) |
 | Treinamentos | Existente como Tarefa (seção 9) | Nome, descrição e status; as horas de estudo são apontadas |
 | Metas | Novo (seção 8) | Objetivos com prazo e progresso, ligados a atividades/demandas/treinamentos |
-| Relatórios | Novo (seção 8) | Status diário/semanal/mensal exportável |
+| Relatórios | Existente (seções 10 e 13) | Diário (v0.7), semanal e mensal (v0.10), exportáveis; indicador de trabalho não planejado |
 | Integração Azure | Futuro | Fora de escopo por enquanto |
 
 ### Glossário
@@ -160,11 +160,12 @@ O esquema evolui por migrações numeradas em `server/src/db.ts` (`PRAGMA user_v
 | POST | `/api/import` | importa uma exportação. Só em banco vazio (sem demandas nem apontamentos); com `?replace=true` substitui o que existe, depois de guardar um backup `pre-importacao-…`. Valida com zod e o `schemaVersion` precisa ser o do aplicativo; roda numa transação (400 e nada muda se algo falhar; 409 sem `replace` em banco com dados). Aceita até 50 MB; as demais rotas, 100 kb |
 | GET | `/api/backups` | o último backup diário, quantos há e quantos ficam: `{ last, count, keep }` |
 | GET | `/api/reports/daily?date=` | relatório do dia (sem `date`, o dia útil anterior): o que foi feito, impedimentos e o que será feito |
+| GET | `/api/reports/period?date=&scale=` | relatório do período (v0.10; sem `date`, o de hoje; `scale` como em `/api/metrics`): ciclos que andaram, tarefas concluídas e trabalhadas, reuniões, impedimentos e o trabalho não planejado (seção 13) |
 | GET | `/api/timeline?demandId=` | linha do tempo unificada dos ciclos (eventos e impedimentos), do mais recente ao mais antigo; sem `demandId`, de todos |
 | PUT | `/api/demands/:id/events/:eventId/flag`, `/blockers/:blockerId/flag` | marca ou desmarca a bandeira (`{ flagged }`); editar não a apaga |
 | GET | `/api/metrics?date=&scale=` | tarefas (concluídas no período da data, na fila, em andamento) e ciclos abertos (última atualização, horas). `scale` opcional: `week` (padrão, sexta → quinta) ou `month` (mês civil); outro valor → 400 |
 | GET | `/api/periods/:date?scale=` | resumo do período da data (v0.9): dias úteis com métricas e totais (meta do período, realizado, dias conformes `X/N`, % preenchido). A meta de cada dia é a do ciclo de apontamento a que ele pertence. `scale` como acima |
-| GET | `/api/yield?date=&scale=` | rendimento do período (v0.9): `{ period, previous, split, cycles }` — tempo em Tarefas × Ciclos por dia útil e, por ciclo, horas por dia, total, variação sobre o período anterior e registros da linha do tempo |
+| GET | `/api/yield?date=&scale=` | rendimento do período (v0.9): `{ period, previous, split, unplanned, cycles }` — tempo em Tarefas × Ciclos por dia útil, o trabalho não planejado (v0.10, seção 13) e, por ciclo, horas por dia, total, variação sobre o período anterior e registros da linha do tempo |
 
 ## 3. Telas
 
@@ -197,7 +198,8 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
    - *Rendimento (v0.9):* em semana e em mês, dois blocos num só cartão: **Tarefas × Ciclos** (horas em
      cada família, quem predominou e barras empilhadas por dia útil) e **Rendimento por ciclo** (uma linha
      por ciclo: total no período, variação sobre o período anterior, registros da linha do tempo e um
-     mini-gráfico por dia útil com a média dos dias anteriores). Ver seção 12.
+     mini-gráfico por dia útil com a média dos dias anteriores). Ver seção 12. Na faixa, o selo **Não planejado**
+     (v0.10): a fatia do tempo em ciclos intempestivos (seção 13).
    - Ação principal: "Registrar apontamentos". Link "Detalhes" no gráfico.
 2. **Apontamentos (`/apontamentos`; `/atividades` redireciona)** — abas Sex/Seg/Ter/Qua/Qui
    (dia, horas e uma barrinha de progresso); mostra só o dia escolhido: resumo do dia em uma
@@ -217,7 +219,9 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
    Lembretes por gravidade ("Pedem atenção", "Para saber") e a agenda por dia, em listas sem
    molduras.
 
-6. **Relatório (`/relatorio`, v0.7)** — o relatório de um dia para a daily ou o 1:1; por padrão, o
+6. **Relatório (`/relatorio`, v0.7)** — no canto superior esquerdo, a escala **Dia | Semana | Mês** (v0.10, na URL
+   como `?escala=semana` ou `?escala=mes`; sem ela, o dia). Semana e mês: o relatório do período, com a navegação do
+   Painel (seção 13). Dia: o relatório de um dia para a daily ou o 1:1; por padrão, o
    dia útil anterior, com navegação por dia útil. Mostra o trabalho (ciclos, tarefas, reuniões), não os
    apontamentos. Pré-visualização em três seções e a ação principal **Copiar** (Markdown); também `Baixar .md` e `Imprimir / PDF` (impressão do navegador,
    sem o menu). Ver seção 10.
@@ -238,7 +242,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 | 9 | v0.7: status só na demanda, Tarefas, métricas, relatório diário (seção 10) | ✅ (documentação técnica em PDF atualizada na v0.10) |
 | 10 | v0.8: linha do tempo dos ciclos: impedimentos dentro dela, bandeira, Detalhes → Ciclos e mapa no Painel (seção 11) | ✅ |
 | 11 | v0.9: "Período" no lugar de "ciclo de apontamento", escala Semana \| Mês no Painel e visão Rendimento (seção 12) | ✅ |
-| 12 | v0.10: segurança de acesso, backup e exportação, README, CI e testes de tela, organização (rotas por domínio, Painel por visão, `docs/HISTORICO.md`, PDF) e relatório do período | 🚧 falta o relatório do período e as intempestivas |
+| 12 | v0.10: segurança de acesso, backup e exportação, README, CI e testes de tela, organização (rotas por domínio, Painel por visão, `docs/HISTORICO.md`, PDF) e relatório do período com as intempestivas (seção 13) | ✅ (falta a tag `v0.10.0`) |
 | — | Integração com o Azure | futuro |
 
 ### Decisões registradas
@@ -387,10 +391,10 @@ Objetivo com prazo, progresso mensurável (manual ou calculado a partir de deman
 atividades e treinamentos vinculados) e status. Não confundir com a "meta diária de horas",
 que continua pertencendo ao módulo de Apontamento.
 
-### 8.4 Relatórios
+### 8.4 Relatórios — ✅ diário (v0.7), semanal e mensal (v0.10)
 Status diário, semanal e mensal exportável (Markdown/PDF), no formato do acompanhamento
 original: demanda, status, linha do tempo resumida e impedimentos. Inclui o indicador de
-demandas intempestivas (quanto do tempo foi consumido por trabalho não planejado).
+demandas intempestivas (quanto do tempo foi consumido por trabalho não planejado). Ver seções 10 e 13.
 
 ### 8.5 Importador do texto legado
 Converte o formato antigo (`SCTASK… [status]` seguido de bullets com data entre parênteses)
@@ -593,3 +597,37 @@ Só leitura dos apontamentos: nada é gravado. Regras em `shared/src/yield.ts`.
      anteriores** do período em que o ciclo teve apontamento (o primeiro dia não tem média). Tooltip:
      apontado, média anterior e diferença.
    - Sem nenhum apontamento em ciclos no período: "Nenhum apontamento em ciclos neste período".
+
+## 13. Relatório do período e trabalho não planejado (v0.10)
+
+Decisão em `docs/decisions/0007-relatorio-do-periodo-e-intempestivas.md`.
+
+### Relatório do período (`/relatorio?escala=semana` ou `?escala=mes`)
+
+Foco: o 1:1 e a prestação de contas da semana (sexta → quinta) ou do mês. Como o diário, fala do **trabalho**, não
+dos apontamentos. Montado na hora (nada é gravado); regras em `shared/src/periodReport.ts`, testadas com dados
+fictícios. Copiar (Markdown), `Baixar .md` e `Imprimir / PDF`, como no diário.
+
+1. **O que foi feito.** Linha-resumo ("2 ciclos · 3 tarefas (1 concluída) · 1 reunião") e:
+   - *Ciclos que andaram:* apontados, com troca de status, evento ou impedimento (início ou resolução) no período,
+     na ordem habitual. Cada um com o tipo quando não é planejado (selo "Intempestiva"), a troca de status do
+     período (do primeiro "de" ao último "para"; ida e volta não conta) ou o status atual, os **dias de trabalho**
+     (dias úteis com apontamento) e os **eventos da linha do tempo** do período ("02/12 Deploy: Publicado").
+     O "o que foi feito" de cada apontamento não entra: num mês, viraria uma lista longa.
+   - *Tarefas concluídas:* chamados e treinamentos com conclusão no período.
+   - *Tarefas em andamento:* as demais apontadas ou com troca de status no período.
+   - *Reuniões:* cada uma uma vez, com quantos dias aconteceu.
+2. **Impedimentos.** Os que estiveram abertos em algum momento do período: abertos no fim dele ou resolvidos nele.
+   A espera conta até a resolução, o fim do período ou hoje (o que vier primeiro).
+3. **Trabalho não planejado.** A fatia e as horas ("27% do tempo (3h de 11h) em ciclos intempestivos"); sem
+   apontamento, "Sem apontamentos no período". É a única medida de tempo do relatório.
+
+### Trabalho não planejado (intempestivas)
+
+- **Regra** (`unplannedTime`, em `shared/src/yield.ts`): tempo em ciclos do tipo **Intempestiva** ÷ tempo apontado
+  no período. Só os ciclos têm tipo; tarefas e reuniões entram só no total.
+- **Sobreposição:** a mesma do Tarefas × Ciclos (`splitDay`): dentro do grupo conta uma vez; o trecho dividido com
+  outra demanda vale metade para cada uma. Minutos inteiros; a fatia é arredondada e é nula sem apontamento.
+- **Onde aparece:** no relatório do período e no Painel → Rendimento, como o selo **Não planejado** ao lado de
+  "Predominou" (âmbar com ícone quando houve; neutro com "Nenhum · 0%" ou "Sem apontamentos").
+

@@ -2,7 +2,7 @@
 // em relação ao período anterior. Só leitura dos apontamentos; nada é gravado.
 
 import type { ISODate } from './cycle.ts';
-import type { DemandCategory, CycleStatus } from './demands.ts';
+import type { CycleStatus, DemandCategory, DemandKind } from './demands.ts';
 import { unionMinutes } from './metrics.ts';
 import type { PeriodWindow } from './period.ts';
 import type { TimelineEntry } from './timeline.ts';
@@ -46,6 +46,30 @@ export interface FamilySplit {
 const emptyMinutes = (): FamilyMinutes => ({ tarefas: 0, ciclos: 0, semDemanda: 0, total: 0 });
 
 /**
+ * Divide o tempo de um dia entre grupos. Dentro de um grupo, apontamentos sobrepostos contam uma vez
+ * (união); o trecho em que grupos diferentes se sobrepõem é dividido igualmente entre eles. Os minutos
+ * saem inteiros pelo maior resto, e a soma bate com o total do dia (a união de todos).
+ */
+function splitDay<G extends string>(ofDay: Logged[], groupOf: (a: Logged) => G, groups: readonly G[]) {
+  const share = Object.fromEntries(groups.map((g) => [g, 0])) as Record<G, number>;
+  const bounds = [...new Set(ofDay.flatMap((a) => [a.startMinute, a.endMinute]))].sort((x, y) => x - y);
+  for (let i = 0; i < bounds.length - 1; i++) {
+    const [from, to] = [bounds[i], bounds[i + 1]];
+    const active = new Set(ofDay.filter((a) => a.startMinute <= from && a.endMinute >= to).map(groupOf));
+    for (const g of active) share[g] += (to - from) / active.size;
+  }
+
+  // Maior resto: minutos inteiros que continuam somando o total do dia.
+  const total = Math.round(groups.reduce((sum, g) => sum + share[g], 0));
+  const minutes = Object.fromEntries(groups.map((g) => [g, Math.floor(share[g] + 1e-9)])) as Record<G, number>;
+  let leftover = total - groups.reduce((sum, g) => sum + minutes[g], 0);
+  for (const g of [...groups].sort((x, y) => share[y] - minutes[y] - (share[x] - minutes[x]))) {
+    if (leftover-- > 0) minutes[g]++;
+  }
+  return { minutes, total };
+}
+
+/**
  * Divide o tempo de cada dia útil do período em Tarefas, Ciclos e "Sem demanda". Dentro de um grupo,
  * apontamentos sobrepostos contam uma vez (união); o trecho em que grupos diferentes se sobrepõem é
  * dividido igualmente entre eles. Assim a soma bate com o total do dia (mesma regra da Distribuição,
@@ -65,23 +89,7 @@ export function familySplit(
   const byDay = Map.groupBy(inPeriod, (a) => a.date);
 
   const days = period.workdays.map((date): FamilySplitDay => {
-    const ofDay = byDay.get(date) ?? [];
-    const share: Record<Group, number> = { tarefas: 0, ciclos: 0, semDemanda: 0 };
-    const bounds = [...new Set(ofDay.flatMap((a) => [a.startMinute, a.endMinute]))].sort((x, y) => x - y);
-    for (let i = 0; i < bounds.length - 1; i++) {
-      const [from, to] = [bounds[i], bounds[i + 1]];
-      const active = new Set(ofDay.filter((a) => a.startMinute <= from && a.endMinute >= to).map(groupOf));
-      for (const g of active) share[g] += (to - from) / active.size;
-    }
-
-    // Maior resto: minutos inteiros que continuam somando o total do dia.
-    const total = Math.round(GROUPS.reduce((sum, g) => sum + share[g], 0));
-    const minutes: Record<Group, number> = { tarefas: 0, ciclos: 0, semDemanda: 0 };
-    for (const g of GROUPS) minutes[g] = Math.floor(share[g] + 1e-9);
-    let leftover = total - GROUPS.reduce((sum, g) => sum + minutes[g], 0);
-    for (const g of [...GROUPS].sort((x, y) => share[y] - minutes[y] - (share[x] - minutes[x]))) {
-      if (leftover-- > 0) minutes[g]++;
-    }
+    const { minutes, total } = splitDay(byDay.get(date) ?? [], groupOf, GROUPS);
     return { date, ...minutes, total };
   });
 
@@ -104,11 +112,46 @@ export function familySplit(
   return { days, total, predominant };
 }
 
+// ── Trabalho não planejado (intempestivas) ─────────────────────────────────────
+
+export interface UnplannedTime {
+  /** Minutos em ciclos do tipo intempestiva. */
+  minutes: number;
+  /** Minutos apontados no período (sobreposições contadas uma vez). */
+  total: number;
+  /** Fatia do total, arredondada; nula sem tempo apontado. */
+  percent: number | null;
+}
+
+/**
+ * Quanto do tempo do período foi para trabalho não planejado: os ciclos do tipo intempestiva (só os
+ * ciclos têm tipo). A sobreposição com outra demanda é dividida igualmente, como em Tarefas × Ciclos,
+ * para o tempo intempestivo nunca passar do total do dia.
+ */
+export function unplannedTime(
+  activities: Logged[],
+  demands: { id: number; category: DemandCategory; kind?: DemandKind }[],
+  period: PeriodWindow,
+): UnplannedTime {
+  const unplanned = new Set(demands.filter((d) => d.category === 'ciclo' && d.kind === 'intempestiva').map((d) => d.id));
+  const groupOf = (a: Logged) => (a.demandId !== null && unplanned.has(a.demandId) ? 'intempestiva' : 'outras');
+  const inPeriod = activities.filter((a) => a.endMinute > a.startMinute && period.workdays.includes(a.date));
+  let minutes = 0;
+  let total = 0;
+  for (const ofDay of Map.groupBy(inPeriod, (a) => a.date).values()) {
+    const day = splitDay(ofDay, groupOf, ['intempestiva', 'outras'] as const);
+    minutes += day.minutes.intempestiva;
+    total += day.total;
+  }
+  return { minutes, total, percent: total > 0 ? Math.round((minutes * 100) / total) : null };
+}
+
 /** O que `GET /api/yield` devolve. */
 export interface YieldReport {
   period: PeriodWindow;
   previous: PeriodWindow;
   split: FamilySplit;
+  unplanned: UnplannedTime;
   cycles: CycleYield[];
 }
 

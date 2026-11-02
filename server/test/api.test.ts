@@ -649,8 +649,8 @@ describe('API de períodos e rendimento', () => {
     for (const r of [a, b]) await api('DELETE', `/activities/${r.data.activity.id}`);
   });
 
-  it('escala inválida: 400 nas três rotas', async () => {
-    for (const path of ['/periods/2026-10-27', '/metrics', '/yield']) {
+  it('escala inválida: 400 nas quatro rotas', async () => {
+    for (const path of ['/periods/2026-10-27', '/metrics', '/yield', '/reports/period']) {
       const res = await api('GET', `${path}?scale=ano`);
       assert.equal(res.status, 400, path);
       assert.match(res.data.error, /Escala inválida/);
@@ -709,6 +709,58 @@ describe('API de períodos e rendimento', () => {
 
     for (const a of nov) await api('DELETE', `/activities/${a.data.activity.id}`);
     await api('DELETE', `/demands/${t}`);
+  });
+
+  it('intempestivas: a fatia do tempo em ciclos não planejados, no rendimento', async () => {
+    today = '2026-11-20';
+    const urgent = ((await api('POST', '/demands', { category: 'ciclo', title: 'Ciclo intempestivo', kind: 'intempestiva', startDate: '2026-11-01' })).data as DemandSummary).id;
+    const planned = await ciclo('Ciclo planejado do mês');
+    const logs = [await log(urgent, '2026-11-17', 540, 600), await log(planned, '2026-11-17', 600, 780)]; // 60 de 240
+
+    const y = (await api('GET', '/yield?date=2026-11-17')).data;
+    assert.deepEqual(y.unplanned, { minutes: 60, total: 240, percent: 25 });
+    // Na semana seguinte não há apontamento: sem fatia.
+    assert.deepEqual((await api('GET', '/yield?date=2026-11-24')).data.unplanned, { minutes: 0, total: 0, percent: null });
+
+    for (const a of logs) await api('DELETE', `/activities/${a.data.activity.id}`);
+    for (const id of [urgent, planned]) await api('DELETE', `/demands/${id}`);
+  });
+});
+
+describe('API do relatório do período', () => {
+  it('semana por padrão; no mês, ciclos, tarefas, reuniões, impedimentos e intempestivas do mês', async () => {
+    today = '2026-12-16';
+    const c = ((await api('POST', '/demands', { category: 'ciclo', title: 'Ciclo de dezembro', kind: 'intempestiva', startDate: '2026-12-01' })).data as DemandSummary).id;
+    const ticket = ((await api('POST', '/demands', { category: 'chamado', ticketNumber: 'PER0000001', description: 'Fictício', status: 'em_andamento' })).data as DemandSummary).id;
+    const logs = [
+      await api('POST', '/activities', { ...sample, demandId: c, date: '2026-12-02', startMinute: 540, endMinute: 600 }),
+      await api('POST', '/activities', { ...sample, demandId: ticket, date: '2026-12-15', startMinute: 540, endMinute: 600 }),
+      await api('POST', '/activities', { ...sample, date: '2026-12-15', startMinute: 480, endMinute: 495 }), // a Daily
+    ];
+    await api('POST', `/demands/${c}/events`, { date: '2026-12-02', kind: 'deploy', text: 'Publicado' });
+    await api('POST', `/demands/${c}/blockers`, { owner: 'Equipe Exemplo', since: '2026-12-14' });
+
+    // Sem date nem scale: a semana de hoje (Sex 11/12 → Qui 17/12); o ciclo só andou na semana anterior.
+    const week = await api('GET', '/reports/period');
+    assert.equal(week.status, 200);
+    assert.deepEqual([week.data.period.start, week.data.period.end], ['2026-12-11', '2026-12-17']);
+    assert.ok(week.data.done.cycles.some((i: { demandId: number }) => i.demandId === c)); // pelo impedimento aberto na semana
+    assert.deepEqual(week.data.done.workedTasks.map((i: { demandId: number }) => i.demandId), [ticket]);
+    assert.equal(week.data.done.meetings.length, 1);
+
+    const month = (await api('GET', '/reports/period?date=2026-12-01&scale=month')).data;
+    assert.equal(month.period.scale, 'month');
+    const row = month.done.cycles.find((i: { demandId: number }) => i.demandId === c);
+    assert.equal(row.kind, 'Intempestiva');
+    assert.deepEqual(row.events, ['02/12 Deploy: Publicado']);
+    assert.equal(row.workedDays, 1);
+    assert.equal(month.blockers.open, 1);
+    assert.equal(month.blockers.items[0].waitingWorkdays, 3); // 14, 15 e 16 (hoje)
+    assert.deepEqual(month.unplanned, { minutes: 60, total: 135, percent: 44 });
+
+    assert.equal((await api('GET', '/reports/period?date=2026-13-01')).status, 400);
+    for (const a of logs) await api('DELETE', `/activities/${a.data.activity.id}`);
+    for (const id of [c, ticket]) await api('DELETE', `/demands/${id}`);
   });
 });
 

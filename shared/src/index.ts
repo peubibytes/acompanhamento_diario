@@ -5,6 +5,7 @@ export * from './layout.ts';
 export * from './metrics.ts';
 export * from './overview.ts';
 export * from './period.ts';
+export * from './periodReport.ts';
 export * from './report.ts';
 export * from './timeline.ts';
 export * from './yield.ts';

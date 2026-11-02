@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import {
   blockersSummary,
+  type PeriodScale,
   DEMAND_CATEGORY_LABEL,
   dailyReportMarkdown,
   doneSummary,
@@ -21,16 +22,20 @@ import {
 } from '@acomp/shared';
 import { useDailyReport } from '../api/client';
 import { categoryIcon } from '../components/DemandVisuals';
-import { ChevronLeft, ChevronRight, HourglassIcon } from '../components/icons';
+import { ChevronLeft, ChevronRight } from '../components/icons';
 import { PageHeader } from '../components/PageHeader';
 import { SectionTitle } from '../components/SectionTitle';
 import { ErrorState, Skeleton } from '../components/States';
-import { useToast } from '../components/Toast';
+import { PeriodReportView } from './report/PeriodReportView';
+import { BlockerList, ExportButtons, GROUP, plural, ScaleSwitch, useReportExport, type ReportScale } from './report/parts';
 
 type SkipKey = number | 'fila';
 
 const dayLabel = (iso: ISODate) => `${WEEKDAY_SHORT[weekdayOf(iso)]} ${formatDayMonth(iso)}`;
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** A escala fica na URL como no Painel (?escala=mes); aqui também há a semana, e sem ela vale o dia. */
+const SCALE_PARAM = 'escala';
+const PERIOD_OF: Partial<Record<ReportScale, PeriodScale>> = { semana: 'week', mes: 'month' };
 
 const PAGE_HINT = (
   <>
@@ -48,48 +53,65 @@ const PAGE_HINT = (
   </>
 );
 
-const SECONDARY =
-  'rounded-full px-4 py-2 text-sm font-semibold text-ink-2 outline-none transition hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60';
-
 export function Report() {
   const [params, setParams] = useSearchParams();
+  const rawScale = params.get(SCALE_PARAM);
+  const scale: ReportScale = rawScale === 'semana' || rawScale === 'mes' ? rawScale : 'dia';
+  const period = PERIOD_OF[scale];
   const raw = params.get('data');
-  // O relatório é de um dia útil: sábado e domingo caem na sexta. Sem data, o dia útil anterior.
-  const requested = raw && isValidISODate(raw) ? raw : previousWorkday(todayISO());
-  const date = isWorkday(requested) ? requested : previousWorkday(requested);
-  const setDate = (next: ISODate) => setParams({ data: next }, { replace: true });
+  const valid = raw && isValidISODate(raw) ? raw : null;
 
+  // Troca só o que mudou: a data continua ao mudar de escala, e a escala ao mudar de data.
+  const update = (next: { date?: ISODate | null; scale?: ReportScale }) => {
+    const query: Record<string, string> = {};
+    const nextDate = next.date === undefined ? valid : next.date;
+    const nextScale = next.scale ?? scale;
+    if (nextDate) query.data = nextDate;
+    if (nextScale !== 'dia') query[SCALE_PARAM] = nextScale;
+    setParams(query, { replace: true });
+  };
+  const setScale = (next: ReportScale) => update({ scale: next });
+
+  if (period) {
+    // Semana ou mês: sem data, o período de hoje.
+    const date = valid ?? todayISO();
+    return (
+      <div className="space-y-section">
+        <PeriodReportView
+          date={date}
+          scale={period}
+          reportScale={scale}
+          onDate={(d) => update({ date: d === todayISO() ? null : d })}
+          onScale={setScale}
+        />
+      </div>
+    );
+  }
+
+  // O relatório diário é de um dia útil: sábado e domingo caem na sexta. Sem data, o dia útil anterior.
+  const requested = valid ?? previousWorkday(todayISO());
+  const date = isWorkday(requested) ? requested : previousWorkday(requested);
   return (
     <div className="space-y-section">
       {/* A chave reinicia os itens desmarcados ao trocar de dia. */}
-      <ReportBody key={date} date={date} setDate={setDate} />
+      <ReportBody key={date} date={date} setDate={(d) => update({ date: d })} onScale={setScale} />
     </div>
   );
 }
 
-function ReportBody({ date, setDate }: { date: ISODate; setDate: (d: ISODate) => void }) {
+function ReportBody({
+  date,
+  setDate,
+  onScale,
+}: {
+  date: ISODate;
+  setDate: (d: ISODate) => void;
+  onScale: (scale: ReportScale) => void;
+}) {
   const report = useDailyReport(date);
-  const toast = useToast();
   const [skip, setSkip] = useState<Set<SkipKey>>(new Set());
   const markdown = report.data ? dailyReportMarkdown(report.data, { skipNext: skip, today: todayISO() }) : '';
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(markdown);
-      toast('Relatório copiado.');
-    } catch {
-      toast('Não foi possível copiar. Use "Baixar .md".', 'error');
-    }
-  };
-
-  const download = () => {
-    const url = URL.createObjectURL(new Blob([markdown], { type: 'text/markdown;charset=utf-8' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `daily-${date}.md`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
+  const { copy, download } = useReportExport(markdown, `daily-${date}.md`);
 
   const toggle = (key: SkipKey) =>
     setSkip((current) => {
@@ -111,15 +133,11 @@ function ReportBody({ date, setDate }: { date: ISODate; setDate: (d: ISODate) =>
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <DayNav date={date} onChange={setDate} />
-        <div className="flex items-center gap-1">
-          <button type="button" onClick={download} disabled={!report.data} className={SECONDARY}>
-            Baixar .md
-          </button>
-          <button type="button" onClick={() => window.print()} disabled={!report.data} className={SECONDARY}>
-            Imprimir / PDF
-          </button>
+        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+          <ScaleSwitch value="dia" onChange={onScale} />
+          <DayNav date={date} onChange={setDate} />
         </div>
+        <ExportButtons ready={Boolean(report.data)} onDownload={download} />
       </div>
 
       <h2 className="hidden text-lg font-semibold text-ink print:block">Daily — {dayLabel(date)}</h2>
@@ -176,8 +194,6 @@ function DayNav({ date, onChange }: { date: ISODate; onChange: (d: ISODate) => v
     </div>
   );
 }
-
-const GROUP = 'mb-2 text-2xs font-semibold tracking-wider text-ink-3 uppercase';
 
 function DoneSection({ report }: { report: DailyReport }) {
   const d = report.done;
@@ -267,22 +283,7 @@ function BlockersSection({ report }: { report: DailyReport }) {
       ) : (
         <>
           <p className="tabular mt-1 text-sm font-medium text-ink-2">{blockersSummary(b)}</p>
-          <ul className="mt-5 space-y-3 border-t border-line pt-5 text-sm">
-            {b.items.map((i, index) => (
-              <li key={index} className="flex gap-2.5">
-                <span className={`mt-0.5 shrink-0 ${i.resolvedAt ? 'text-good-text' : 'text-warning-text'}`}>
-                  <HourglassIcon size={15} />
-                </span>
-                <span className="min-w-0 text-ink-2">
-                  <strong className="font-semibold text-ink">{i.label}</strong> —{' '}
-                  {i.resolvedAt
-                    ? `resolvido em ${formatDayMonth(i.resolvedAt)} (${i.owner})`
-                    : `aguardando ${i.owner} desde ${formatDayMonth(i.since)} (${plural(i.waitingWorkdays, 'dia útil', 'dias úteis')})`}
-                  {i.description && <span className="text-ink-3">: {i.description}</span>}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <BlockerList items={b.items} />
         </>
       )}
     </section>

@@ -18,6 +18,7 @@ import {
   type ISODate,
   type Overview,
   type PeriodScale,
+  type PeriodReport,
   type PeriodSummary,
   type YieldReport,
 } from '@acomp/shared';
@@ -137,6 +138,14 @@ export function useDailyReport(date: ISODate) {
   return useQuery({
     queryKey: ['reports', 'daily', date] as const,
     queryFn: () => request<DailyReport>('GET', `/reports/daily?date=${date}`),
+  });
+}
+
+/** Relatório do período (semana ou mês) para o 1:1 e a prestação de contas. */
+export function usePeriodReport(date: ISODate, scale: PeriodScale) {
+  return useQuery({
+    queryKey: ['reports', 'period', scale, getPeriod(date, scale).start] as const,
+    queryFn: () => request<PeriodReport>('GET', `/reports/period?date=${date}&scale=${scale}`),
   });
 }
 
