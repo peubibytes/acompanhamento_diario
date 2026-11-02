@@ -8,6 +8,7 @@ import {
   familySplit,
   getPeriod,
   previousPeriod,
+  unplannedTime,
   type Activity,
   type DemandBlocker,
   type DemandCategory,
@@ -198,5 +199,34 @@ describe('rendimento por ciclo', () => {
     assert.equal(y.previousTotal, 60);
     assert.equal(y.change.percent, 200);
     assert.equal(y.days.length, 5);
+  });
+});
+
+describe('trabalho não planejado (intempestivas)', () => {
+  // 5: ciclo intempestivo; 2: ciclo planejado (sem kind = não intempestivo); 1: chamado.
+  const withKinds = [...demands, { id: 5, category: 'ciclo' as const, kind: 'intempestiva' as const }];
+
+  it('é a fatia do tempo em ciclos intempestivos, arredondada', () => {
+    const result = unplannedTime([log(5, DAY, 540, 600), log(2, DAY, 600, 780), log(1, '2026-10-27', 540, 600)], withKinds, WEEK);
+    assert.deepEqual(result, { minutes: 60, total: 300, percent: 20 });
+  });
+
+  it('sobreposição com outra demanda é dividida, e o total conta o trecho uma vez', () => {
+    // 9h–10h só intempestiva; 10h–11h junto com o chamado (30 min para cada).
+    const result = unplannedTime([log(5, DAY, 540, 660), log(1, DAY, 600, 660)], withKinds, WEEK);
+    assert.deepEqual(result, { minutes: 90, total: 120, percent: 75 });
+  });
+
+  it('dois intempestivos sobrepostos contam uma vez', () => {
+    const both = [...withKinds, { id: 6, category: 'ciclo' as const, kind: 'intempestiva' as const }];
+    assert.deepEqual(unplannedTime([log(5, DAY, 540, 600), log(6, DAY, 540, 600)], both, WEEK), { minutes: 60, total: 60, percent: 100 });
+  });
+
+  it('sem apontamento no período, a fatia é nula; fora do período não conta', () => {
+    assert.deepEqual(unplannedTime([log(5, '2026-10-30', 540, 600)], withKinds, WEEK), { minutes: 0, total: 0, percent: null });
+  });
+
+  it('sem nenhum intempestivo, 0%', () => {
+    assert.deepEqual(unplannedTime([log(2, DAY, 540, 600), log(null, DAY, 600, 630)], withKinds, WEEK), { minutes: 0, total: 90, percent: 0 });
   });
 });
