@@ -1,6 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { backupBeforeMigration } from './backup.ts';
 
 /**
  * Migrações em ordem. A posição no array é a versão do esquema, guardada em
@@ -243,12 +244,18 @@ export function migrate(db: DatabaseSync, target = MIGRATIONS.length): void {
   }
 }
 
-export function openDb(path: string): DatabaseSync {
+/**
+ * Abre o banco e aplica as migrações pendentes. Com `backupDir`, um banco que já existe e vai ser
+ * migrado é copiado antes (`pre-migracao-N`): uma migração com defeito nunca é a única cópia dos dados.
+ */
+export function openDb(path: string, options: { backupDir?: string } = {}): DatabaseSync {
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
   db.exec('PRAGMA journal_mode = WAL;');
   // Necessário para o ON DELETE SET NULL de activities.demand_id.
   db.exec('PRAGMA foreign_keys = ON;');
+  const { user_version: current } = db.prepare('PRAGMA user_version').get() as { user_version: number };
+  if (options.backupDir && current > 0 && current < SCHEMA_VERSION) backupBeforeMigration(db, options.backupDir, current);
   migrate(db);
   return db;
 }

@@ -102,7 +102,18 @@ acompanhamento_diario/
 - **SQLite via `node:sqlite`** (embutido no Node ≥ 22): sem dependência nativa para compilar.
 - **TypeScript executado direto pelo Node** (type stripping) — sem etapa de build no servidor.
 - **Front:** React, React Router, TanStack Query, Tailwind CSS; gráficos em SVG próprio.
-- **Testes:** `node --test` para as regras (`shared`) e para a API (`server`).
+- **Testes:** `node --test` para as regras (`shared`), para a API (`server`) e para a varredura (`scripts`);
+  **Vitest + Testing Library** para as telas (`web/test`, v0.10), em jsdom, falando com a **API real** (Express e
+  SQLite em memória numa porta livre), sem respostas inventadas. O relógio é congelado (só `Date`) para as datas
+  serem estáveis. Cobertos: navegação entre períodos, escala e visão do Painel (URL e preferência), formulário de
+  apontamento (horário inválido, gravação) e declaração de chamado (maiúsculas, repetido, aviso de rascunho).
+  `npm test` roda os dois; `npm run test:rules` e `npm run test:web` rodam cada um.
+- **CI (v0.10):** `.github/workflows/ci.yml` roda, em todo PR e em todo push na `main`, `npm ci`,
+  `check:sensitive`, `typecheck`, `test` e `build`, com o Node do `.nvmrc`. A `main` só recebe o que passou nele
+  (`docs/decisions/0006`).
+- **Versões (v0.10):** Node fixado no `.nvmrc` (26; `engines` guarda o mínimo); dependências com versão exata
+  no `package.json` (sem `^`) e `save-exact` no `.npmrc`. Atualização uma vez por mês, uma dependência
+  maior por vez, cada uma no seu PR com o CI verde; correções de segurança entram quando saem.
 
 ### Modelo de dados
 ```sql
@@ -145,6 +156,9 @@ O esquema evolui por migrações numeradas em `server/src/db.ts` (`PRAGMA user_v
 | DELETE | `/api/demands/:id` | remove; com apontamentos → 409 (eventos e impedimentos vão junto) |
 | POST/PUT/DELETE | `/api/demands/:id/events[/:eventId]` | linha do tempo (só ciclos) |
 | POST/PUT/DELETE | `/api/demands/:id/blockers[/:blockerId]` | impedimentos (só ciclos) |
+| GET | `/api/export` | todos os dados em JSON (`app`, `schemaVersion`, `exportedAt` e uma lista de linhas por tabela), como arquivo para baixar (v0.10) |
+| POST | `/api/import` | importa uma exportação. Só em banco vazio (sem demandas nem apontamentos); com `?replace=true` substitui o que existe, depois de guardar um backup `pre-importacao-…`. Valida com zod e o `schemaVersion` precisa ser o do aplicativo; roda numa transação (400 e nada muda se algo falhar; 409 sem `replace` em banco com dados). Aceita até 50 MB; as demais rotas, 100 kb |
+| GET | `/api/backups` | o último backup diário, quantos há e quantos ficam: `{ last, count, keep }` |
 | GET | `/api/reports/daily?date=` | relatório do dia (sem `date`, o dia útil anterior): o que foi feito, impedimentos e o que será feito |
 | GET | `/api/timeline?demandId=` | linha do tempo unificada dos ciclos (eventos e impedimentos), do mais recente ao mais antigo; sem `demandId`, de todos |
 | PUT | `/api/demands/:id/events/:eventId/flag`, `/blockers/:blockerId/flag` | marca ou desmarca a bandeira (`{ flagged }`); editar não a apaga |
@@ -224,6 +238,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 | 9 | v0.7: status só na demanda, Tarefas, métricas, relatório diário (seção 10) | ✅ código; falta a documentação técnica (PDF) |
 | 10 | v0.8: linha do tempo dos ciclos: impedimentos dentro dela, bandeira, Detalhes → Ciclos e mapa no Painel (seção 11) | ✅ |
 | 11 | v0.9: "Período" no lugar de "ciclo de apontamento", escala Semana \| Mês no Painel e visão Rendimento (seção 12) | ✅ |
+| 12 | v0.10: segurança de acesso, backup e exportação, CI e testes de front, organização e relatório do período (em andamento) | 🚧 |
 | — | Integração com o Azure | futuro |
 
 ### Decisões registradas
@@ -242,7 +257,48 @@ npm install
 npm run dev     # API em :3001 e web em :5173
 npm test        # testes das regras e da API
 npm start       # build do front + servidor único em :3001
+npm run check:sensitive   # varredura anti-vazamento (planilhas, bancos, chamados reais, e-mails)
 ```
+
+### Dados e backup (v0.10)
+
+- **Onde ficam:** um arquivo SQLite em `server/data/acompanhamento.db` (`DB_PATH` muda o lugar). A pasta não
+  vai para o git.
+- **Backup diário:** ao iniciar o servidor e, enquanto ele roda, quando o dia vira, o banco é copiado com
+  `VACUUM INTO` (cópia consistente, mesmo em uso) para `server/data/backups/acompanhamento-AAAA-MM-DD.db`
+  (`BACKUP_DIR` muda o lugar). O primeiro do dia vale (não se sobrescreve); ficam os **14 mais recentes**.
+  A cópia é gravada num arquivo temporário e renomeada, então uma queda no meio não deixa backup pela metade.
+  Uma falha de backup é registrada no console e não derruba o servidor.
+- **Antes de migrar:** se o banco já existe e há migração pendente, ele é copiado antes como
+  `pre-migracao-N.db` (N = a versão de origem do esquema). Todas ficam.
+- **Antes de substituir:** `POST /api/import?replace=true` num banco com dados guarda `pre-importacao-…db`
+  (as 5 mais recentes ficam).
+- **Exportar e importar:** `GET /api/export` e `POST /api/import` (seção 2). O formato é genérico (as
+  colunas vêm do próprio banco): uma coluna nova numa migração entra sem mexer na exportação. Importar exige
+  a mesma versão do esquema.
+- **Na tela:** Lembretes e agenda → **Seus dados**: "Exportar dados" e a data e hora do último backup.
+- **Restaurar um backup:** pare o servidor, copie o arquivo escolhido de `server/data/backups/` por cima de
+  `server/data/acompanhamento.db` (apague antes os arquivos `acompanhamento.db-wal` e `-shm`, se existirem) e
+  inicie de novo. O passo a passo está no `README.md`.
+
+### Acesso e segurança (v0.10)
+
+A aplicação não tem login: quem alcança a porta lê e altera tudo. Por isso:
+
+- **Só a própria máquina.** O servidor escuta em `127.0.0.1` (variável `HOST`). Expor na rede exige definir
+  `HOST` explicitamente (ex.: `HOST=0.0.0.0`) e listar os nomes de acesso em `ALLOWED_HOSTS` (separados por
+  vírgula, sem porta, ex.: `ALLOWED_HOSTS=meu-pc,192.168.0.10`); o servidor avisa no início. **O risco é seu:**
+  numa rede compartilhada, qualquer pessoa nela acessa os dados. Prefira uma VPN ou um túnel com login.
+- **Host e Origin.** Toda requisição precisa de `Host` da própria máquina (ou liberado em `ALLOWED_HOSTS`), o
+  que barra o "DNS rebinding"; e, quando o navegador envia `Origin`, ele precisa ser igual ao `Host` (a
+  página da própria aplicação, inclusive o Vite em desenvolvimento, que repassa o `Host`). Uma página de
+  outro site chamando a API local recebe 403. Sem `Origin` (curl, testes) a requisição segue.
+- **Corpo e cabeçalhos.** JSON de até 100 kb por requisição (413 acima disso), sem `X-Powered-By`, com
+  `X-Content-Type-Options: nosniff` e `Referrer-Policy: no-referrer`.
+- **Varredura anti-vazamento** (`scripts/check-sensitive.mjs`): falha se o git rastrear `.xlsx`, `.csv`,
+  `.db`, `.sqlite` ou a pasta `server/data/`, se um arquivo de texto trouxer número de chamado com cara de
+  real (prefixo + 6 dígitos significativos ou mais; os fictícios do projeto são curtos, como
+  `SCTASK0000001`) ou um e-mail que não seja de exemplo. O relatório mostra arquivo e linha, nunca o valor.
 
 ## 6. Demandas de ciclo e correção de sobreposição (v0.2)
 

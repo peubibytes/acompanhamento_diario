@@ -93,6 +93,20 @@ export function usePeriod(date: ISODate, scale: PeriodScale) {
   });
 }
 
+export interface BackupStatus {
+  last: { file: string; date: string; at: string; sizeBytes: number } | null;
+  count: number;
+  keep: number;
+}
+
+/** O último backup diário do banco (a tela de Lembretes mostra quando foi). */
+export function useBackupStatus() {
+  return useQuery({
+    queryKey: ['backups'] as const,
+    queryFn: () => request<BackupStatus>('GET', '/backups'),
+  });
+}
+
 /** Rendimento do período: Tarefas × Ciclos e o rendimento de cada ciclo contra o período anterior. */
 export function useYield(date: ISODate, scale: PeriodScale) {
   return useQuery({

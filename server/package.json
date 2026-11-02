@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@acomp/shared": "*",
-    "express": "^5.3.0",
-    "zod": "^4.6.7"
+    "express": "5.3.0",
+    "zod": "4.6.7"
   }
 }

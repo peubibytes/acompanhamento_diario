@@ -37,6 +37,9 @@ import {
   type ISODate,
 } from '@acomp/shared';
 import type { Repo } from './repo.ts';
+import type { BackupService } from './backup.ts';
+import { baseHeaders, IMPORT_LIMIT, JSON_LIMIT, localOnly } from './security.ts';
+import { ImportError } from './transfer.ts';
 
 /** Escala do período; sem ela vale a semana (sexta → quinta), como antes da v0.9. */
 const scaleSchema = z.enum(PERIOD_SCALES, 'Escala inválida (use week ou month).').default('week');
@@ -186,11 +189,21 @@ interface AppOptions {
   today?: () => ISODate;
   /** Pasta com o build do front, servida em produção. */
   staticDir?: string;
+  /** Nomes de host liberados além de localhost (ex.: para expor na rede com HOST definido). */
+  allowedHosts?: string[];
+  /** Backups do banco: status na tela e cópia de segurança antes de substituir os dados. */
+  backups?: Pick<BackupService, 'status' | 'createExtra'>;
 }
 
-export function createApp({ repo, today = () => todayISO(), staticDir }: AppOptions) {
+export function createApp({ repo, today = () => todayISO(), staticDir, allowedHosts, backups }: AppOptions) {
   const app = express();
-  app.use(express.json());
+  app.disable('x-powered-by');
+  app.use(baseHeaders);
+  app.use(localOnly(allowedHosts));
+  // A importação traz o banco inteiro: só ela tem limite maior (a de cima vale para o resto).
+  const importJson = express.json({ limit: IMPORT_LIMIT });
+  const commonJson = express.json({ limit: JSON_LIMIT });
+  app.use((req, res, next) => (req.path === '/api/import' ? importJson(req, res, next) : commonJson(req, res, next)));
 
   /** Métricas das demandas (horas apontadas e prazo) e o resumo da linha do tempo e dos impedimentos. */
   const summarize = (demands: Demand[]) => {
@@ -529,6 +542,33 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
     res.status(204).end();
   });
 
+  /** Todos os dados em JSON (arquivo para baixar), com a versão do esquema. */
+  app.get('/api/export', (_req, res) => {
+    const file = repo.exportData();
+    res.setHeader('Content-Disposition', `attachment; filename="acompanhamento-${today()}.json"`);
+    res.json(file);
+  });
+
+  /**
+   * Importa uma exportação. Só em banco vazio; com `?replace=true`, substitui o que existe depois de
+   * guardar um backup (`pre-importacao-…`). Qualquer erro desfaz tudo: o banco fica como estava.
+   */
+  app.post('/api/import', (req, res) => {
+    const replace = req.query.replace === 'true';
+    try {
+      if (replace && backups && !repo.isEmpty()) backups.createExtra('pre-importacao');
+      res.json(repo.importData(req.body, replace));
+    } catch (err) {
+      if (err instanceof ImportError) return res.status(err.status).json({ error: err.message });
+      throw err;
+    }
+  });
+
+  /** O último backup diário, para a tela mostrar. */
+  app.get('/api/backups', (_req, res) => {
+    res.json(backups?.status() ?? { last: null, count: 0, keep: 0 });
+  });
+
   app.use('/api', (_req, res) => {
     res.status(404).json({ error: 'Rota não encontrada.' });
   });
@@ -538,9 +578,12 @@ export function createApp({ repo, today = () => todayISO(), staticDir }: AppOpti
     app.get('/{*path}', (_req, res) => res.sendFile(join(staticDir, 'index.html')));
   }
 
-  const onError: ErrorRequestHandler = (err, _req, res, _next) => {
+  const onError: ErrorRequestHandler = (err, req, res, _next) => {
     if (err?.type === 'entity.parse.failed') {
       return res.status(400).json({ error: 'JSON inválido.' });
+    }
+    if (err?.type === 'entity.too.large') {
+      return res.status(413).json({ error: `Corpo da requisição grande demais (máximo ${req.path === '/api/import' ? IMPORT_LIMIT : JSON_LIMIT}).` });
     }
     console.error(err);
     res.status(500).json({ error: 'Erro interno no servidor.' });
