@@ -102,7 +102,12 @@ acompanhamento_diario/
 - **SQLite via `node:sqlite`** (embutido no Node ≥ 22): sem dependência nativa para compilar.
 - **TypeScript executado direto pelo Node** (type stripping) — sem etapa de build no servidor.
 - **Front:** React, React Router, TanStack Query, Tailwind CSS; gráficos em SVG próprio.
-- **Testes:** `node --test` para as regras (`shared`), para a API (`server`) e para a varredura (`scripts`).
+- **Testes:** `node --test` para as regras (`shared`), para a API (`server`) e para a varredura (`scripts`);
+  **Vitest + Testing Library** para as telas (`web/test`, v0.10), em jsdom, falando com a **API real** (Express e
+  SQLite em memória numa porta livre), sem respostas inventadas. O relógio é congelado (só `Date`) para as datas
+  serem estáveis. Cobertos: navegação entre períodos, escala e visão do Painel (URL e preferência), formulário de
+  apontamento (horário inválido, gravação) e declaração de chamado (maiúsculas, repetido, aviso de rascunho).
+  `npm test` roda os dois; `npm run test:rules` e `npm run test:web` rodam cada um.
 - **CI (v0.10):** `.github/workflows/ci.yml` roda, em todo PR e em todo push na `main`, `npm ci`,
   `check:sensitive`, `typecheck`, `test` e `build`, com o Node do `.nvmrc`. A `main` só recebe o que passou nele
   (`docs/decisions/0006`).

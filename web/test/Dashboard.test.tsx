@@ -1,0 +1,70 @@
+import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { Dashboard } from '../src/pages/Dashboard';
+import { startApi, type TestApi } from './api';
+import { freezeToday, restoreClock } from './clock';
+import { renderPage } from './render';
+
+const TODAY = '2026-10-28';
+let api: TestApi;
+
+beforeEach(async () => {
+  freezeToday(TODAY);
+  localStorage.clear();
+  api = await startApi(TODAY);
+});
+afterEach(async () => {
+  await api.close();
+  restoreClock();
+});
+
+const location = () => screen.getByTestId('location').textContent;
+const scaleTabs = () => within(screen.getByRole('tablist', { name: 'Escala do período' }));
+const viewTabs = () => within(screen.getByRole('tablist', { name: 'Métricas do painel' }));
+
+describe('Painel', () => {
+  it('começa na semana e na visão Dia útil, com os números do período', async () => {
+    renderPage(<Dashboard />);
+    expect(scaleTabs().getByRole('tab', { name: 'Semana' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tabpanel', { name: 'Dia útil' })).toBeInTheDocument();
+    expect(await screen.findByText('Total realizado')).toBeInTheDocument();
+    expect(screen.getByText(/Sex 23\/10/)).toBeInTheDocument();
+  });
+
+  it('a escala Mês vai para a URL e é mantida ao navegar entre períodos', async () => {
+    renderPage(<Dashboard />);
+    await userEvent.click(scaleTabs().getByRole('tab', { name: 'Mês' }));
+    expect(location()).toBe('/?escala=mes');
+    expect(screen.getByText('Outubro de 2026')).toBeInTheDocument();
+    expect(await screen.findByText('Meta do período')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Período anterior' }));
+    expect(location()).toMatch(/^\/\?data=2026-09-\d{2}&escala=mes$/);
+    expect(screen.getByText('Setembro de 2026')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /Hoje/ }));
+    expect(location()).toBe('/?escala=mes');
+  });
+
+  it('abre a escala que vem na URL', () => {
+    renderPage(<Dashboard />, { url: '/?escala=mes' });
+    expect(scaleTabs().getByRole('tab', { name: 'Mês' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('troca de visão e lembra a escolhida na próxima visita', async () => {
+    const first = renderPage(<Dashboard />);
+    await userEvent.click(viewTabs().getByRole('tab', { name: 'Rendimento' }));
+    expect(screen.getByRole('tabpanel', { name: 'Rendimento' })).toBeInTheDocument();
+    first.unmount();
+
+    renderPage(<Dashboard />);
+    expect(viewTabs().getByRole('tab', { name: 'Rendimento' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('Rendimento sem apontamentos mostra o estado vazio dos ciclos', async () => {
+    renderPage(<Dashboard />, { url: '/?escala=mes' });
+    await userEvent.click(viewTabs().getByRole('tab', { name: 'Rendimento' }));
+    expect(await screen.findByText('Nenhum apontamento em ciclos neste período')).toBeInTheDocument();
+  });
+});

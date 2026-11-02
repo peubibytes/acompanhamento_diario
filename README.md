@@ -24,7 +24,7 @@ npm start                 # build da tela + servidor único em http://127.0.0.1:
 
 ```bash
 npm run typecheck         # tipos de shared, server e web
-npm test                  # regras (shared), API (server) e a varredura
+npm test                  # regras (shared), API (server), varredura e telas (web, Vitest)
 npm run check:sensitive   # anti-vazamento: planilhas, bancos, chamados reais, e-mails
 ```
 
