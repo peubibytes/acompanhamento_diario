@@ -99,7 +99,7 @@
   </div>
   <div class="body">
     <div class="meta">
-      <div><span>Versão</span><b>0.10 (em andamento)</b></div>
+      <div><span>Versão</span><b>0.10</b></div>
       <div><span>Data</span><b>02/11/2026</b></div>
       <div><span>Repositório</span><b>peubibytes/acompanhamento_diario</b></div>
     </div>
@@ -142,7 +142,7 @@
       <tr><td><strong>Apontamento</strong></td><td>Existente</td><td>Período sexta → quinta (ou mês), meta diária, apontamentos sobre demandas, métricas e conformidade.</td></tr>
       <tr><td><strong>Demandas</strong></td><td>Existente</td><td>Tarefas (chamados, reuniões, treinamentos) e Ciclos (prazo, linha do tempo, impedimentos, bandeira).</td></tr>
       <tr><td><strong>Painel e rendimento</strong></td><td>Existente</td><td>Dia útil, distribuição, tarefas, ciclos e rendimento, em semana ou mês.</td></tr>
-      <tr><td><strong>Relatórios</strong></td><td>Parcial</td><td>Relatório diário pronto; semanal e mensal previstos.</td></tr>
+      <tr><td><strong>Relatórios</strong></td><td>Existente</td><td>Diário, semanal e mensal, com o indicador de trabalho não planejado.</td></tr>
       <tr><td><strong>Seus dados</strong></td><td>Existente (v0.10)</td><td>Backup diário automático, exportar e importar.</td></tr>
       <tr><td><strong>Metas</strong></td><td>Previsto</td><td>Objetivos com prazo e progresso.</td></tr>
       <tr><td><strong>Integração Azure</strong></td><td>Futuro</td><td>Fora do escopo por enquanto.</td></tr>
@@ -174,7 +174,7 @@
         <li>Métricas da planilha original: por dia, semana e mês</li>
         <li>Linha do tempo, impedimentos e bandeira dos ciclos</li>
         <li>Painel com cinco visões, em semana ou mês</li>
-        <li>Relatório diário em Markdown, .md ou PDF</li>
+        <li>Relatórios do dia, da semana e do mês em Markdown, .md ou PDF</li>
         <li>Lembretes e agenda no sino</li>
         <li>Backup, exportação e importação dos dados</li>
         <li>Temas claro e escuro, celular e acessibilidade AA</li>
@@ -239,8 +239,11 @@
     <li><strong>Por ciclo:</strong> total no período, variação sobre o período anterior equivalente (minutos e %), registros da linha do tempo no período e, por dia, a média dos dias anteriores com apontamento.</li>
   </ul>
 
-  <h3>2.6 Relatório diário (v0.7)</h3>
-  <p>Fala do <strong>trabalho</strong>, não dos apontamentos: o que foi feito (ciclos, tarefas e reuniões), os impedimentos abertos ou resolvidos no dia e o que será feito no próximo dia útil. Por padrão, o dia útil anterior. Montado na hora; nada é gravado.</p>
+  <h3>2.6 Relatórios</h3>
+  <p>Falam do <strong>trabalho</strong>, não dos apontamentos. O <strong>diário</strong> (v0.7) traz o que foi feito (ciclos, tarefas e reuniões), os impedimentos abertos ou resolvidos no dia e o que será feito no próximo dia útil; por padrão, o dia útil anterior. O <strong>do período</strong> (semana ou mês, v0.10) traz os ciclos que andaram com os eventos da linha do tempo, as tarefas concluídas e trabalhadas, as reuniões com quantas vezes aconteceram e os impedimentos do período. Montados na hora; nada é gravado.</p>
+
+  <h3>2.7 Trabalho não planejado (v0.10)</h3>
+  <p>Tempo em ciclos do tipo <em>Intempestiva</em> ÷ tempo apontado no período, com a mesma divisão de sobreposições do Tarefas × Ciclos. Só os ciclos têm tipo. Aparece no relatório do período e no Painel → Rendimento.</p>
 </section>
 
 <!-- ============================== 3 ============================== -->
@@ -295,11 +298,11 @@
       <tr><td><code>demands.ts</code></td><td>Categorias, status, prazo, espera, última atualização, ordenação e resumo das demandas.</td></tr>
       <tr><td><code>overview.ts</code></td><td>Métricas de acompanhamento: tarefas concluídas, na fila e em andamento; ciclos abertos e parados.</td></tr>
       <tr><td><code>breakdown.ts</code></td><td>Distribuição do tempo por demanda (rosca do Painel).</td></tr>
-      <tr><td><code>yield.ts</code></td><td>Rendimento: Tarefas × Ciclos e rendimento por ciclo.</td></tr>
+      <tr><td><code>yield.ts</code></td><td>Rendimento: Tarefas × Ciclos, trabalho não planejado e rendimento por ciclo.</td></tr>
       <tr><td><code>timeline.ts</code></td><td>Linha do tempo unificada (eventos e impedimentos).</td></tr>
       <tr><td><code>layout.ts</code></td><td>Layout em serpentina do mapa da linha do tempo.</td></tr>
       <tr><td><code>reminders.ts</code></td><td>Lembretes do sino e agenda.</td></tr>
-      <tr><td><code>report.ts</code></td><td>Relatório diário.</td></tr>
+      <tr><td><code>report.ts</code> · <code>periodReport.ts</code></td><td>Relatório diário e relatório do período.</td></tr>
       <tr><td><code>types.ts</code></td><td>Tipos comuns (apontamento, metas pré-definidas).</td></tr>
     </tbody>
   </table>
@@ -361,7 +364,7 @@ demand_status_changes(id, demand_id, from_status, to_status, changed_at, created
       <tr><td><span class="tag put">PUT</span></td><td><code>/cycles/:date/goal</code></td><td>Meta diária da semana (e padrão das próximas).</td></tr>
       <tr><td><span class="tag get">GET</span></td><td><code>/periods/:date?scale=</code></td><td>Resumo do período (<code>week</code> ou <code>month</code>).</td></tr>
       <tr><td><span class="tag get">GET</span></td><td><code>/metrics?date=&amp;scale=</code></td><td>Tarefas e ciclos abertos no período.</td></tr>
-      <tr><td><span class="tag get">GET</span></td><td><code>/yield?date=&amp;scale=</code></td><td>Rendimento: Tarefas × Ciclos e por ciclo.</td></tr>
+      <tr><td><span class="tag get">GET</span></td><td><code>/yield?date=&amp;scale=</code></td><td>Rendimento: Tarefas × Ciclos, não planejado e por ciclo.</td></tr>
       <tr><td><span class="tag get">GET</span></td><td><code>/activities?date=</code> ou <code>?from=&amp;to=</code></td><td>Apontamentos de um dia ou de uma faixa (até 62 dias).</td></tr>
       <tr><td><span class="tag post">POST</span> <span class="tag put">PUT</span> <span class="tag del">DEL</span></td><td><code>/activities[/:id]</code></td><td>Aponta, edita e remove; sobreposição gera aviso, não erro.</td></tr>
       <tr><td><span class="tag get">GET</span></td><td><code>/demands?status=&amp;category=</code></td><td>Demandas com métricas e acompanhamento.</td></tr>
@@ -372,6 +375,7 @@ demand_status_changes(id, demand_id, from_status, to_status, changed_at, created
       <tr><td><span class="tag put">PUT</span></td><td><code>…/events/:id/flag</code>, <code>…/blockers/:id/flag</code></td><td>Marca ou desmarca a bandeira.</td></tr>
       <tr><td><span class="tag get">GET</span></td><td><code>/timeline?demandId=</code></td><td>Linha do tempo unificada, do mais recente ao mais antigo.</td></tr>
       <tr><td><span class="tag get">GET</span></td><td><code>/reports/daily?date=</code></td><td>Relatório do dia (padrão: o dia útil anterior).</td></tr>
+      <tr><td><span class="tag get">GET</span></td><td><code>/reports/period?date=&amp;scale=</code></td><td>Relatório da semana ou do mês.</td></tr>
       <tr><td><span class="tag get">GET</span></td><td><code>/export</code></td><td>Todos os dados em JSON, como arquivo.</td></tr>
       <tr><td><span class="tag post">POST</span></td><td><code>/import?replace=</code></td><td>Importa uma exportação (400 inválida, 409 sem <code>replace</code> em banco com dados).</td></tr>
       <tr><td><span class="tag get">GET</span></td><td><code>/backups</code></td><td>Último backup diário, quantos há e quantos ficam.</td></tr>
@@ -393,7 +397,7 @@ demand_status_changes(id, demand_id, from_status, to_status, changed_at, created
       <tr><td><strong>Apontamentos</strong> <code>/apontamentos</code></td><td>Abas por dia útil, lista por horário ou por demanda, formulário em painel deslizante.</td></tr>
       <tr><td><strong>Demandas</strong> <code>/demandas</code></td><td>Tarefas | Ciclo, tipo e status; linhas compactas; linha do tempo e impedimentos nos ciclos.</td></tr>
       <tr><td><strong>Detalhes</strong> <code>/detalhes</code></td><td>Dia a dia (tabela da planilha) e Ciclos (análise da linha do tempo, com filtros).</td></tr>
-      <tr><td><strong>Relatório</strong> <code>/relatorio</code></td><td>Relatório do dia para copiar em Markdown, baixar ou imprimir.</td></tr>
+      <tr><td><strong>Relatório</strong> <code>/relatorio</code></td><td>Escala Dia | Semana | Mês; relatório para copiar em Markdown, baixar ou imprimir.</td></tr>
       <tr><td><strong>Lembretes</strong> <code>/lembretes</code></td><td>Só pelo sino: lembretes, agenda e "Seus dados" (último backup, exportar).</td></tr>
     </tbody>
   </table>
@@ -475,10 +479,10 @@ npm start        # uso diário: build da interface + servidor único em http://1
       <tr><td><code>shared/test</code></td><td>Tempo, semana e mês (viradas de mês e ano, bissexto), métricas da planilha, demandas, prazo, espera, acompanhamento, distribuição, rendimento, linha do tempo, serpentina, lembretes e relatório.</td></tr>
       <tr><td><code>server/test</code></td><td>API real sobre banco em memória: CRUD, validações, conflitos, períodos e rendimento; segurança (<code>Host</code>, <code>Origin</code>, limites); backup e rotação; exportação e importação.</td></tr>
       <tr><td><code>scripts</code></td><td>A varredura anti-vazamento acusa o que deve e não expõe valores.</td></tr>
-      <tr><td><code>web/test</code></td><td>Telas em jsdom contra a API real: navegação entre períodos, escala e visões do Painel, formulário de apontamento e declaração de chamado.</td></tr>
+      <tr><td><code>web/test</code></td><td>Telas em jsdom contra a API real: navegação entre períodos, escala e visões do Painel, escala do Relatório, formulário de apontamento e declaração de chamado.</td></tr>
     </tbody>
   </table>
-  <p>Total: <strong>203 testes</strong> (188 de regras, API e varredura; 15 de tela).</p>
+  <p>Total: <strong>221 testes</strong> (204 de regras, API e varredura; 17 de tela).</p>
 
   <h3>9.2 Integração contínua</h3>
   <p>GitHub Actions (<code>.github/workflows/ci.yml</code>) em todo PR e push na <code>main</code>: <code>npm ci</code>, varredura, typecheck, testes e build, com o Node do <code>.nvmrc</code>. Dependências com versão exata; atualização mensal, uma dependência maior por vez.</p>
@@ -508,12 +512,11 @@ npm start        # uso diário: build da interface + servidor único em http://1
       <tr><td>0.7</td><td>Status só na demanda, histórico de status, métricas de tarefas e relatório diário.</td></tr>
       <tr><td>0.8</td><td>Linha do tempo unificada, bandeira, análise em Detalhes e mapa em serpentina.</td></tr>
       <tr><td>0.9</td><td>"Período", escala Semana | Mês e visão Rendimento.</td></tr>
-      <tr><td>0.10</td><td>Segurança de acesso, backup e exportação, README, CI, testes de tela e organização do código (em andamento).</td></tr>
+      <tr><td>0.10</td><td>Segurança de acesso, backup e exportação, README, CI, testes de tela, organização do código, relatório do período e trabalho não planejado.</td></tr>
     </tbody>
   </table>
   <h3>Próximos passos</h3>
   <ul>
-    <li>Relatório semanal e mensal e o indicador de demandas intempestivas (v0.10, fase 5).</li>
     <li>Metas com prazo e progresso; importador do texto legado; validações novas no sino.</li>
     <li>Integração com o Azure DevOps (futuro).</li>
   </ul>
