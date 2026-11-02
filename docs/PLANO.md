@@ -235,10 +235,10 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 | 6 | Polimento: estados vazios, carregamento, modo escuro, responsividade | ✅ primeira versão |
 | 7 | Próximos passos: autocompletar projetos, copiar atividade de outro dia, exportar semana | a definir |
 | 8 | Expansão para gestão do colaborador (seção 8) | a definir |
-| 9 | v0.7: status só na demanda, Tarefas, métricas, relatório diário (seção 10) | ✅ código; falta a documentação técnica (PDF) |
+| 9 | v0.7: status só na demanda, Tarefas, métricas, relatório diário (seção 10) | ✅ (documentação técnica em PDF atualizada na v0.10) |
 | 10 | v0.8: linha do tempo dos ciclos: impedimentos dentro dela, bandeira, Detalhes → Ciclos e mapa no Painel (seção 11) | ✅ |
 | 11 | v0.9: "Período" no lugar de "ciclo de apontamento", escala Semana \| Mês no Painel e visão Rendimento (seção 12) | ✅ |
-| 12 | v0.10: segurança de acesso, backup e exportação, CI e testes de front, organização e relatório do período (em andamento) | 🚧 |
+| 12 | v0.10: segurança de acesso, backup e exportação, README, CI e testes de tela, organização (rotas por domínio, Painel por visão, `docs/HISTORICO.md`, PDF) e relatório do período | 🚧 falta o relatório do período e as intempestivas |
 | — | Integração com o Azure | futuro |
 
 ### Decisões registradas
