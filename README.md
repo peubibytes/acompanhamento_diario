@@ -14,6 +14,12 @@ decisões ficam em [docs/decisions](docs/decisions).
 
 ## Como rodar
 
+Sem terminal: dois cliques em **`iniciar.cmd`** (Windows) ou `./iniciar.sh` (macOS e Linux). Ele confere o Node,
+instala as dependências na primeira vez (e depois de uma atualização), sobe o servidor e abre o navegador em
+http://127.0.0.1:3001. Feche a janela para parar.
+
+Pelo terminal:
+
 ```bash
 npm install
 npm run dev               # API em http://127.0.0.1:3001 e tela em http://localhost:5173
