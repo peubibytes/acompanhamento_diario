@@ -1,4 +1,4 @@
-// Rendimento: como o tempo do período se divide entre Tarefas e Ciclos e como cada ciclo rendeu
+// Rendimento: como o tempo do período se divide entre as categorias (e entre Tarefas e Ciclos) e como cada ciclo rendeu
 // em relação ao período anterior. Só leitura dos apontamentos; nada é gravado.
 
 import type { ISODate } from './cycle.ts';
@@ -10,7 +10,7 @@ import type { Activity } from './types.ts';
 
 type Logged = Pick<Activity, 'date' | 'startMinute' | 'endMinute' | 'demandId'>;
 
-// ── Tarefas × Ciclos ───────────────────────────────────────────────────────────
+// ── Tempo por categoria (e Tarefas × Ciclos) ───────────────────────────────────
 
 export type DemandFamily = 'tarefas' | 'ciclos';
 
@@ -19,31 +19,34 @@ export function familyOf(category: DemandCategory): DemandFamily {
   return category === 'ciclo' ? 'ciclos' : 'tarefas';
 }
 
-/** Os três grupos do tempo: as duas famílias e os apontamentos antigos, sem demanda. */
-type Group = DemandFamily | 'semDemanda';
-const GROUPS: readonly Group[] = ['tarefas', 'ciclos', 'semDemanda'];
+/** Os grupos do tempo: as quatro categorias e os apontamentos antigos, sem demanda. */
+export type SplitGroup = DemandCategory | 'semDemanda';
+const GROUPS: readonly SplitGroup[] = ['chamado', 'reuniao', 'treinamento', 'ciclo', 'semDemanda'];
 
-export interface FamilyMinutes {
+export interface SplitMinutes extends Record<SplitGroup, number> {
+  /** Família Tarefas: chamado + reunião + treinamento. */
   tarefas: number;
+  /** Família Ciclos: o mesmo que `ciclo`. */
   ciclos: number;
-  /** Apontamentos anteriores à v0.5, sem demanda. */
-  semDemanda: number;
-  /** Soma dos três; igual ao total do dia nas métricas (sobreposições contadas uma vez). */
+  /** Soma dos grupos; igual ao total do dia nas métricas (sobreposições contadas uma vez). */
   total: number;
 }
 
-export interface FamilySplitDay extends FamilyMinutes {
+export interface SplitDay extends SplitMinutes {
   date: ISODate;
 }
 
-export interface FamilySplit {
-  days: FamilySplitDay[];
-  total: FamilyMinutes;
-  /** A família com mais tempo e a sua fatia do total (%); nulo sem tempo ou em empate. */
+export interface CategorySplit {
+  days: SplitDay[];
+  total: SplitMinutes;
+  /** A família (Tarefas × Ciclos) com mais tempo e a sua fatia do total (%); nulo sem tempo ou em empate. */
   predominant: { family: DemandFamily; percent: number } | null;
 }
 
-const emptyMinutes = (): FamilyMinutes => ({ tarefas: 0, ciclos: 0, semDemanda: 0, total: 0 });
+/** Acrescenta as somas por família aos minutos de cada grupo. */
+function withFamilies(minutes: Record<SplitGroup, number>, total: number): SplitMinutes {
+  return { ...minutes, tarefas: minutes.chamado + minutes.reuniao + minutes.treinamento, ciclos: minutes.ciclo, total };
+}
 
 /**
  * Divide o tempo de um dia entre grupos. Dentro de um grupo, apontamentos sobrepostos contam uma vez
@@ -70,38 +73,30 @@ function splitDay<G extends string>(ofDay: Logged[], groupOf: (a: Logged) => G, 
 }
 
 /**
- * Divide o tempo de cada dia útil do período em Tarefas, Ciclos e "Sem demanda". Dentro de um grupo,
- * apontamentos sobrepostos contam uma vez (união); o trecho em que grupos diferentes se sobrepõem é
- * dividido igualmente entre eles. Assim a soma bate com o total do dia (mesma regra da Distribuição,
- * PLANO seção 6), em minutos inteiros.
+ * Divide o tempo de cada dia útil do período por categoria (chamados, reuniões, treinamentos e ciclos)
+ * e "Sem demanda". Dentro de uma categoria, apontamentos sobrepostos contam uma vez (união); o trecho
+ * em que categorias diferentes se sobrepõem é dividido igualmente entre elas. Assim a soma bate com o
+ * total do dia (mesma regra da Distribuição, PLANO seção 6), em minutos inteiros. As famílias
+ * (Tarefas × Ciclos) são a soma das suas categorias.
  */
-export function familySplit(
+export function categorySplit(
   activities: Logged[],
   demands: { id: number; category: DemandCategory }[],
   period: PeriodWindow,
-): FamilySplit {
+): CategorySplit {
   const categories = new Map(demands.map((d) => [d.id, d.category]));
-  const groupOf = (a: Logged): Group => {
-    const category = a.demandId === null ? undefined : categories.get(a.demandId);
-    return category === undefined ? 'semDemanda' : familyOf(category);
-  };
+  const groupOf = (a: Logged): SplitGroup =>
+    (a.demandId === null ? undefined : categories.get(a.demandId)) ?? 'semDemanda';
   const inPeriod = activities.filter((a) => a.endMinute > a.startMinute && period.workdays.includes(a.date));
   const byDay = Map.groupBy(inPeriod, (a) => a.date);
 
-  const days = period.workdays.map((date): FamilySplitDay => {
+  const days = period.workdays.map((date): SplitDay => {
     const { minutes, total } = splitDay(byDay.get(date) ?? [], groupOf, GROUPS);
-    return { date, ...minutes, total };
+    return { date, ...withFamilies(minutes, total) };
   });
 
-  const total = days.reduce(
-    (sum, d) => ({
-      tarefas: sum.tarefas + d.tarefas,
-      ciclos: sum.ciclos + d.ciclos,
-      semDemanda: sum.semDemanda + d.semDemanda,
-      total: sum.total + d.total,
-    }),
-    emptyMinutes(),
-  );
+  const sums = Object.fromEntries(GROUPS.map((g) => [g, days.reduce((sum, d) => sum + d[g], 0)]));
+  const total = withFamilies(sums as Record<SplitGroup, number>, days.reduce((sum, d) => sum + d.total, 0));
   const predominant =
     total.total > 0 && total.tarefas !== total.ciclos
       ? {
@@ -125,7 +120,7 @@ export interface UnplannedTime {
 
 /**
  * Quanto do tempo do período foi para trabalho não planejado: os ciclos do tipo intempestiva (só os
- * ciclos têm tipo). A sobreposição com outra demanda é dividida igualmente, como em Tarefas × Ciclos,
+ * ciclos têm tipo). A sobreposição com outra demanda é dividida igualmente, como no tempo por categoria,
  * para o tempo intempestivo nunca passar do total do dia.
  */
 export function unplannedTime(
@@ -150,7 +145,7 @@ export function unplannedTime(
 export interface YieldReport {
   period: PeriodWindow;
   previous: PeriodWindow;
-  split: FamilySplit;
+  split: CategorySplit;
   unplanned: UnplannedTime;
   cycles: CycleYield[];
 }

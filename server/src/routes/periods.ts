@@ -7,7 +7,7 @@ import {
   buildOverview,
   buildPeriodSummary,
   cycleYield,
-  familySplit,
+  categorySplit,
   getCycle,
   getPeriod,
   previousPeriod,
@@ -72,7 +72,7 @@ export function registerPeriodRoutes(app: Express, { repo, today, summarize, tim
   });
 
   /**
-   * Rendimento do período: tempo em Tarefas × Ciclos e o rendimento de cada ciclo em relação ao
+   * Rendimento do período: tempo por categoria (e Tarefas × Ciclos) e o rendimento de cada ciclo em relação ao
    * período anterior equivalente.
    */
   app.get('/api/yield', (req, res) => {
@@ -90,7 +90,7 @@ export function registerPeriodRoutes(app: Express, { repo, today, summarize, tim
     res.json({
       period,
       previous,
-      split: familySplit(repo.listActivities(period.start, period.end), demands, period),
+      split: categorySplit(repo.listActivities(period.start, period.end), demands, period),
       unplanned: unplannedTime(repo.listActivities(period.start, period.end), demands, period),
       cycles: cycleYield(cycles, repo.listActivities(previous.start, period.end), timelineOf(), period, previous),
     });

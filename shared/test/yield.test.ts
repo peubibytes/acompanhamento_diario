@@ -3,9 +3,9 @@ import { describe, it } from 'node:test';
 import {
   buildPeriodSummary,
   buildTimeline,
+  categorySplit,
   cycleYield,
   familyOf,
-  familySplit,
   getPeriod,
   previousPeriod,
   unplannedTime,
@@ -46,58 +46,82 @@ describe('família da demanda', () => {
   });
 });
 
-describe('Tarefas × Ciclos', () => {
-  it('sem sobreposição: cada família fica com o seu tempo', () => {
-    const s = familySplit([log(1, DAY, 480, 540), log(3, DAY, 540, 570), log(2, DAY, 600, 720)], demands, WEEK);
+describe('tempo por categoria', () => {
+  it('sem sobreposição: cada categoria fica com o seu tempo, e as famílias somam as suas', () => {
+    const acts = [log(1, DAY, 480, 540), log(3, DAY, 540, 570), log(4, DAY, 570, 590), log(2, DAY, 600, 720)];
+    const s = categorySplit(acts, demands, WEEK);
     const day = s.days.find((d) => d.date === DAY)!;
-    assert.deepEqual([day.tarefas, day.ciclos, day.semDemanda, day.total], [90, 120, 0, 210]);
-    assert.equal(s.total.total, 210);
-    assert.deepEqual(s.predominant, { family: 'ciclos', percent: 57 });
+    assert.deepEqual([day.chamado, day.reuniao, day.treinamento, day.ciclo, day.semDemanda], [60, 30, 20, 120, 0]);
+    assert.deepEqual([day.tarefas, day.ciclos, day.total], [110, 120, 230]);
+    assert.equal(s.total.total, 230);
+    assert.deepEqual(s.predominant, { family: 'ciclos', percent: 52 });
   });
 
-  it('sobreposição entre famílias é dividida igualmente e a soma bate com o dia', () => {
+  it('sobreposição entre categorias é dividida igualmente e a soma bate com o dia', () => {
     const acts = [log(1, DAY, 480, 600), log(2, DAY, 540, 660)];
-    const day = familySplit(acts, demands, WEEK).days.find((d) => d.date === DAY)!;
-    assert.deepEqual([day.tarefas, day.ciclos, day.total], [90, 90, 180]);
+    const day = categorySplit(acts, demands, WEEK).days.find((d) => d.date === DAY)!;
+    assert.deepEqual([day.chamado, day.ciclo, day.total], [90, 90, 180]);
   });
 
-  it('sobreposição dentro da mesma família conta uma vez (união)', () => {
-    const acts = [log(1, DAY, 480, 600), log(4, DAY, 540, 660), log(2, DAY, 600, 720)];
-    const s = familySplit(acts, demands, WEEK);
+  it('sobreposição entre duas categorias de Tarefas também é dividida (a família soma as duas)', () => {
+    // Reunião 480–600 e chamado 540–660: 540–600 vale metade para cada um.
+    const day = categorySplit([log(3, DAY, 480, 600), log(1, DAY, 540, 660)], demands, WEEK).days.find((d) => d.date === DAY)!;
+    assert.deepEqual([day.reuniao, day.chamado, day.tarefas, day.total], [90, 90, 180, 180]);
+  });
+
+  it('três categorias ao mesmo tempo: um terço para cada', () => {
+    const acts = [log(1, DAY, 480, 540), log(3, DAY, 480, 540), log(2, DAY, 480, 540)];
+    const day = categorySplit(acts, demands, WEEK).days.find((d) => d.date === DAY)!;
+    assert.deepEqual([day.chamado, day.reuniao, day.ciclo, day.total], [20, 20, 20, 60]);
+  });
+
+  it('sobreposição dentro da mesma categoria conta uma vez (união)', () => {
+    const more = [...demands, { id: 5, category: 'chamado' as const }];
+    const acts = [log(1, DAY, 480, 600), log(5, DAY, 540, 660), log(2, DAY, 600, 720)];
+    const s = categorySplit(acts, more, WEEK);
     const day = s.days.find((d) => d.date === DAY)!;
-    // 480–600 só Tarefas; 600–660 Tarefas e Ciclos (30 cada); 660–720 só Ciclos.
-    assert.deepEqual([day.tarefas, day.ciclos, day.total], [150, 90, 240]);
+    // 480–600 só chamados; 600–660 chamado e ciclo (30 cada); 660–720 só ciclo.
+    assert.deepEqual([day.chamado, day.ciclo, day.total], [150, 90, 240]);
     assert.deepEqual(s.predominant, { family: 'tarefas', percent: 63 });
   });
 
   it('a soma dos grupos é sempre o total do dia nas métricas, em minutos inteiros', () => {
-    const acts = [log(1, DAY, 480, 481), log(2, DAY, 480, 481), log(3, DAY, 481, 484), log(2, DAY, 482, 487), log(null, DAY, 483, 490)];
-    const split = familySplit(acts, demands, WEEK);
+    const acts = [
+      log(1, DAY, 480, 481),
+      log(2, DAY, 480, 481),
+      log(3, DAY, 480, 482),
+      log(4, DAY, 481, 484),
+      log(2, DAY, 482, 487),
+      log(null, DAY, 483, 490),
+    ];
+    const split = categorySplit(acts, demands, WEEK);
     const metrics = buildPeriodSummary(WEEK, acts, () => 330);
     for (const day of split.days) {
-      assert.ok(Number.isInteger(day.tarefas) && Number.isInteger(day.ciclos) && Number.isInteger(day.semDemanda));
-      assert.equal(day.tarefas + day.ciclos + day.semDemanda, day.total);
+      const parts = [day.chamado, day.reuniao, day.treinamento, day.ciclo, day.semDemanda];
+      assert.ok(parts.every(Number.isInteger));
+      assert.equal(parts.reduce((a, b) => a + b, 0), day.total);
+      assert.equal(day.tarefas, day.chamado + day.reuniao + day.treinamento);
       assert.equal(day.total, metrics.days.find((m) => m.date === day.date)!.minutes);
     }
   });
 
   it('apontamento sem demanda (legado) aparece à parte', () => {
-    const day = familySplit([log(null, DAY, 480, 540), log(1, DAY, 600, 660)], demands, WEEK).days.find((d) => d.date === DAY)!;
-    assert.deepEqual([day.tarefas, day.ciclos, day.semDemanda], [60, 0, 60]);
+    const day = categorySplit([log(null, DAY, 480, 540), log(1, DAY, 600, 660)], demands, WEEK).days.find((d) => d.date === DAY)!;
+    assert.deepEqual([day.chamado, day.ciclo, day.semDemanda], [60, 0, 60]);
   });
 
-  it('empate ou período vazio não têm família predominante', () => {
-    assert.equal(familySplit([], demands, WEEK).predominant, null);
-    assert.equal(familySplit([log(1, DAY, 480, 540), log(2, DAY, 600, 660)], demands, WEEK).predominant, null);
+  it('empate entre Tarefas e Ciclos ou período vazio não têm família predominante', () => {
+    assert.equal(categorySplit([], demands, WEEK).predominant, null);
+    assert.equal(categorySplit([log(1, DAY, 480, 510), log(4, DAY, 510, 540), log(2, DAY, 600, 660)], demands, WEEK).predominant, null);
   });
 
   it('no mês: um dia por dia útil; sábado e fora do mês não entram', () => {
     const nov = getPeriod('2026-11-10', 'month');
     const acts = [log(1, '2026-11-02', 480, 540), log(2, '2026-11-07', 480, 540), log(2, '2026-12-01', 480, 540), log(2, '2026-10-30', 480, 540)];
-    const s = familySplit(acts, demands, nov);
+    const s = categorySplit(acts, demands, nov);
     assert.equal(s.days.length, 21);
     assert.equal(s.total.total, 60);
-    assert.equal(s.total.ciclos, 0);
+    assert.deepEqual([s.total.chamado, s.total.ciclo], [60, 0]);
   });
 });
 

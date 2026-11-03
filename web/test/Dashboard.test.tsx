@@ -1,6 +1,7 @@
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { DemandSummary } from '@acomp/shared';
 import { Dashboard } from '../src/pages/Dashboard';
 import { startApi, type TestApi } from './api';
 import { freezeToday, restoreClock } from './clock';
@@ -66,5 +67,29 @@ describe('Painel', () => {
     renderPage(<Dashboard />, { url: '/?escala=mes' });
     await userEvent.click(viewTabs().getByRole('tab', { name: 'Rendimento' }));
     expect(await screen.findByText('Nenhum apontamento em ciclos neste período')).toBeInTheDocument();
+  });
+
+  it('Rendimento mostra o tempo por categoria, com nome, horas e % de cada uma', async () => {
+    const cycle = await api.call<DemandSummary>('POST', '/demands', { category: 'ciclo', title: 'Ciclo de exemplo', startDate: '2026-10-01' });
+    const meeting = await api.call<DemandSummary>('POST', '/demands', {
+      category: 'reuniao',
+      meetingType: 'Daily',
+      participants: 'Equipe Exemplo',
+      subject: 'Alinhamento fictício',
+    });
+    const log = (demandId: number, startMinute: number, endMinute: number) =>
+      api.call('POST', '/activities', { date: '2026-10-27', startMinute, endMinute, demandId, description: '', notes: '' });
+    await log(cycle.id, 540, 720);
+    await log(meeting.id, 720, 780);
+
+    renderPage(<Dashboard />);
+    await userEvent.click(viewTabs().getByRole('tab', { name: 'Rendimento' }));
+    const legend = within(await screen.findByRole('list', { name: 'Tempo por categoria no período' }));
+    const item = (label: string) => legend.getByText(label).closest('li')!.textContent;
+    expect(item('Ciclos')).toMatch(/75%$/);
+    expect(item('Reuniões')).toMatch(/25%$/);
+    expect(item('Chamados')).toMatch(/0%$/);
+    expect(item('Treinamentos')).toMatch(/0%$/);
+    expect(legend.queryByText('Sem demanda')).not.toBeInTheDocument();
   });
 });

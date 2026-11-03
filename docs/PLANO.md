@@ -105,7 +105,7 @@ acompanhamento_diario/
 - **Testes:** `node --test` para as regras (`shared`), para a API (`server`) e para a varredura (`scripts`);
   **Vitest + Testing Library** para as telas (`web/test`, v0.10), em jsdom, falando com a **API real** (Express e
   SQLite em memória numa porta livre), sem respostas inventadas. O relógio é congelado (só `Date`) para as datas
-  serem estáveis. Cobertos: navegação entre períodos, escala e visão do Painel (URL e preferência), formulário de
+  serem estáveis. Cobertos: navegação entre períodos, escala e visão do Painel (URL e preferência), tempo por categoria no Rendimento, formulário de
   apontamento (horário inválido, gravação) e declaração de chamado (maiúsculas, repetido, aviso de rascunho).
   `npm test` roda os dois; `npm run test:rules` e `npm run test:web` rodam cada um.
 - **CI (v0.10):** `.github/workflows/ci.yml` roda, em todo PR e em todo push na `main`, `npm ci`,
@@ -165,7 +165,7 @@ O esquema evolui por migrações numeradas em `server/src/db.ts` (`PRAGMA user_v
 | PUT | `/api/demands/:id/events/:eventId/flag`, `/blockers/:blockerId/flag` | marca ou desmarca a bandeira (`{ flagged }`); editar não a apaga |
 | GET | `/api/metrics?date=&scale=` | tarefas (concluídas no período da data, na fila, em andamento) e ciclos abertos (última atualização, horas). `scale` opcional: `week` (padrão, sexta → quinta) ou `month` (mês civil); outro valor → 400 |
 | GET | `/api/periods/:date?scale=` | resumo do período da data (v0.9): dias úteis com métricas e totais (meta do período, realizado, dias conformes `X/N`, % preenchido). A meta de cada dia é a do ciclo de apontamento a que ele pertence. `scale` como acima |
-| GET | `/api/yield?date=&scale=` | rendimento do período (v0.9): `{ period, previous, split, unplanned, cycles }` — tempo em Tarefas × Ciclos por dia útil, o trabalho não planejado (v0.10, seção 13) e, por ciclo, horas por dia, total, variação sobre o período anterior e registros da linha do tempo |
+| GET | `/api/yield?date=&scale=` | rendimento do período (v0.9): `{ period, previous, split, unplanned, cycles }` — tempo por categoria (reuniões, chamados, treinamentos, ciclos e sem demanda) e por família (Tarefas × Ciclos) por dia útil, o trabalho não planejado (v0.10, seção 13) e, por ciclo, horas por dia, total, variação sobre o período anterior e registros da linha do tempo |
 
 ## 3. Telas
 
@@ -195,8 +195,9 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
      treinamentos (barra empilhada, com os números escritos).
    - *Ciclos:* cada ciclo aberto com o selo de prazo, a última atualização, as horas apontadas
      (como número) e o **mapa da linha do tempo** em serpentina (v0.8, seção 11), no lugar da barra.
-   - *Rendimento (v0.9):* em semana e em mês, dois blocos num só cartão: **Tarefas × Ciclos** (horas em
-     cada família, quem predominou e barras empilhadas por dia útil) e **Rendimento por ciclo** (uma linha
+   - *Rendimento (v0.9):* em semana e em mês, dois blocos num só cartão: **Tempo por categoria** (horas em
+     Tarefas e em Ciclos, quem predominou entre as duas famílias e barras empilhadas por dia útil com chamados, reuniões,
+     treinamentos e ciclos) e **Rendimento por ciclo** (uma linha
      por ciclo: total no período, variação sobre o período anterior, registros da linha do tempo e um
      mini-gráfico por dia útil com a média dos dias anteriores). Ver seção 12. Na faixa, o selo **Não planejado**
      (v0.10): a fatia do tempo em ciclos intempestivos (seção 13).
@@ -576,18 +577,25 @@ Decisão de vocabulário em `docs/decisions/0005-periodo-no-lugar-de-ciclo-de-ap
 
 ### Rendimento (`/` → Rendimento)
 
-Princípio: mostrar para onde o tempo foi (Tarefas ou Ciclos) e se cada ciclo rendeu mais ou menos que antes.
+Princípio: mostrar para onde o tempo foi (reuniões, chamados, treinamentos ou ciclos) e se cada ciclo rendeu mais ou menos que antes.
 Só leitura dos apontamentos: nada é gravado. Regras em `shared/src/yield.ts`.
 
-1. **Tarefas × Ciclos** (`familySplit`). Tarefas = chamados, reuniões e treinamentos; Ciclos = a categoria
-   `ciclo`; apontamentos antigos, sem demanda, ficam num terceiro grupo, "Sem demanda".
-   - Dentro de uma família, horários sobrepostos contam uma vez (união); o trecho em que famílias
-     diferentes se sobrepõem é dividido igualmente entre elas (a mesma ideia da Distribuição, seção 6).
-     A soma por dia bate com o total do dia nas métricas; os minutos são inteiros (maior resto).
-   - Faixa: horas em Tarefas, horas em Ciclos e quem **predominou** ("Mais em Ciclos · 62%": a fatia da
-     família maior no total do período; empate ou período vazio não têm predominante).
-   - Barras empilhadas por dia útil (Tarefas, Ciclos e Sem demanda, esta só se houver), com legenda
-     escrita (nome, horas e %), valor do dia em cima quando cabe e tooltip com horas e % de cada parte.
+1. **Tempo por categoria** (`categorySplit`). Um grupo por categoria de demanda: chamados, reuniões,
+   treinamentos e ciclos; apontamentos antigos, sem demanda, ficam num quinto grupo, "Sem demanda". As
+   famílias saem da soma: Tarefas = chamados + reuniões + treinamentos; Ciclos = a categoria `ciclo`.
+   (Até a v0.10 o bloco era só **Tarefas × Ciclos**, `familySplit`.)
+   - Dentro de uma categoria, horários sobrepostos contam uma vez (união); o trecho em que categorias
+     diferentes se sobrepõem é dividido igualmente entre elas (uma reunião durante um chamado vale metade
+     para cada; três ao mesmo tempo, um terço), a mesma ideia da Distribuição (seção 6). A soma por dia
+     bate com o total do dia nas métricas; os minutos são inteiros (maior resto).
+   - Faixa: horas em Tarefas, horas em Ciclos e quem **predominou** entre as duas famílias ("Mais em
+     Ciclos · 62%": a fatia da família maior no total do período; empate ou período vazio não têm
+     predominante).
+   - Barras empilhadas por dia útil (chamados, reuniões, treinamentos, ciclos e Sem demanda, esta só se
+     houver), com legenda escrita (cor, ícone da categoria, nome, horas e %), valor do dia em cima quando
+     cabe e tooltip com ícone, horas e % de cada parte. A cor é fixa por categoria (paleta `--series-*`).
+   - API: `split` em `GET /api/yield` traz, por dia e no total, `chamado`, `reuniao`, `treinamento`,
+     `ciclo`, `semDemanda` e `total`, além de `tarefas` e `ciclos` (as famílias) e `predominant`.
 2. **Rendimento por ciclo** (`cycleYield`). Entram os ciclos com apontamento ou registro no período e os
    abertos já iniciados; do maior total para o menor.
    - *Total no período* e *variação* sobre o período anterior equivalente, em minutos e %, com selo de
@@ -626,7 +634,7 @@ fictícios. Copiar (Markdown), `Baixar .md` e `Imprimir / PDF`, como no diário.
 
 - **Regra** (`unplannedTime`, em `shared/src/yield.ts`): tempo em ciclos do tipo **Intempestiva** ÷ tempo apontado
   no período. Só os ciclos têm tipo; tarefas e reuniões entram só no total.
-- **Sobreposição:** a mesma do Tarefas × Ciclos (`splitDay`): dentro do grupo conta uma vez; o trecho dividido com
+- **Sobreposição:** a mesma do tempo por categoria (`splitDay`): dentro do grupo conta uma vez; o trecho dividido com
   outra demanda vale metade para cada uma. Minutos inteiros; a fatia é arredondada e é nula sem apontamento.
 - **Onde aparece:** no relatório do período e no Painel → Rendimento, como o selo **Não planejado** ao lado de
   "Predominou" (âmbar com ícone quando houve; neutro com "Nenhum · 0%" ou "Sem apontamentos").
