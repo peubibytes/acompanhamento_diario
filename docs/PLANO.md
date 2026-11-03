@@ -159,6 +159,7 @@ O esquema evolui por migrações numeradas em `server/src/db.ts` (`PRAGMA user_v
 | GET | `/api/export` | todos os dados em JSON (`app`, `schemaVersion`, `exportedAt` e uma lista de linhas por tabela), como arquivo para baixar (v0.10) |
 | POST | `/api/import` | importa uma exportação. Só em banco vazio (sem demandas nem apontamentos); com `?replace=true` substitui o que existe, depois de guardar um backup `pre-importacao-…`. Valida com zod e o `schemaVersion` precisa ser o do aplicativo; roda numa transação (400 e nada muda se algo falhar; 409 sem `replace` em banco com dados). Aceita até 50 MB; as demais rotas, 100 kb |
 | GET | `/api/backups` | o último backup diário, quantos há e quantos ficam: `{ last, count, keep }` |
+| GET | `/api/storage` | para os lembretes de Seus dados: `{ syncedFolder, hasData, lastExportAt }` (pasta sincronizada do banco, se há dados e a última exportação) |
 | GET | `/api/reports/daily?date=` | relatório do dia (sem `date`, o dia útil anterior): o que foi feito, impedimentos e o que será feito |
 | GET | `/api/reports/period?date=&scale=` | relatório do período (v0.10; sem `date`, o de hoje; `scale` como em `/api/metrics`): ciclos que andaram, tarefas concluídas e trabalhadas, reuniões, impedimentos e o trabalho não planejado (seção 13) |
 | GET | `/api/timeline?demandId=` | linha do tempo unificada dos ciclos (eventos e impedimentos), do mais recente ao mais antigo; sem `demandId`, de todos |
@@ -217,7 +218,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
    os apontamentos dele.
 5. **Lembretes e agenda (`/lembretes`)** — só pelo sino; seta de voltar ao lado do título.
    Lembretes por gravidade ("Pedem atenção", "Para saber") e a agenda por dia, em listas sem
-   molduras.
+   molduras. Embaixo, **Seus dados** (`#seus-dados`): último backup, última exportação e "Exportar dados".
 
 6. **Relatório (`/relatorio`, v0.7)** — no canto superior esquerdo, a escala **Dia | Semana | Mês** (v0.10, na URL
    como `?escala=semana` ou `?escala=mes`; sem ela, o dia). Semana e mês: o relatório do período, com a navegação do
@@ -256,6 +257,13 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 
 ## 5. Como rodar
 
+Sem terminal: dois cliques em **`iniciar.cmd`** (Windows) ou `./iniciar.sh` (macOS e Linux). O script
+(`scripts/start-local.mjs`) confere o Node (o mínimo de `engines`), roda `npm ci` quando falta `node_modules` ou o
+`package-lock.json` é mais novo que a instalação, e chama `npm start` com `OPEN_BROWSER=1`: o servidor abre o
+navegador em `http://127.0.0.1:3001` quando fica pronto. Fechar a janela para o servidor. Com a porta ocupada pelo
+próprio app (outra janela; ele responde em `/api/backups`), o servidor abre o navegador nele e sai sem erro; ocupada
+por outro programa, avisa e sai com erro.
+
 ```bash
 npm install
 npm run dev     # API em :3001 e web em :5173
@@ -280,7 +288,19 @@ npm run check:sensitive   # varredura anti-vazamento (planilhas, bancos, chamado
 - **Exportar e importar:** `GET /api/export` e `POST /api/import` (seção 2). O formato é genérico (as
   colunas vêm do próprio banco): uma coluna nova numa migração entra sem mexer na exportação. Importar exige
   a mesma versão do esquema.
-- **Na tela:** Lembretes e agenda → **Seus dados**: "Exportar dados" e a data e hora do último backup.
+- **Na tela:** Lembretes e agenda → **Seus dados**: "Exportar dados" e a data e hora do último backup e da última
+  exportação.
+- **Lembretes de Seus dados** (`dataNotifications`, em `shared/src/reminders.ts`), no sino e em Lembretes, levando a
+  `#seus-dados`:
+  - *Pasta sincronizada* (atenção): o banco ou os backups estão numa pasta do OneDrive, Dropbox, Google Drive ou
+    iCloud Drive (pelo nome de uma pasta do caminho ou, no Windows, pelas variáveis `OneDrive*`;
+    `server/src/storage.ts`). A sincronização pode corromper o SQLite, gravado em mais de um arquivo (.db, -wal,
+    -shm). O servidor também avisa no console ao iniciar.
+  - *Exportação periódica:* os backups ficam no mesmo disco do banco, então o app pede uma cópia fora da máquina.
+    Com dados (demandas ou apontamentos): nunca exportado ou 14 dias ou mais desde a última exportação → atenção;
+    de 7 a 13 dias → informativo (`EXPORT_REMINDER_DAYS`, `EXPORT_WARNING_DAYS`). A exportação grava o momento em
+    `settings.last_export_at`, que fica **fora** do arquivo exportado e sobrevive a uma importação que substitui
+    tudo (é desta máquina, não dos dados).
 - **Restaurar um backup:** pare o servidor, copie o arquivo escolhido de `server/data/backups/` por cima de
   `server/data/acompanhamento.db` (apague antes os arquivos `acompanhamento.db-wal` e `-shm`, se existirem) e
   inicie de novo. O passo a passo está no `README.md`.
@@ -329,7 +349,7 @@ Princípio: o usuário vê apenas o que escolher, sem poluição. A narrativa da
 reestilização, auditorias e comparativos) está em `docs/HISTORICO.md`.
 
 - **Visões do painel:** uma por vez, num seletor no topo (lista na seção 3); a escolha fica salva no navegador.
-- **Lembretes fora da tela:** apontamento irregular, prazos dos ciclos e o dia de apontamento não ocupam o
+- **Lembretes fora da tela:** apontamento irregular, prazos dos ciclos, o dia de apontamento e os cuidados com os dados não ocupam o
   Painel nem Detalhes.
 - **Sino no header:** contador do que pede atenção (vermelho se houver algo urgente); ao passar o mouse ou
   focar, um resumo; ao clicar, a tela de lembretes.

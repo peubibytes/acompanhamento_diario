@@ -6,6 +6,7 @@ import {
   buildCycleSummary,
   buildDemandSummary,
   buildNotifications,
+  dataNotifications,
   daysBetween,
   parseHM,
   type Activity,
@@ -105,6 +106,44 @@ describe('notificações do sino', () => {
       TODAY,
     );
     assert.equal(items.filter((n) => n.kind === 'prazo_demanda').length, 0);
+  });
+});
+
+describe('lembretes de Seus dados', () => {
+  const base = { syncedFolder: null, hasData: true, lastExportAt: null };
+  // Meio-dia em UTC: a mesma data em qualquer fuso do Brasil.
+  const exportedOn = (date: string) => `${date}T12:00:00.000Z`;
+
+  it('avisa quando o banco está numa pasta sincronizada', () => {
+    const [n] = dataNotifications({ ...base, hasData: false, syncedFolder: 'OneDrive' }, TODAY);
+    assert.equal(n.kind, 'pasta_sincronizada');
+    assert.equal(n.severity, 'warning');
+    assert.equal(n.title, 'Seus dados estão numa pasta do OneDrive');
+    assert.deepEqual(n.target, { screen: 'dados' });
+  });
+
+  it('pede a exportação: nunca exportado pede atenção; de 7 a 13 dias informa; 14 ou mais pede atenção', () => {
+    const exportReminder = (lastExportAt: string | null) =>
+      dataNotifications({ ...base, lastExportAt }, TODAY).map((n) => [n.severity, n.detail]);
+    assert.deepEqual(exportReminder(null), [
+      ['warning', 'Você ainda não exportou. Os backups ficam no mesmo disco do banco: guarde uma cópia em outro lugar.'],
+    ]);
+    assert.deepEqual(exportReminder(exportedOn('2026-10-21')), []);
+    assert.deepEqual(exportReminder(exportedOn('2026-10-20')), [
+      ['info', 'A última exportação foi há 7 dias (20/10). Guarde uma cópia nova fora desta máquina.'],
+    ]);
+    assert.equal(exportReminder(exportedOn('2026-10-13'))[0][0], 'warning');
+  });
+
+  it('sem dados não há o que exportar', () => {
+    assert.deepEqual(dataNotifications({ ...base, hasData: false }, TODAY), []);
+  });
+
+  it('entram no sino com os demais lembretes, por gravidade', () => {
+    const cycle = buildCycleSummary(TODAY, [], GOAL);
+    const items = buildNotifications(cycle, [], TODAY, { ...base, syncedFolder: 'Dropbox' });
+    assert.deepEqual(items.map((n) => n.kind), ['pasta_sincronizada', 'exportacao', 'apontamento']);
+    assert.equal(attentionCount(items), 2);
   });
 });
 

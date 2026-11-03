@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import express, { type ErrorRequestHandler } from 'express';
-import { buildDemandSummary, buildTimeline, compareDemands, demandLabel, todayISO, type Demand, type ISODate } from '@acomp/shared';
+import { buildDemandSummary, buildTimeline, compareDemands, demandLabel, todayISO, type Demand, type ISODate, type SyncedFolder } from '@acomp/shared';
 import type { Repo } from './repo.ts';
 import type { BackupService } from './backup.ts';
 import type { RouteContext } from './http.ts';
@@ -23,9 +23,11 @@ interface AppOptions {
   allowedHosts?: string[];
   /** Backups do banco: status na tela e cópia de segurança antes de substituir os dados. */
   backups?: Pick<BackupService, 'status' | 'createExtra'>;
+  /** Serviço que sincroniza a pasta do banco (ver storage.ts); a tela avisa em Lembretes. */
+  syncedFolder?: SyncedFolder | null;
 }
 
-export function createApp({ repo, today = () => todayISO(), staticDir, allowedHosts, backups }: AppOptions) {
+export function createApp({ repo, today = () => todayISO(), staticDir, allowedHosts, backups, syncedFolder = null }: AppOptions) {
   const app = express();
   app.disable('x-powered-by');
   app.use(baseHeaders);
@@ -63,7 +65,7 @@ export function createApp({ repo, today = () => todayISO(), staticDir, allowedHo
   };
 
   // As rotas, por domínio (server/src/routes). Nenhum caminho de um grupo cobre o de outro: a ordem não importa.
-  const ctx: RouteContext = { repo, today, summarize, timelineOf, backups };
+  const ctx: RouteContext = { repo, today, summarize, timelineOf, backups, syncedFolder };
   registerPeriodRoutes(app, ctx);
   registerReportRoutes(app, ctx);
   registerTimelineRoutes(app, ctx);

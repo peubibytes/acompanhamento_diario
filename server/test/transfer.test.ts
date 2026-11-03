@@ -191,6 +191,26 @@ describe('exportar e importar', () => {
   });
 });
 
+describe('última exportação', () => {
+  it('fica gravada ao exportar, fora do arquivo, e sobrevive a uma importação que substitui tudo', async () => {
+    const { api } = await start();
+    assert.deepEqual((await api('GET', '/storage')).data, { syncedFolder: null, hasData: false, lastExportAt: null });
+
+    await seed(api);
+    const file = (await api('GET', '/export')).data;
+    const storage = (await api('GET', '/storage')).data;
+    assert.equal(storage.hasData, true);
+    assert.match(storage.lastExportAt, /^\d{4}-\d{2}-\d{2}T/);
+
+    const again = (await api('GET', '/export')).data;
+    assert.deepEqual(again.tables.settings, file.tables.settings);
+    assert.ok(!JSON.stringify(again.tables.settings).includes('last_export_at'));
+
+    assert.equal((await api('POST', '/import?replace=true', file)).status, 200);
+    assert.ok((await api('GET', '/storage')).data.lastExportAt);
+  });
+});
+
 describe('status dos backups', () => {
   it('sem serviço de backup, vem vazio', async () => {
     const { api } = await start();

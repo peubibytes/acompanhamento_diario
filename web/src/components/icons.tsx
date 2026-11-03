@@ -192,6 +192,16 @@ export const BellIcon = (p: IconProps) => (
     <path d="M6 16V11a6 6 0 1112 0v5l1.5 2h-15L6 16zM10 20.5a2 2 0 004 0" />
   </Icon>
 );
+export const FolderIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M3.5 7.5a2 2 0 012-2h4l2 2.5h7a2 2 0 012 2v7.5a2 2 0 01-2 2h-13a2 2 0 01-2-2v-10z" />
+  </Icon>
+);
+export const DownloadIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 4v11M7 10.5l5 5 5-5M5 19.5h14" />
+  </Icon>
+);
 export const UndoIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 010 11H11" />

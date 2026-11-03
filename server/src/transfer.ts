@@ -21,6 +21,17 @@ export const TABLES = [
 ] as const;
 type Table = (typeof TABLES)[number];
 
+/** Momento (ISO) da última exportação, para o lembrete periódico de exportar. */
+export const LAST_EXPORT_KEY = 'last_export_at';
+/**
+ * Preferências desta máquina, não dos dados: ficam fora da exportação e sobrevivem a uma importação que
+ * substitui tudo (exportar de novo não muda o arquivo, e importar não finge uma exportação que não houve aqui).
+ */
+const LOCAL_SETTINGS = [LAST_EXPORT_KEY];
+const NOT_LOCAL = `key NOT IN (${LOCAL_SETTINGS.map((k) => `'${k}'`).join(', ')})`;
+const rowsOf = (table: Table, file: z.infer<typeof importSchema>) =>
+  table === 'settings' ? file.tables.settings.filter((r) => !LOCAL_SETTINGS.includes(String(r.key))) : file.tables[table];
+
 type Cell = string | number | null;
 type Row = Record<string, Cell>;
 
@@ -76,7 +87,10 @@ export function exportDatabase(db: DatabaseSync, now = new Date()): ExportFile {
   // Lido numa transação só: o arquivo é um retrato único, mesmo com o banco em uso.
   db.exec('BEGIN');
   try {
-    for (const t of TABLES) tables[t] = db.prepare(`SELECT * FROM ${t} ORDER BY rowid`).all() as Row[];
+    for (const t of TABLES) {
+      const where = t === 'settings' ? ` WHERE ${NOT_LOCAL}` : '';
+      tables[t] = db.prepare(`SELECT * FROM ${t}${where} ORDER BY rowid`).all() as Row[];
+    }
   } finally {
     db.exec('COMMIT');
   }
@@ -135,9 +149,10 @@ export function importDatabase(db: DatabaseSync, payload: unknown, replace: bool
   db.exec('BEGIN');
   try {
     // Filhos primeiro: apagar demandas antes dos apontamentos os desvincularia (ON DELETE SET NULL).
-    for (const t of [...TABLES].reverse()) db.exec(`DELETE FROM ${t}`);
+    for (const t of [...TABLES].reverse()) db.exec(`DELETE FROM ${t}${t === 'settings' ? ` WHERE ${NOT_LOCAL}` : ''}`);
     for (const t of TABLES) {
-      for (const [i, row] of file.tables[t].entries()) {
+      const rows = rowsOf(t, file);
+      for (const [i, row] of rows.entries()) {
         const keys = Object.keys(row);
         const sql = `INSERT INTO ${t} (${keys.join(', ')}) VALUES (${keys.map(() => '?').join(', ')})`;
         try {
@@ -146,7 +161,7 @@ export function importDatabase(db: DatabaseSync, payload: unknown, replace: bool
           throw new ImportError(`${t}, linha ${i + 1}: ${explain(err)}`);
         }
       }
-      rowsIn[t] = file.tables[t].length;
+      rowsIn[t] = rows.length;
     }
     if (db.prepare('PRAGMA foreign_key_check').all().length > 0) {
       throw new ImportError('O arquivo tem referências quebradas (um item aponta para uma demanda que não existe).');
