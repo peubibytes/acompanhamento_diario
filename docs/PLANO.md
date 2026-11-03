@@ -260,8 +260,9 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 Sem terminal: dois cliques em **`iniciar.cmd`** (Windows) ou `./iniciar.sh` (macOS e Linux). O script
 (`scripts/start-local.mjs`) confere o Node (o mínimo de `engines`), roda `npm ci` quando falta `node_modules` ou o
 `package-lock.json` é mais novo que a instalação, e chama `npm start` com `OPEN_BROWSER=1`: o servidor abre o
-navegador em `http://127.0.0.1:3001` quando fica pronto. Fechar a janela para o servidor. Com a porta ocupada
-(quase sempre o próprio app aberto em outra janela), o servidor avisa, abre o navegador nela e sai.
+navegador em `http://127.0.0.1:3001` quando fica pronto. Fechar a janela para o servidor. Com a porta ocupada pelo
+próprio app (outra janela; ele responde em `/api/backups`), o servidor abre o navegador nele e sai sem erro; ocupada
+por outro programa, avisa e sai com erro.
 
 ```bash
 npm install

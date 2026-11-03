@@ -67,10 +67,24 @@ const server = app.listen(PORT, HOST, (err?: Error) => {
   }
 });
 
-server.on('error', (err: NodeJS.ErrnoException) => {
+/** A porta responde como este aplicativo (outra janela do iniciar.cmd, por exemplo)? */
+async function isThisApp(url: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${url}/api/backups`, { signal: AbortSignal.timeout(2000) });
+    return res.ok && 'keep' in ((await res.json()) as object);
+  } catch {
+    return false;
+  }
+}
+
+server.on('error', async (err: NodeJS.ErrnoException) => {
   if (err.code !== 'EADDRINUSE') throw err;
-  // Quase sempre é o próprio aplicativo, aberto em outra janela.
-  console.error(`A porta ${PORT} já está em uso. Se o aplicativo já estiver aberto, use ${LOCAL_URL}; senão, defina outra porta em PORT.`);
-  if (OPEN_BROWSER) openBrowser(LOCAL_URL);
+  // Quase sempre é o próprio aplicativo, aberto em outra janela: basta mostrá-lo, sem erro.
+  if (await isThisApp(LOCAL_URL)) {
+    console.log(`O aplicativo já está aberto em ${LOCAL_URL}.`);
+    if (OPEN_BROWSER) openBrowser(LOCAL_URL);
+    return;
+  }
+  console.error(`A porta ${PORT} está em uso por outro programa. Feche-o ou defina outra porta em PORT.`);
   process.exitCode = 1;
 });
