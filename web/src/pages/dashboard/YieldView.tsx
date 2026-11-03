@@ -4,7 +4,7 @@ import { CycleYieldChart } from '../../components/CycleYieldChart';
 import { FamilySplitChart } from '../../components/FamilySplitChart';
 import { ErrorState, Skeleton } from '../../components/States';
 
-/** Painel → Rendimento: Tarefas × Ciclos e o rendimento de cada ciclo (PLANO, seção 12). */
+/** Painel → Rendimento: tempo por categoria (e Tarefas × Ciclos) e o rendimento de cada ciclo (PLANO, seção 12). */
 export function YieldView({ date, scale }: { date: string; scale: PeriodScale }) {
   const report = useYield(date, scale);
   if (report.isPending) return <Skeleton className="h-[48rem]" />;

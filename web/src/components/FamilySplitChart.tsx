@@ -1,35 +1,39 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 import {
+  DEMAND_CATEGORY_PLURAL,
   formatDayMonth,
   formatDuration,
   todayISO,
   WEEKDAY_LONG,
   WEEKDAY_SHORT,
   weekdayOf,
-  type FamilyMinutes,
-  type FamilySplit,
-  type FamilySplitDay,
+  type CategorySplit,
   type PeriodScale,
+  type SplitDay,
+  type SplitGroup,
+  type SplitMinutes,
   type UnplannedTime,
 } from '@acomp/shared';
 import { ChartTooltip, COLUMN_GAP, SIDE_GUTTER } from './ChartTooltip';
+import { categoryIcon } from './DemandVisuals';
 import { AlertIcon, DashIcon, ListIcon, PlusIcon, TargetIcon } from './icons';
 import { SectionTitle } from './SectionTitle';
 
 const HINT = (
   <>
     <span className="block">
-      Quanto do tempo apontado foi em <strong className="font-semibold text-ink">Tarefas</strong> (chamados, reuniões e
-      treinamentos) e quanto em <strong className="font-semibold text-ink">Ciclos</strong>, por dia útil. Apontamentos
-      antigos, sem demanda, aparecem à parte.
+      Quanto do tempo apontado foi em chamados, reuniões, treinamentos e ciclos, por dia útil. Apontamentos antigos, sem
+      demanda, aparecem à parte.
     </span>
     <span className="mt-1.5 block">
-      Horários sobrepostos contam uma vez dentro da mesma família. O trecho em que uma Tarefa e um Ciclo se sobrepõem é
-      dividido igualmente entre as duas, para a soma bater com o total do dia.
+      Horários sobrepostos contam uma vez dentro da mesma categoria. O trecho em que categorias diferentes se sobrepõem
+      (uma reunião durante um ciclo, por exemplo) é dividido igualmente entre elas, para a soma bater com o total do dia.
     </span>
     <span className="mt-1.5 block">
-      <strong className="font-semibold text-ink">Predominou:</strong> a família com mais tempo e a fatia dela no total do
+      <strong className="font-semibold text-ink">Predominou:</strong> entre{' '}
+      <strong className="font-semibold text-ink">Tarefas</strong> (chamados, reuniões e treinamentos) e{' '}
+      <strong className="font-semibold text-ink">Ciclos</strong>, a família com mais tempo e a fatia dela no total do
       período. Em empate, equilibrado.
     </span>
     <span className="mt-1.5 block">
@@ -45,19 +49,23 @@ const NUMBER = 'tabular mt-1 block text-2xl font-semibold tracking-tight text-in
 /** Folga acima da barra mais alta para o total do dia caber dentro do gráfico. */
 const HEADROOM = 1.14;
 
-type Part = 'tarefas' | 'ciclos' | 'semDemanda';
-
-// Do chão para cima. A cor acompanha o nome escrito na legenda e no tooltip: nunca é a única pista.
-const PARTS: { key: Part; label: string; color: string }[] = [
-  { key: 'tarefas', label: 'Tarefas', color: 'var(--series-1)' },
-  { key: 'ciclos', label: 'Ciclos', color: 'var(--series-2)' },
-  { key: 'semDemanda', label: 'Sem demanda', color: 'var(--series-other)' },
+// Do chão para cima: as Tarefas juntas e o Ciclo por cima. A cor é fixa por categoria e acompanha o ícone
+// e o nome escritos na legenda e no tooltip: nunca é a única pista.
+const PARTS: { key: SplitGroup; label: string; color: string; icon: (s: number) => ReactNode }[] = [
+  { key: 'chamado', label: DEMAND_CATEGORY_PLURAL.chamado, color: 'var(--series-1)', icon: categoryIcon.chamado },
+  { key: 'reuniao', label: DEMAND_CATEGORY_PLURAL.reuniao, color: 'var(--series-3)', icon: categoryIcon.reuniao },
+  { key: 'treinamento', label: DEMAND_CATEGORY_PLURAL.treinamento, color: 'var(--series-5)', icon: categoryIcon.treinamento },
+  { key: 'ciclo', label: DEMAND_CATEGORY_PLURAL.ciclo, color: 'var(--series-2)', icon: categoryIcon.ciclo },
+  { key: 'semDemanda', label: 'Sem demanda', color: 'var(--series-other)', icon: (s) => <DashIcon size={s} /> },
 ];
+
+/** As partes que aparecem: as quatro categorias sempre; "Sem demanda" só se houver. */
+const visibleParts = (m: SplitMinutes) => PARTS.filter((p) => p.key !== 'semDemanda' || m.semDemanda > 0);
 
 const percent = (part: number, total: number) => (total > 0 ? Math.round((part * 100) / total) : 0);
 
 /** Selo de quem predominou: ícone, nome e fatia escritos. */
-function Predominance({ split }: { split: FamilySplit }) {
+function Predominance({ split }: { split: CategorySplit }) {
   const p = split.predominant;
   const badge = 'mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap';
   if (!p) {
@@ -96,16 +104,16 @@ function Unplanned({ unplanned }: { unplanned: UnplannedTime }) {
 }
 
 /**
- * Rendimento, bloco 1: o tempo do período dividido entre Tarefas e Ciclos. Faixa de indicadores
- * e barras empilhadas por dia útil (mesmo padrão do gráfico de horas por dia: tooltip no hover e no
- * foco, valor em cima só quando cabe).
+ * Rendimento, bloco 1: o tempo do período por categoria (chamados, reuniões, treinamentos e ciclos).
+ * Faixa de indicadores (com Tarefas × Ciclos) e barras empilhadas por dia útil (mesmo padrão do gráfico
+ * de horas por dia: tooltip no hover e no foco, valor em cima só quando cabe).
  */
 export function FamilySplitChart({
   split,
   unplanned,
   scale,
 }: {
-  split: FamilySplit;
+  split: CategorySplit;
   unplanned: UnplannedTime;
   scale: PeriodScale;
 }) {
@@ -113,7 +121,7 @@ export function FamilySplitChart({
 
   return (
     <div>
-      <SectionTitle title="Tarefas × Ciclos" hint={HINT} />
+      <SectionTitle title="Tempo por categoria" hint={HINT} />
 
       <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div>
@@ -159,12 +167,13 @@ export function FamilySplitChart({
 }
 
 /** Rótulos diretos: nome, horas e % do período sempre visíveis (só as partes que existem). */
-function Legend({ total }: { total: FamilyMinutes }) {
+function Legend({ total }: { total: SplitMinutes }) {
   return (
-    <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-2">
-      {PARTS.filter((p) => p.key !== 'semDemanda' || total.semDemanda > 0).map((p) => (
+    <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-2" aria-label="Tempo por categoria no período">
+      {visibleParts(total).map((p) => (
         <li key={p.key} className="flex items-center gap-2 text-sm">
           <span className="size-3 shrink-0 rounded-sm" style={{ background: p.color }} />
+          <span className="shrink-0 text-ink-3">{p.icon(14)}</span>
           <span className="text-ink">{p.label}</span>
           <span className="tabular font-semibold text-ink">{formatDuration(total[p.key])}</span>
           <span className="tabular text-xs text-ink-3">{percent(total[p.key], total.total)}%</span>
@@ -174,7 +183,7 @@ function Legend({ total }: { total: FamilyMinutes }) {
   );
 }
 
-function Columns({ days, scale }: { days: FamilySplitDay[]; scale: PeriodScale }) {
+function Columns({ days, scale }: { days: SplitDay[]; scale: PeriodScale }) {
   const navigate = useNavigate();
   const today = todayISO();
   const month = scale === 'month';
@@ -253,16 +262,17 @@ function Columns({ days, scale }: { days: FamilySplitDay[]; scale: PeriodScale }
   );
 }
 
-function SplitTooltip({ day, center }: { day: FamilySplitDay; center: number }) {
+function SplitTooltip({ day, center }: { day: SplitDay; center: number }) {
   return (
     <ChartTooltip center={center}>
       <span className="block text-xs font-semibold text-ink">
         {WEEKDAY_LONG[weekdayOf(day.date)]}, {formatDayMonth(day.date)}
       </span>
-      <span className="mt-2 grid grid-cols-[auto_1fr_auto] items-center gap-x-2 gap-y-1 text-xs">
-        {PARTS.filter((p) => p.key !== 'semDemanda' || day.semDemanda > 0).map((p) => (
+      <span className="mt-2 grid grid-cols-[auto_auto_1fr_auto] items-center gap-x-2 gap-y-1 text-xs">
+        {visibleParts(day).map((p) => (
           <span key={p.key} className="contents">
             <span className="size-2.5 rounded-sm" style={{ background: p.color }} />
+            <span className="text-ink-3">{p.icon(12)}</span>
             <span className="text-ink-3">{p.label}</span>
             <span className="tabular text-right font-medium text-ink">
               {formatDuration(day[p.key])} · {percent(day[p.key], day.total)}%

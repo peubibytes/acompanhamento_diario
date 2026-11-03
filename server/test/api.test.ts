@@ -679,7 +679,7 @@ describe('API de períodos e rendimento', () => {
     await api('DELETE', `/demands/${id}`);
   });
 
-  it('rendimento: Tarefas × Ciclos e o rendimento de cada ciclo contra o período anterior', async () => {
+  it('rendimento: tempo por categoria, Tarefas × Ciclos e o rendimento de cada ciclo contra o período anterior', async () => {
     today = '2026-11-12';
     const c = await ciclo('Ciclo do rendimento');
     const t = ((await api('POST', '/demands', { category: 'reuniao', meetingType: 'Daily', participants: 'Equipe Exemplo', subject: 'Rendimento' })).data as DemandSummary).id;
@@ -695,6 +695,7 @@ describe('API de períodos e rendimento', () => {
     assert.equal(day.ciclos, 120);
     assert.equal(day.tarefas, 30);
     assert.equal(day.total, 150);
+    assert.deepEqual([day.ciclo, day.reuniao, day.chamado, day.treinamento, day.semDemanda], [120, 30, 0, 0, 0]);
     const row = y.cycles.find((x: { id: number }) => x.id === c);
     assert.equal(row.total, 120);
     assert.equal(row.previousTotal, 60);
