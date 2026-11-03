@@ -3,7 +3,7 @@
 
 import type { Response } from 'express';
 import { z } from 'zod';
-import { isValidISODate, PERIOD_SCALES, type DemandSummary, type Demand, type ISODate, type TimelineEntry } from '@acomp/shared';
+import { isValidISODate, PERIOD_SCALES, type DemandSummary, type SyncedFolder, type Demand, type ISODate, type TimelineEntry } from '@acomp/shared';
 import type { BackupService } from './backup.ts';
 import type { Repo } from './repo.ts';
 
@@ -27,4 +27,6 @@ export interface RouteContext {
   /** Linha do tempo unificada dos ciclos; sem `demandId`, a de todos. */
   timelineOf: (demandId?: number) => TimelineEntry[];
   backups?: Pick<BackupService, 'status' | 'createExtra'>;
+  /** Serviço que sincroniza a pasta do banco (OneDrive, Dropbox…), ou nulo. */
+  syncedFolder: SyncedFolder | null;
 }

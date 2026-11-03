@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   daysBetween,
   formatDayMonth,
@@ -9,8 +10,8 @@ import {
   type AppNotification,
   type ISODate,
 } from '@acomp/shared';
-import { useBackupStatus } from '../api/client';
-import { targetHref, useReminders } from '../api/reminders';
+import { useBackupStatus, useStorageStatus } from '../api/client';
+import { targetHref, useReminders, YOUR_DATA_ID } from '../api/reminders';
 import { deadlineStyle } from '../components/DemandVisuals';
 import { AlertIcon, CalendarIcon, SendIcon, TargetIcon } from '../components/icons';
 import { PageHeader } from '../components/PageHeader';
@@ -78,7 +79,12 @@ const DATA_HINT = (
     </span>
     <span className="mt-1.5 block">
       <strong className="font-semibold text-ink">Exportar dados</strong> baixa tudo em um arquivo JSON, para guardar ou
-      levar a outra máquina. Para restaurar um backup ou importar um arquivo, veja o README.
+      levar a outra máquina. Os backups ficam no mesmo disco do banco: exporte ao menos uma vez por semana e guarde
+      o arquivo em outro lugar (os lembretes avisam). Para restaurar um backup ou importar um arquivo, veja o README.
+    </span>
+    <span className="mt-1.5 block">
+      Não deixe a pasta do aplicativo dentro do OneDrive (ou de outra pasta sincronizada): a sincronização pode
+      corromper o banco. Os lembretes avisam se for o caso.
     </span>
   </>
 );
@@ -86,27 +92,50 @@ const DATA_HINT = (
 const EXPORT_LINK =
   'rounded-full bg-surface-2 px-4 py-2 text-sm font-semibold text-ink outline-none transition hover:brightness-95 focus-visible:ring-2 focus-visible:ring-accent';
 
+const dateTime = (iso: string) => new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+
+/** O texto de um campo de Seus dados enquanto a consulta carrega, falha ou volta vazia. */
+function statusText(query: { isPending: boolean; isError: boolean }, value: string | null | undefined, failed: string, none: string) {
+  if (query.isPending) return 'Carregando…';
+  if (query.isError) return failed;
+  return value ? dateTime(value) : none;
+}
+
 /** Exportar os dados e quando foi o último backup: a tela de Lembretes é a de "cuidar do que importa". */
 function YourData() {
   const backups = useBackupStatus();
-  const last = backups.data?.last;
-  const text = backups.isPending
-    ? 'Carregando…'
-    : backups.isError
-      ? 'Não foi possível consultar os backups.'
-      : last
-        ? new Date(last.at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
-        : 'Nenhum ainda';
+  const storage = useStorageStatus();
+  const queryClient = useQueryClient();
+  const { hash } = useLocation();
+  const ref = useRef<HTMLElement>(null);
+
+  // Os lembretes de Seus dados levam até aqui (#seus-dados).
+  useEffect(() => {
+    if (hash === `#${YOUR_DATA_ID}`) ref.current?.scrollIntoView({ block: 'start' });
+  }, [hash]);
+
+  // O download é um link comum: o servidor grava a exportação ao responder, e a consulta é refeita em seguida.
+  const onExport = () => window.setTimeout(() => queryClient.invalidateQueries({ queryKey: ['storage'] }), 1500);
 
   return (
-    <section className="min-w-0 space-y-3" aria-label="Seus dados">
+    <section ref={ref} id={YOUR_DATA_ID} className="min-w-0 scroll-mt-20 space-y-3" aria-label="Seus dados">
       <SectionTitle title="Seus dados" hint={DATA_HINT} />
       <div className="card flex flex-wrap items-center justify-between gap-x-6 gap-y-3 p-5">
-        <dl>
-          <dt className="text-2xs font-semibold tracking-wider text-ink-3 uppercase">Último backup</dt>
-          <dd className="tabular mt-1 text-sm font-semibold text-ink">{text}</dd>
+        <dl className="flex flex-wrap gap-x-8 gap-y-3">
+          <div>
+            <dt className="text-2xs font-semibold tracking-wider text-ink-3 uppercase">Último backup</dt>
+            <dd className="tabular mt-1 text-sm font-semibold text-ink">
+              {statusText(backups, backups.data?.last?.at, 'Não foi possível consultar os backups.', 'Nenhum ainda')}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-2xs font-semibold tracking-wider text-ink-3 uppercase">Última exportação</dt>
+            <dd className="tabular mt-1 text-sm font-semibold text-ink">
+              {statusText(storage, storage.data?.lastExportAt, 'Não foi possível consultar.', 'Nenhuma ainda')}
+            </dd>
+          </div>
         </dl>
-        <a href="/api/export" download className={EXPORT_LINK}>
+        <a href="/api/export" download onClick={onExport} className={EXPORT_LINK}>
           Exportar dados
         </a>
       </div>

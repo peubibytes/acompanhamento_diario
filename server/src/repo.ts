@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite';
-import { exportDatabase, importDatabase, isEmptyDatabase } from './transfer.ts';
+import { exportDatabase, importDatabase, isEmptyDatabase, LAST_EXPORT_KEY } from './transfer.ts';
 import {
   DEFAULT_DAILY_GOAL,
   demandLabel,
@@ -301,6 +301,16 @@ export function createRepo(db: DatabaseSync) {
     /** Todas as tabelas num arquivo só (ver transfer.ts). */
     exportData(now = new Date()) {
       return exportDatabase(db, now);
+    },
+
+    /** Grava o momento da exportação (fica fora do arquivo exportado: ver LOCAL_SETTINGS em transfer.ts). */
+    markExported(now = new Date()) {
+      q.setSetting.run(LAST_EXPORT_KEY, now.toISOString());
+    },
+
+    lastExportAt(): string | null {
+      const row = q.getSetting.get(LAST_EXPORT_KEY) as { value: string } | undefined;
+      return row?.value ?? null;
     },
 
     /** Sem demandas e sem apontamentos. */

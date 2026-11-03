@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import type { AppNotification, Severity } from '@acomp/shared';
 import { targetHref } from '../api/reminders';
-import { BellIcon, CalendarIcon, TargetIcon, TrendUpIcon } from './icons';
+import { BellIcon, CalendarIcon, DownloadIcon, FolderIcon, TargetIcon, TrendUpIcon } from './icons';
 
 export const severityStyle: Record<Severity, { chip: string; label: string }> = {
   critical: { chip: 'bg-critical-soft text-critical-text', label: 'Urgente' },
@@ -14,6 +14,8 @@ const kindIcon: Record<AppNotification['kind'], (s: number) => ReactNode> = {
   dia_irregular: (s) => <TrendUpIcon size={s} />,
   prazo_demanda: (s) => <TargetIcon size={s} />,
   apontamento: (s) => <CalendarIcon size={s} />,
+  pasta_sincronizada: (s) => <FolderIcon size={s} />,
+  exportacao: (s) => <DownloadIcon size={s} />,
 };
 
 export function SeverityIcon({ severity, kind, size = 16 }: { severity: Severity; kind: AppNotification['kind']; size?: number }) {

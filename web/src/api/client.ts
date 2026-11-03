@@ -20,6 +20,7 @@ import {
   type PeriodScale,
   type PeriodReport,
   type PeriodSummary,
+  type StorageStatus,
   type YieldReport,
 } from '@acomp/shared';
 
@@ -98,6 +99,14 @@ export interface BackupStatus {
   last: { file: string; date: string; at: string; sizeBytes: number } | null;
   count: number;
   keep: number;
+}
+
+/** Pasta sincronizada e última exportação: os lembretes de Seus dados. */
+export function useStorageStatus() {
+  return useQuery({
+    queryKey: ['storage'] as const,
+    queryFn: () => request<StorageStatus>('GET', '/storage'),
+  });
 }
 
 /** O último backup diário do banco (a tela de Lembretes mostra quando foi). */
