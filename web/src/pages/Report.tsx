@@ -229,8 +229,10 @@ function DateChip({ date }: { date: ISODate }) {
 function Metric({ label, value, icon }: { label: string; value: string; icon: ReactNode }) {
   return (
     <div className="rounded-control bg-surface-2 px-3 py-2.5">
-      <dt className="flex items-center gap-1.5 truncate text-2xs font-semibold tracking-wider text-ink-3 uppercase">
-        <span aria-hidden>{icon}</span>
+      <dt className="flex items-center gap-1.5 text-2xs font-semibold tracking-normal text-ink-3 uppercase sm:tracking-wider">
+        <span aria-hidden className="hidden sm:inline">
+          {icon}
+        </span>
         {label}
       </dt>
       <dd className="tabular mt-1 text-2xl font-semibold text-ink">{value}</dd>
@@ -291,7 +293,20 @@ function DoneSection({ report, today }: { report: DailyReport; today: ISODate })
             <LightTable
               caption="Chamados atendidos"
               head={['Chamado', 'Descrição', 'Situação']}
-              rows={d.tickets.map((i) => ({ key: i.demandId, cells: [demandLink(i), i.subtitle, <StatusChip item={i} />] }))}
+              hideOnMobile={[2]}
+              rows={d.tickets.map((i) => ({
+                key: i.demandId,
+                cells: [
+                  <>
+                    {demandLink(i)}
+                    <span className="mt-1 block sm:hidden">
+                      <StatusChip item={i} />
+                    </span>
+                  </>,
+                  i.subtitle,
+                  <StatusChip item={i} />,
+                ],
+              }))}
             />
           )}
           {many(d.meetings.length) && (
@@ -321,9 +336,21 @@ function DoneSection({ report, today }: { report: DailyReport; today: ISODate })
               caption="Demandas de ciclo"
               head={['Ciclo', 'Situação', 'Horas', 'Ações']}
               numeric={2}
+              hideOnMobile={[1, 2]}
               rows={d.cycles.map((i) => ({
                 key: i.demandId,
-                cells: [demandLink(i), <StatusChip item={i} />, i.minutes ? formatDuration(i.minutes) : '—', i.progress.join('; ')],
+                cells: [
+                  <>
+                    {demandLink(i)}
+                    <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 sm:hidden">
+                      <StatusChip item={i} />
+                      <span className="tabular text-xs text-ink-3">{i.minutes ? formatDuration(i.minutes) : '—'}</span>
+                    </span>
+                  </>,
+                  <StatusChip item={i} />,
+                  i.minutes ? formatDuration(i.minutes) : '—',
+                  i.progress.join('; '),
+                ],
               }))}
             />
           )}

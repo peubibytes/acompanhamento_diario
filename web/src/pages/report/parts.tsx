@@ -89,16 +89,20 @@ export function LightTable({
   head,
   rows,
   numeric,
+  hideOnMobile = [],
 }: {
   caption: string;
   head: string[];
   rows: { key: number; cells: ReactNode[] }[];
   numeric?: number;
+  /** Colunas que somem no celular (o conteúdo delas vai para a primeira coluna, só no celular). */
+  hideOnMobile?: number[];
 }) {
-  const align = (index: number) => (index === numeric ? 'text-right tabular' : 'text-left');
+  const align = (index: number) =>
+    `${index === numeric ? 'text-right tabular' : 'text-left'} ${hideOnMobile.includes(index) ? 'hidden sm:table-cell' : ''}`;
   return (
     <div className="mt-5 overflow-x-auto">
-      <table className="w-full min-w-[28rem] border-collapse text-sm">
+      <table className="w-full border-collapse text-sm">
         <caption className={`${GROUP} text-left`}>{caption}</caption>
         <thead>
           <tr className="border-b border-line">
