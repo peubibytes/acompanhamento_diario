@@ -1,21 +1,26 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import {
-  blockersSummary,
-  type PeriodScale,
-  DEMAND_CATEGORY_LABEL,
   dailyReportMarkdown,
-  doneSummary,
+  doneDetail,
+  doneHeadline,
+  doneTitle,
   formatDayMonth,
+  formatDuration,
+  hasDoneWork,
   isValidISODate,
   isWorkday,
   nextTitle,
   nextWorkday,
+  planSentence,
   previousWorkday,
+  REPORT_INLINE_LIMIT,
+  selectedNext,
   todayISO,
   WEEKDAY_SHORT,
   weekdayOf,
   type DailyReport,
+  type PeriodScale,
   type ISODate,
   type ReportNextItem,
   type ReportWorkItem,
@@ -27,7 +32,16 @@ import { PageHeader } from '../components/PageHeader';
 import { SectionTitle } from '../components/SectionTitle';
 import { ErrorState, Skeleton } from '../components/States';
 import { PeriodReportView } from './report/PeriodReportView';
-import { BlockerList, ExportButtons, GROUP, plural, ScaleSwitch, useReportExport, type ReportScale } from './report/parts';
+import {
+  BlockerList,
+  ExportButtons,
+  GROUP,
+  LightTable,
+  plural,
+  ScaleSwitch,
+  useReportExport,
+  type ReportScale,
+} from './report/parts';
 
 type SkipKey = number | 'fila';
 
@@ -40,15 +54,16 @@ const PERIOD_OF: Partial<Record<ReportScale, PeriodScale>> = { semana: 'week', m
 const PAGE_HINT = (
   <>
     <span className="block">
-      Resumo de um dia para a daily ou o 1:1: quais ciclos andaram, quais tarefas você trabalhou ou concluiu e
-      quantas reuniões teve. Por padrão, o dia útil anterior.
+      O relatório da daily em dois tópicos, montado com o que você registrou: o que foi feito no dia (por padrão, o
+      dia útil anterior) e o que será feito no próximo.
     </span>
     <span className="mt-1.5 block">
-      Horários e horas apontadas não entram: são do controle de apontamento, não da conversa com a equipe.
+      Cada tópico abre com uma frase pronta para ler. Apontamentos, eventos e trocas de status da mesma demanda viram
+      um item só; acima de três itens de um tipo, eles vão para uma tabela.
     </span>
     <span className="mt-1.5 block">
-      Em <strong className="font-semibold text-ink">O que será feito</strong>, desmarque o que não quiser levar. Nada
-      disso é gravado.
+      Em <strong className="font-semibold text-ink">O que será feito</strong>, desmarque o que não quiser levar: a frase
+      muda junto. Nada disso é gravado.
     </span>
   </>
 );
@@ -110,7 +125,8 @@ function ReportBody({
 }) {
   const report = useDailyReport(date);
   const [skip, setSkip] = useState<Set<SkipKey>>(new Set());
-  const markdown = report.data ? dailyReportMarkdown(report.data, { skipNext: skip, today: todayISO() }) : '';
+  const today = todayISO();
+  const markdown = report.data ? dailyReportMarkdown(report.data, { skipNext: skip, today }) : '';
   const { copy, download } = useReportExport(markdown, `daily-${date}.md`);
 
   const toggle = (key: SkipKey) =>
@@ -148,9 +164,8 @@ function ReportBody({
         <ErrorState message={report.error.message} onRetry={() => report.refetch()} />
       ) : (
         <div className="space-y-section">
-          <DoneSection report={report.data} />
-          <BlockersSection report={report.data} />
-          <NextSection report={report.data} skip={skip} onToggle={toggle} />
+          <DoneSection report={report.data} today={today} />
+          <NextSection report={report.data} today={today} skip={skip} onToggle={toggle} />
         </div>
       )}
     </>
@@ -195,14 +210,60 @@ function DayNav({ date, onChange }: { date: ISODate; onChange: (d: ISODate) => v
   );
 }
 
-function DoneSection({ report }: { report: DailyReport }) {
+const many = (n: number) => n > REPORT_INLINE_LIMIT;
+
+/** A frase que abre cada tópico: em destaque, com o filete da cor de destaque. */
+function Lead({ children }: { children: ReactNode }) {
+  return (
+    <p className="mt-4 border-l-2 border-accent pl-4 text-base font-medium text-pretty text-ink" data-testid="report-lead">
+      {children}
+    </p>
+  );
+}
+
+/** Data do tópico, ao lado do título. */
+function DateChip({ date }: { date: ISODate }) {
+  return <span className="tabular rounded-full bg-surface-2 px-2.5 py-1 text-xs font-medium text-ink-2">{dayLabel(date)}</span>;
+}
+
+function Metric({ label, value, icon }: { label: string; value: string; icon: ReactNode }) {
+  return (
+    <div className="rounded-control bg-surface-2 px-3 py-2.5">
+      <dt className="flex items-center gap-1.5 truncate text-2xs font-semibold tracking-wider text-ink-3 uppercase">
+        <span aria-hidden>{icon}</span>
+        {label}
+      </dt>
+      <dd className="tabular mt-1 text-2xl font-semibold text-ink">{value}</dd>
+    </div>
+  );
+}
+
+const demandLink = (i: { demandId: number; label: string }) => (
+  <Link to={`/demandas#demanda-${i.demandId}`} className="font-semibold text-ink hover:underline">
+    {i.label}
+  </Link>
+);
+
+function StatusChip({ item }: { item: ReportWorkItem }) {
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${
+        item.changed ? 'bg-accent-soft text-accent' : 'bg-neutral-soft text-ink-2'
+      }`}
+    >
+      {item.status}
+    </span>
+  );
+}
+
+function DoneSection({ report, today }: { report: DailyReport; today: ISODate }) {
   const d = report.done;
-  const summary = doneSummary(d);
+  const title = doneTitle(report.date, today);
 
   return (
     <section className="card rise p-5 sm:p-6" aria-label="O que foi feito">
-      <SectionTitle title="O que foi feito" />
-      {!summary ? (
+      <SectionTitle title={title} aside={<DateChip date={report.date} />} />
+      {!hasDoneWork(d) ? (
         <p className="mt-3 text-sm text-ink-2">
           Nada registrado neste dia.{' '}
           <Link to={`/apontamentos?data=${report.date}`} className="font-semibold text-accent hover:underline">
@@ -211,79 +272,61 @@ function DoneSection({ report }: { report: DailyReport }) {
         </p>
       ) : (
         <>
-          <p className="tabular mt-1 text-sm font-medium text-ink-2">{summary}</p>
-          <div className="mt-5 space-y-5 border-t border-line pt-5">
-            {d.cycles.length > 0 && <WorkGroup title="Ciclos" items={d.cycles} />}
-            {d.tasks.length > 0 && <WorkGroup title="Tarefas" items={d.tasks} />}
-            {d.meetings.length > 0 && (
-              <div>
-                <h3 className={GROUP}>Reuniões</h3>
-                <ul className="space-y-1.5 text-sm">
-                  {d.meetings.map((m) => (
-                    <li key={m.demandId} className="flex items-center gap-2">
-                      <span className="shrink-0 text-ink-3">{categoryIcon.reuniao(15)}</span>
-                      <span className="min-w-0 text-ink">
-                        {m.label} <span className="text-ink-3">com {m.participants}</span>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+          <dl className={`mt-4 grid gap-2 ${d.trainings.length ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
+            <Metric label="Chamados" value={String(d.tickets.length)} icon={categoryIcon.chamado(12)} />
+            <Metric label="Reuniões" value={String(d.meetings.length)} icon={categoryIcon.reuniao(12)} />
+            {d.trainings.length > 0 && (
+              <Metric label="Treinamentos" value={String(d.trainings.length)} icon={categoryIcon.treinamento(12)} />
             )}
-          </div>
-        </>
-      )}
-    </section>
-  );
-}
+            <Metric
+              label="Ciclos"
+              value={d.cycleMinutes ? formatDuration(d.cycleMinutes) : '0h'}
+              icon={categoryIcon.ciclo(12)}
+            />
+          </dl>
+          <Lead>{doneHeadline(report, today)}</Lead>
+          <p className="mt-3 text-sm leading-relaxed text-pretty text-ink-2">{doneDetail(d)}</p>
 
-function WorkGroup({ title, items }: { title: string; items: ReportWorkItem[] }) {
-  return (
-    <div>
-      <h3 className={GROUP}>{title}</h3>
-      <ul className="space-y-3">
-        {items.map((i) => (
-          <li key={i.demandId}>
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-              <span className="shrink-0 text-ink-3">{categoryIcon[i.category](15)}</span>
-              <Link to={`/demandas#demanda-${i.demandId}`} className="font-semibold text-ink hover:underline">
-                {i.label}
-              </Link>
-              {i.subtitle && <span className="min-w-0 text-ink-3">{i.subtitle}</span>}
-              <span
-                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                  i.changed ? 'bg-accent-soft text-accent' : 'bg-neutral-soft text-ink-2'
-                }`}
-              >
-                {i.status}
-              </span>
-            </p>
-            {i.progress.length > 0 && (
-              <ul className="mt-1 ml-6 list-disc space-y-0.5 pl-4 text-sm text-ink-2 marker:text-ink-3">
-                {i.progress.map((p) => (
-                  <li key={p}>{p}</li>
+          {many(d.tickets.length) && (
+            <LightTable
+              caption="Chamados atendidos"
+              head={['Chamado', 'Descrição', 'Situação']}
+              rows={d.tickets.map((i) => ({ key: i.demandId, cells: [demandLink(i), i.subtitle, <StatusChip item={i} />] }))}
+            />
+          )}
+          {many(d.meetings.length) && (
+            <div className="mt-5">
+              <h3 className={GROUP}>Reuniões</h3>
+              <ul className="space-y-1.5 text-sm">
+                {d.meetings.map((m) => (
+                  <li key={m.demandId} className="flex items-center gap-2">
+                    <span className="shrink-0 text-ink-3">{categoryIcon.reuniao(15)}</span>
+                    <span className="min-w-0 text-ink">
+                      {m.label} <span className="text-ink-3">com {m.participants}</span>
+                    </span>
+                  </li>
                 ))}
               </ul>
-            )}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function BlockersSection({ report }: { report: DailyReport }) {
-  const b = report.blockers;
-
-  return (
-    <section className="card rise p-5 sm:p-6" aria-label="Impedimentos">
-      <SectionTitle title="Impedimentos" />
-      {b.items.length === 0 ? (
-        <p className="mt-3 text-sm text-ink-2">Sem impedimentos.</p>
-      ) : (
-        <>
-          <p className="tabular mt-1 text-sm font-medium text-ink-2">{blockersSummary(b)}</p>
-          <BlockerList items={b.items} />
+            </div>
+          )}
+          {many(d.trainings.length) && (
+            <LightTable
+              caption="Treinamentos"
+              head={['Treinamento', 'Situação']}
+              rows={d.trainings.map((i) => ({ key: i.demandId, cells: [demandLink(i), <StatusChip item={i} />] }))}
+            />
+          )}
+          {many(d.cycles.length) && (
+            <LightTable
+              caption="Demandas de ciclo"
+              head={['Ciclo', 'Situação', 'Horas', 'Ações']}
+              numeric={2}
+              rows={d.cycles.map((i) => ({
+                key: i.demandId,
+                cells: [demandLink(i), <StatusChip item={i} />, i.minutes ? formatDuration(i.minutes) : '—', i.progress.join('; ')],
+              }))}
+            />
+          )}
         </>
       )}
     </section>
@@ -292,16 +335,19 @@ function BlockersSection({ report }: { report: DailyReport }) {
 
 function NextSection({
   report,
+  today,
   skip,
   onToggle,
 }: {
   report: DailyReport;
+  today: ISODate;
   skip: Set<SkipKey>;
   onToggle: (key: SkipKey) => void;
 }) {
   const next = report.next;
-  // Sem demanda aberta, a seção nem aparece.
-  if (!next) return null;
+  const chosen = selectedNext(next, skip);
+  const openBlockers = report.blockers.items.filter((b) => b.resolvedAt === null);
+  const hasItems = next.tickets.length + next.trainings.length + next.cycles.length + next.queued > 0;
 
   const row = (key: SkipKey, content: ReactNode) => (
     <li key={String(key)}>
@@ -310,9 +356,9 @@ function NextSection({
           type="checkbox"
           checked={!skip.has(key)}
           onChange={() => onToggle(key)}
-          className="mt-0.5 size-4 shrink-0 accent-[var(--accent)] print:hidden"
+          className="mt-0.5 size-4 shrink-0 accent-[var(--accent)]"
         />
-        <span className={`min-w-0 ${skip.has(key) ? 'text-ink-3 line-through print:hidden' : ''}`}>{content}</span>
+        <span className={`min-w-0 ${skip.has(key) ? 'text-ink-3 line-through' : ''}`}>{content}</span>
       </label>
     </li>
   );
@@ -321,20 +367,56 @@ function NextSection({
     row(
       i.demandId,
       <>
+        <span className="mr-1.5 inline-block align-[-2px] text-ink-3">{categoryIcon[i.category](14)}</span>
         <strong className="font-semibold text-ink">{i.label}</strong>
-        {i.category !== 'ciclo' && <span className="text-xs text-ink-3"> {DEMAND_CATEGORY_LABEL[i.category]}</span>}
+        {i.isNew && (
+          <span className="ml-1.5 rounded-full bg-accent-soft px-1.5 py-0.5 text-2xs font-semibold text-accent">novo</span>
+        )}
         {i.detail && <span> — {i.detail}</span>}
       </>,
     );
 
   return (
     <section className="card rise p-5 sm:p-6" aria-label="O que será feito">
-      <SectionTitle title={nextTitle(next.date, todayISO())} />
-      <ul className="mt-4 space-y-2.5">
-        {next.cycles.map(item)}
-        {next.tasks.map(item)}
-        {next.queued > 0 && row('fila', <>Na fila: {plural(next.queued, 'tarefa', 'tarefas')}</>)}
-      </ul>
+      <SectionTitle title={nextTitle(next.date, today)} aside={<DateChip date={next.date} />} />
+      <Lead>{planSentence(next, today, skip)}</Lead>
+
+      {/* Na tela, a lista para tirar itens antes de copiar; na impressão, as tabelas (acima de três). */}
+      {hasItems && (
+        <div className="mt-5 border-t border-line pt-5 print:hidden">
+          <h3 className={GROUP}>Itens do plano</h3>
+          <ul className="space-y-2.5">
+            {next.tickets.map(item)}
+            {next.trainings.map(item)}
+            {next.cycles.map(item)}
+            {next.queued > 0 && row('fila', <>Na fila: {plural(next.queued, 'tarefa', 'tarefas')}</>)}
+          </ul>
+        </div>
+      )}
+      <div className="hidden print:block">
+        {many(chosen.tickets.length) && (
+          <LightTable
+            caption="Chamados"
+            head={['Chamado', 'Descrição']}
+            rows={chosen.tickets.map((i) => ({ key: i.demandId, cells: [i.label, i.detail] }))}
+          />
+        )}
+        {many(chosen.cycles.length) && (
+          <LightTable
+            caption="Demandas de ciclo"
+            head={['Ciclo', 'Situação']}
+            rows={chosen.cycles.map((i) => ({ key: i.demandId, cells: [i.label, i.detail] }))}
+          />
+        )}
+        {chosen.queued > 0 && <p className="mt-3 text-sm text-ink-2">Na fila: {plural(chosen.queued, 'tarefa', 'tarefas')}</p>}
+      </div>
+
+      {openBlockers.length > 0 && (
+        <div className="mt-5">
+          <h3 className={GROUP}>Impedimentos em aberto</h3>
+          <BlockerList items={openBlockers} bare />
+        </div>
+      )}
     </section>
   );
 }
