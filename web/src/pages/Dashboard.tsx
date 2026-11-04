@@ -11,16 +11,14 @@ import { ErrorState, Skeleton } from '../components/States';
 import { usePeriodScale, useRefDate, withDate } from '../hooks';
 import { CyclesView } from './dashboard/CyclesView';
 import { DayView } from './dashboard/DayView';
-import { TasksView } from './dashboard/TasksView';
 import { YieldView } from './dashboard/YieldView';
 
-type View = 'semana' | 'distribuicao' | 'tarefas' | 'demandas' | 'rendimento';
+type View = 'semana' | 'distribuicao' | 'demandas' | 'rendimento';
 
 /** As visões do painel: o usuário vê uma de cada vez, a que escolher. */
 const VIEWS: { value: View; label: string }[] = [
   { value: 'semana', label: 'Dia útil' },
   { value: 'distribuicao', label: 'Distribuição' },
-  { value: 'tarefas', label: 'Tarefas' },
   { value: 'demandas', label: 'Ciclos' },
   { value: 'rendimento', label: 'Rendimento' },
 ];
@@ -52,9 +50,6 @@ const PAGE_HINT = (
     <span className="mt-1.5 block">
       <strong className="font-semibold text-ink">Distribuição:</strong> quais demandas ocuparam mais tempo em um dia (na
       semana) ou no mês inteiro.
-    </span>
-    <span className="mt-1.5 block">
-      <strong className="font-semibold text-ink">Tarefas:</strong> concluídas no período, na fila e em andamento.
     </span>
     <span className="mt-1.5 block">
       <strong className="font-semibold text-ink">Ciclos:</strong> horas apontadas, prazo e última atualização de cada ciclo aberto.
@@ -107,9 +102,7 @@ export function Dashboard() {
       </div>
 
       <div id="painel-visao" role="tabpanel" aria-label={VIEWS.find((v) => v.value === view)!.label} className="min-w-0">
-        {view === 'tarefas' ? (
-          <TasksView date={date} scale={scale} />
-        ) : view === 'demandas' ? (
+        {view === 'demandas' ? (
           <CyclesView date={date} scale={scale} />
         ) : view === 'rendimento' ? (
           <YieldView date={date} scale={scale} />
