@@ -18,7 +18,7 @@ metas e relatórios de prestação de contas (daily, 1:1, relatório mensal).
 | Demandas | Existente (seções 6, 8.1 e 9) | Declarações: Tarefas (chamados, reuniões, treinamentos) e Ciclos (prazo, linha do tempo, impedimentos) |
 | Treinamentos | Existente como Tarefa (seção 9) | Nome, descrição e status; as horas de estudo são apontadas |
 | Metas | Novo (seção 8) | Objetivos com prazo e progresso, ligados a atividades/demandas/treinamentos |
-| Relatórios | Existente (seções 10 e 13) | Diário (v0.7), semanal e mensal (v0.10), exportáveis; indicador de trabalho não planejado |
+| Relatórios | Existente (seções 10 e 13) | Diário (v0.7, consolidado na v0.11), semanal e mensal (v0.10), exportáveis; indicador de trabalho não planejado |
 | Integração Azure | Futuro | Fora de escopo por enquanto |
 
 ### Glossário
@@ -160,7 +160,7 @@ O esquema evolui por migrações numeradas em `server/src/db.ts` (`PRAGMA user_v
 | POST | `/api/import` | importa uma exportação. Só em banco vazio (sem demandas nem apontamentos); com `?replace=true` substitui o que existe, depois de guardar um backup `pre-importacao-…`. Valida com zod e o `schemaVersion` precisa ser o do aplicativo; roda numa transação (400 e nada muda se algo falhar; 409 sem `replace` em banco com dados). Aceita até 50 MB; as demais rotas, 100 kb |
 | GET | `/api/backups` | o último backup diário, quantos há e quantos ficam: `{ last, count, keep }` |
 | GET | `/api/storage` | para os lembretes de Seus dados: `{ syncedFolder, hasData, lastExportAt }` (pasta sincronizada do banco, se há dados e a última exportação) |
-| GET | `/api/reports/daily?date=` | relatório do dia (sem `date`, o dia útil anterior): o que foi feito, impedimentos e o que será feito |
+| GET | `/api/reports/daily?date=` | relatório do dia (sem `date`, o dia útil anterior), v0.11: `done` (`tickets`, `trainings`, `cycles`, `meetings`, `people`, `cycleMinutes`), `blockers` e `next` (`tickets`, `trainings`, `cycles`, `queued`) |
 | GET | `/api/reports/period?date=&scale=` | relatório do período (v0.10; sem `date`, o de hoje; `scale` como em `/api/metrics`): ciclos que andaram, tarefas concluídas e trabalhadas, reuniões, impedimentos e o trabalho não planejado (seção 13) |
 | GET | `/api/timeline?demandId=` | linha do tempo unificada dos ciclos (eventos e impedimentos), do mais recente ao mais antigo; sem `demandId`, de todos |
 | PUT | `/api/demands/:id/events/:eventId/flag`, `/blockers/:blockerId/flag` | marca ou desmarca a bandeira (`{ flagged }`); editar não a apaga |
@@ -223,10 +223,11 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 
 6. **Relatório (`/relatorio`, v0.7)** — no canto superior esquerdo, a escala **Dia | Semana | Mês** (v0.10, na URL
    como `?escala=semana` ou `?escala=mes`; sem ela, o dia). Semana e mês: o relatório do período, com a navegação do
-   Painel (seção 13). Dia: o relatório de um dia para a daily ou o 1:1; por padrão, o
-   dia útil anterior, com navegação por dia útil. Mostra o trabalho (ciclos, tarefas, reuniões), não os
-   apontamentos. Pré-visualização em três seções e a ação principal **Copiar** (Markdown); também `Baixar .md` e `Imprimir / PDF` (impressão do navegador,
-   sem o menu). Ver seção 10.
+   Painel (seção 13). Dia (v0.11): o relatório da daily em dois tópicos, **O que foi feito ontem** (métricas de
+   chamados, reuniões e horas em ciclos, a frase de resumo e a de detalhamento) e **O que será feito hoje** (a frase
+   de planejamento, os itens do plano com caixa para tirar e os impedimentos em aberto); por padrão, o dia útil
+   anterior, com navegação por dia útil. A ação principal é **Copiar** (Markdown); também `Baixar .md` e
+   `Imprimir / PDF` (impressão do navegador, sem o menu). Ver seção 10.
 
 ## 4. Fases
 
@@ -245,6 +246,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 | 10 | v0.8: linha do tempo dos ciclos: impedimentos dentro dela, bandeira, Detalhes → Ciclos e mapa no Painel (seção 11) | ✅ |
 | 11 | v0.9: "Período" no lugar de "ciclo de apontamento", escala Semana \| Mês no Painel e visão Rendimento (seção 12) | ✅ |
 | 12 | v0.10: segurança de acesso, backup e exportação, README, CI e testes de tela, organização (rotas por domínio, Painel por visão, `docs/HISTORICO.md`, PDF) e relatório do período com as intempestivas (seção 13) | ✅ (tag `v0.10.0`) |
+| 13 | v0.11: relatório diário consolidado (dois tópicos abertos por frases, seção 10) | ✅ |
 | — | Integração com o Azure | futuro |
 
 ### Decisões registradas
@@ -413,7 +415,7 @@ atividades e treinamentos vinculados) e status. Não confundir com a "meta diár
 que continua pertencendo ao módulo de Apontamento.
 
 ### 8.4 Relatórios — ✅ diário (v0.7), semanal e mensal (v0.10)
-Status diário, semanal e mensal exportável (Markdown/PDF), no formato do acompanhamento
+Status diário (consolidado em dois tópicos na v0.11, seção 10), semanal e mensal exportável (Markdown/PDF), no formato do acompanhamento
 original: demanda, status, linha do tempo resumida e impedimentos. Inclui o indicador de
 demandas intempestivas (quanto do tempo foi consumido por trabalho não planejado). Ver seções 10 e 13.
 
@@ -507,6 +509,9 @@ Decisão em `docs/decisions/0003-status-so-na-demanda.md`.
 
 ### Relatório diário (`/relatorio`)
 
+> **v0.11:** o layout abaixo foi substituído pelo relatório consolidado (decisão
+> `docs/decisions/0008-relatorio-diario-consolidado.md`, subseção seguinte). O texto da v0.7 fica como registro.
+
 Foco: apresentar em uma daily ou 1:1. Quem lê é a gestão e a equipe, então o relatório fala do
 **trabalho** (quais ciclos andaram, quais tarefas foram trabalhadas ou concluídas, quantas reuniões),
 não dos **apontamentos**: horários, horas, meta e conformidade ficam no módulo de Apontamento.
@@ -529,6 +534,30 @@ Montado na hora (nada é gravado); regras em `shared/src/report.ts`, testadas co
    urgência, com prazo e "impedimento aberto"), as tarefas iniciadas ou em andamento e a fila
    ("Na fila: N tarefas"). Na tela, cada item tem uma caixa para tirá-lo antes de copiar. O status
    usado é o de agora, mesmo em relatório de dia passado.
+
+### Relatório diário consolidado (v0.11)
+
+Decisão em `docs/decisions/0008-relatorio-diario-consolidado.md`. Regras em `shared/src/report.ts`, testadas com
+dados fictícios. Os registros soltos (apontamentos, eventos, trocas de status) viram um item por demanda, com a
+digitação arrumada (`tidyText`) e sem repetir. O Markdown sai sem introdução, pronto para colar ou integrar.
+
+1. **O que foi feito ontem** (fora de ontem e hoje, "na terça-feira (27/10)").
+   - *Métricas* (na tela, três ou quatro números): chamados atendidos, reuniões, treinamentos (só se houve) e horas
+     em ciclos (união dos intervalos; a única medida de tempo do diário).
+   - *Frase de resumo:* "Ontem, atendi X chamados, participei de Y reuniões e fiz Z de demandas de Ciclo."
+   - *Frase de detalhamento:* "Atendi aos chamados (número – descrição), entrei em reunião com (pessoas, sem
+     repetir), e fiz minhas demandas de ciclo: ciclo (ações)". Ações = "o que foi feito" dos apontamentos, eventos
+     da linha do tempo e impedimentos resolvidos no dia. Chamado concluído no dia leva "(concluído)".
+2. **O que será feito hoje** (ou "na quinta-feira (29/10)").
+   - *Frase de planejamento:* "Para hoje, buscarei encerrar os chamados (…), seguirei nos treinamentos (…) e
+     atuarei nas demandas (…)". Entram os chamados iniciados ou em andamento, os chamados novos (declarados no dia
+     do relatório ou depois, com o selo "novo"), os treinamentos iniciados e os ciclos abertos já começados; os
+     demais não iniciados ficam em "Na fila". Sem nada: "Para hoje, não há demandas em aberto."
+   - *Itens do plano:* cada um com uma caixa para tirá-lo da frase antes de copiar.
+   - *Impedimentos em aberto:* "aguardando {responsável} desde dd/mm (N dias úteis)".
+- **Mais de três itens de um tipo** (`REPORT_INLINE_LIMIT`): a frase cita a quantidade ("os 5 chamados da tabela
+  abaixo") e os itens vão para uma tabela leve (chamados, ciclos; listras suaves, rola dentro dela no celular) ou
+  lista (reuniões, treinamentos).
 
 ## 11. Linha do tempo dos ciclos: impedimentos, bandeira, análise e mapa (v0.8)
 

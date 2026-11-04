@@ -505,11 +505,11 @@ describe('API do relatório diário', () => {
     const { status, data: r } = await api('GET', '/reports/daily');
     assert.equal(status, 200);
     assert.equal(r.date, '2026-10-28');
-    // Fala de ciclos, tarefas e reuniões; horários e horas apontadas não entram.
-    assert.equal('minutes' in r.done, false);
+    // Agrupa por demanda; as horas em ciclos entram só na frase de métricas.
+    assert.equal(r.done.cycleMinutes, 120);
     const item = r.done.cycles.find((i: { demandId: number }) => i.demandId === cycle.id);
     assert.equal(item.label, 'Ciclo do relatório');
-    assert.deepEqual(item.progress, [`${sample.description} (${sample.notes})`, 'Decisão: Escopo fechado']);
+    assert.deepEqual(item.progress, [`${sample.description} – ${sample.notes}`, 'Decisão: escopo fechado']);
     assert.deepEqual(
       r.done.meetings.map((m: { label: string }) => m.label),
       ['Daily · Status do dia'],
@@ -517,10 +517,10 @@ describe('API do relatório diário', () => {
     assert.equal(r.blockers.open, 1);
     assert.equal(r.blockers.items[0].waitingWorkdays, 2); // ter 27 e qua 28
     assert.equal(r.next.date, '2026-10-29');
-    const next = [...r.next.cycles, ...r.next.tasks].map((i: { demandId: number }) => i.demandId);
-    assert.ok(next.includes(cycle.id));
-    assert.equal(next.includes(ticket.id), false); // não iniciado: só na fila
-    assert.ok(r.next.queued >= 1);
+    assert.ok(r.next.cycles.some((i: { demandId: number }) => i.demandId === cycle.id));
+    // Chamado declarado depois do dia do relatório: entra no plano como novo, mesmo sem ter começado.
+    const fresh = r.next.tickets.find((i: { demandId: number }) => i.demandId === ticket.id);
+    assert.equal(fresh.isNew, true);
 
     assert.equal((await api('GET', '/reports/daily?date=2026-10-27')).data.date, '2026-10-27');
     assert.equal((await api('GET', '/reports/daily?date=2026-13-01')).status, 400);

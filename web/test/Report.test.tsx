@@ -61,4 +61,45 @@ describe('Relatório', () => {
     expect(screen.getByText('25%')).toBeInTheDocument();
     expect(screen.getByText('25% do tempo (1h de 4h) em ciclos intempestivos.')).toBeInTheDocument();
   });
+
+  it('no dia, os dois tópicos abrem com as frases; desmarcar um item muda o plano', async () => {
+    const ticket = await api.call<DemandSummary>('POST', '/demands', {
+      category: 'chamado',
+      ticketNumber: 'TESTE-1',
+      description: 'Erro  fictício na tela ',
+      status: 'em_andamento',
+    });
+    const meeting = await api.call<DemandSummary>('POST', '/demands', {
+      category: 'reuniao',
+      meetingType: 'Daily',
+      participants: 'Equipe Exemplo',
+      subject: 'Status',
+    });
+    const cycle = await api.call<DemandSummary>('POST', '/demands', { category: 'ciclo', title: 'Ciclo de exemplo', startDate: '2026-10-01' });
+    const log = (demandId: number, startMinute: number, endMinute: number, description: string) =>
+      api.call('POST', '/activities', { date: '2026-10-27', startMinute, endMinute, demandId, description, notes: '' });
+    await log(meeting.id, 540, 555, '');
+    await log(ticket.id, 555, 600, 'Análise');
+    await log(cycle.id, 600, 750, 'ajuste das consultas');
+
+    renderPage(<Report />);
+    const done = within(await screen.findByRole('region', { name: 'O que foi feito' }));
+    expect(done.getByRole('heading', { name: 'O que foi feito ontem' })).toBeInTheDocument();
+    expect(
+      done.getByText('Ontem, atendi 1 chamado, participei de 1 reunião e fiz 2h30 de demandas de Ciclo.'),
+    ).toBeInTheDocument();
+    expect(
+      done.getByText(
+        'Atendi ao chamado TESTE-1 – Erro fictício na tela, entrei em reunião com Equipe Exemplo, e fiz minhas ' +
+          'demandas de ciclo: Ciclo de exemplo (ajuste das consultas).',
+      ),
+    ).toBeInTheDocument();
+
+    const next = within(screen.getByRole('region', { name: 'O que será feito' }));
+    expect(next.getByRole('heading', { name: 'O que será feito hoje' })).toBeInTheDocument();
+    const plan = 'Para hoje, buscarei encerrar o chamado TESTE-1 – Erro fictício na tela, e atuarei na demanda Ciclo de exemplo.';
+    expect(next.getByText(plan)).toBeInTheDocument();
+    await userEvent.click(next.getByRole('checkbox', { name: /TESTE-1/ }));
+    expect(next.getByText('Para hoje, atuarei na demanda Ciclo de exemplo.')).toBeInTheDocument();
+  });
 });

@@ -1,6 +1,7 @@
-// Peças comuns aos relatórios do dia e do período: exportar, escala e a lista de impedimentos.
+// Peças comuns aos relatórios do dia e do período: exportar, escala, tabela leve e a lista de impedimentos.
 
-import { formatDayMonth, type ReportBlockerItem } from '@acomp/shared';
+import type { ReactNode } from 'react';
+import { blockerText, type ReportBlockerItem } from '@acomp/shared';
 import { HourglassIcon } from '../../components/icons';
 import { Segmented } from '../../components/Segmented';
 import { useToast } from '../../components/Toast';
@@ -61,24 +62,65 @@ export function ExportButtons({ ready, onDownload }: { ready: boolean; onDownloa
   );
 }
 
-/** Impedimentos: aguardando quem e há quanto tempo, ou resolvido quando. */
-export function BlockerList({ items }: { items: ReportBlockerItem[] }) {
+/** Impedimentos: aguardando quem e há quanto tempo, ou resolvido quando. `bare` tira o filete de cima. */
+export function BlockerList({ items, bare = false }: { items: ReportBlockerItem[]; bare?: boolean }) {
   return (
-    <ul className="mt-5 space-y-3 border-t border-line pt-5 text-sm">
+    <ul className={`space-y-3 text-sm ${bare ? '' : 'mt-5 border-t border-line pt-5'}`}>
       {items.map((i, index) => (
         <li key={index} className="flex gap-2.5">
           <span className={`mt-0.5 shrink-0 ${i.resolvedAt ? 'text-good-text' : 'text-warning-text'}`}>
             <HourglassIcon size={15} />
           </span>
           <span className="min-w-0 text-ink-2">
-            <strong className="font-semibold text-ink">{i.label}</strong> —{' '}
-            {i.resolvedAt
-              ? `resolvido em ${formatDayMonth(i.resolvedAt)} (${i.owner})`
-              : `aguardando ${i.owner} desde ${formatDayMonth(i.since)} (${plural(i.waitingWorkdays, 'dia útil', 'dias úteis')})`}
-            {i.description && <span className="text-ink-3">: {i.description}</span>}
+            <strong className="font-semibold text-ink">{i.label}</strong> — {blockerText(i)}
           </span>
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * Tabela leve: listras suaves em vez de bordas, cabeçalho discreto e a coluna `numeric` à direita.
+ * Usada quando um tipo passa de três itens; no celular, rola dentro dela, nunca a página.
+ */
+export function LightTable({
+  caption,
+  head,
+  rows,
+  numeric,
+}: {
+  caption: string;
+  head: string[];
+  rows: { key: number; cells: ReactNode[] }[];
+  numeric?: number;
+}) {
+  const align = (index: number) => (index === numeric ? 'text-right tabular' : 'text-left');
+  return (
+    <div className="mt-5 overflow-x-auto">
+      <table className="w-full min-w-[28rem] border-collapse text-sm">
+        <caption className={`${GROUP} text-left`}>{caption}</caption>
+        <thead>
+          <tr className="border-b border-line">
+            {head.map((h, index) => (
+              <th key={h} scope="col" className={`px-2 py-1.5 text-xs font-semibold text-ink-3 ${align(index)}`}>
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.key} className="align-top even:bg-surface-2">
+              {r.cells.map((c, index) => (
+                <td key={index} className={`px-2 py-2 text-ink-2 ${index === 0 ? 'whitespace-nowrap' : ''} ${align(index)}`}>
+                  {c}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

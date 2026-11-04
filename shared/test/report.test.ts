@@ -1,14 +1,17 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  blockersSummary,
   buildDailyReport,
   buildDemandSummary,
   dailyReportMarkdown,
-  doneSummary,
+  dayReference,
+  doneDetail,
+  doneHeadline,
   nextWorkday,
   parseHM,
+  planSentence,
   previousWorkday,
+  tidyText,
   type Activity,
   type CycleDemand,
   type Demand,
@@ -103,17 +106,40 @@ describe('dias úteis vizinhos', () => {
     assert.equal(nextWorkday('2026-10-23'), '2026-10-26'); // sexta → segunda
     assert.equal(nextWorkday('2026-10-28'), '2026-10-29');
   });
+
+  it('a frase chama o dia de ontem, hoje ou pelo nome', () => {
+    assert.equal(dayReference(DATE, TODAY), 'ontem');
+    assert.equal(dayReference(TODAY, TODAY), 'hoje');
+    assert.equal(dayReference('2026-10-30', '2026-11-02'), 'na sexta-feira (30/10)'); // segunda falando da sexta
+  });
+});
+
+describe('arrumação do texto digitado', () => {
+  it('espaços, pontuação repetida e o ponto final', () => {
+    assert.equal(tidyText('  Ajuste  das consultas ,feito..  '), 'Ajuste das consultas, feito');
+    assert.equal(tidyText('Pronto!!! Testado ;ok.'), 'Pronto! Testado; ok');
+    assert.equal(tidyText('Valor 1,5 mantido...'), 'Valor 1,5 mantido');
+  });
 });
 
 describe('relatório diário: o que foi feito', () => {
   const r = report();
 
-  it('resume em ciclos, tarefas e reuniões, sem horários nem horas', () => {
-    assert.equal(doneSummary(r.done), '1 ciclo · 2 tarefas (1 concluída) · 2 reuniões');
-    assert.equal(JSON.stringify(r.done).match(/minute|minutes|goal|conformity/i), null);
+  it('a frase de métricas conta chamados, reuniões e horas em ciclos', () => {
+    assert.equal(doneHeadline(r, TODAY), 'Ontem, atendi 2 chamados, participei de 2 reuniões e fiz 3h30 de demandas de Ciclo.');
+    assert.equal(r.done.cycleMinutes, 210); // 09:00–11:30 e 14:00–15:00
   });
 
-  it('ciclos: o que andou, sem repetir, com os eventos do dia', () => {
+  it('a frase de detalhamento junta chamados, pessoas e as ações dos ciclos', () => {
+    assert.equal(
+      doneDetail(r.done),
+      'Atendi aos chamados TESTE-1 – Erro no relatório fictício (concluído) e TESTE-2 – Lentidão fictícia, entrei em reunião ' +
+        'com Equipe Exemplo, e fiz minhas demandas de ciclo: Projeto Alfa (ajuste das consultas; testes – PR aberto; ' +
+        'deploy: publicado em staging; impedimento com Equipe D resolvido).',
+    );
+  });
+
+  it('ciclos: o que andou, sem repetir, com eventos e impedimentos resolvidos no dia', () => {
     assert.deepEqual(r.done.cycles, [
       {
         demandId: 1,
@@ -122,14 +148,16 @@ describe('relatório diário: o que foi feito', () => {
         subtitle: '',
         status: 'Em andamento',
         changed: false,
-        progress: ['Ajuste das consultas', 'Testes (PR aberto)', 'Deploy: Publicado em staging'],
+        completed: false,
+        minutes: 210,
+        progress: ['Ajuste das consultas', 'Testes – PR aberto', 'Deploy: publicado em staging', 'Impedimento com Equipe D resolvido'],
       },
     ]);
   });
 
-  it('tarefas: a concluída no dia primeiro, com a troca de status e o complemento', () => {
+  it('chamados: o concluído no dia primeiro, com a troca de status', () => {
     assert.deepEqual(
-      r.done.tasks.map((t) => [t.label, t.subtitle, t.status, t.changed, t.progress]),
+      r.done.tickets.map((t) => [t.label, t.subtitle, t.status, t.completed, t.progress]),
       [
         ['TESTE-1', 'Erro no relatório fictício', 'Em andamento → Concluído', true, ['Correção aplicada']],
         ['TESTE-2', 'Lentidão fictícia', 'Em andamento', false, ['Análise do log']],
@@ -138,15 +166,16 @@ describe('relatório diário: o que foi feito', () => {
     assert.equal(r.done.completedTasks, 1);
   });
 
-  it('reuniões: cada uma uma vez, na ordem em que aconteceram', () => {
+  it('reuniões: cada uma uma vez; as pessoas sem repetir', () => {
     assert.deepEqual(
       r.done.meetings.map((m) => m.label),
       ['Daily · Status do dia', 'Planejamento · Sprint'],
     );
+    assert.deepEqual(r.done.people, ['Equipe Exemplo']);
   });
 
   it('a declaração do dia e o ciclo não tocado não entram', () => {
-    assert.equal(r.done.tasks.some((t) => t.label === 'TESTE-3'), false);
+    assert.equal(r.done.tickets.some((t) => t.label === 'TESTE-3'), false);
     assert.equal(r.done.cycles.some((c) => c.label === 'Projeto Beta'), false);
   });
 
@@ -157,20 +186,37 @@ describe('relatório diário: o que foi feito', () => {
         { demandId: 3, from: 'concluido', to: 'em_andamento', date: DATE },
       ],
     });
-    const t = roundTrip.done.tasks.find((x) => x.label === 'TESTE-2')!;
+    const t = roundTrip.done.tickets.find((x) => x.label === 'TESTE-2')!;
     assert.deepEqual([t.status, t.changed], ['Em andamento', false]);
   });
 
+  it('mais de três chamados: a frase cita a quantidade e a tabela lista', () => {
+    const many: Demand[] = [10, 11, 12, 13].map((id) => ({
+      id,
+      category: 'chamado',
+      ticketNumber: `TESTE-${id}`,
+      description: `Fictício ${id}`,
+      status: 'em_andamento',
+    }));
+    const acts = many.map((d, i) => act(d.id, `0${i + 1}:00`, `0${i + 1}:30`, 'Análise'));
+    const big = report({ demands: many, acts, changes: [], blockers: [] });
+    assert.equal(doneDetail(big.done), 'Atendi aos 4 chamados da tabela abaixo.');
+    const md = dailyReportMarkdown(big, { today: TODAY });
+    assert.match(md, /\| Chamado \| Descrição \| Situação \|\n\| --- \| --- \| --- \|\n\| TESTE-13 \| Fictício 13 \| Em andamento \|/);
+    assert.match(md, /Para hoje, buscarei encerrar os 4 chamados da tabela abaixo\./);
+  });
+
   it('dia sem nada', () => {
-    const empty = report({ acts: [], changes: [], demands: [beta, daily] });
-    assert.equal(doneSummary(empty.done), '');
+    const empty = report({ acts: [], changes: [], blockers: [], demands: [beta, daily] });
+    assert.equal(doneHeadline(empty, TODAY), '');
+    assert.equal(doneDetail(empty.done), '');
   });
 });
 
 describe('relatório diário: impedimentos', () => {
   it('abertos no dia e os resolvidos nele; o resolvido antes não entra', () => {
     const b = report().blockers;
-    assert.equal(blockersSummary(b), '1 aberto · 1 resolvido no dia');
+    assert.deepEqual([b.open, b.resolved], [1, 1]);
     assert.deepEqual(
       b.items.map((i) => [i.owner, i.resolvedAt, i.waitingWorkdays]),
       [
@@ -188,9 +234,16 @@ describe('relatório diário: impedimentos', () => {
 });
 
 describe('relatório diário: o que será feito', () => {
-  it('ciclos abertos, tarefas em andamento e a fila; reuniões e concluídas ficam de fora', () => {
-    const next = report().next!;
+  it('chamados que ficaram e os novos, treinamentos iniciados e ciclos abertos; o resto vai para a fila', () => {
+    const next = report().next;
     assert.equal(next.date, '2026-10-29');
+    assert.deepEqual(
+      next.tickets.map((i) => [i.label, i.detail, i.isNew]),
+      [
+        ['TESTE-2', 'Lentidão fictícia', false],
+        ['TESTE-3', 'Fictício', true], // declarado no dia do relatório
+      ],
+    );
     assert.deepEqual(
       next.cycles.map((i) => [i.label, i.detail]),
       [
@@ -198,79 +251,66 @@ describe('relatório diário: o que será feito', () => {
         ['Projeto Beta', 'Em andamento'],
       ],
     );
-    assert.deepEqual(
-      next.tasks.map((i) => [i.label, i.detail]),
-      [['TESTE-2', 'Lentidão fictícia']],
-    );
-    assert.equal(next.queued, 2);
+    assert.equal(next.queued, 1); // o treinamento não iniciado
   });
 
-  it('some quando só há demandas encerradas e reuniões', () => {
-    assert.equal(report({ demands: [done, daily] }).next, null);
+  it('a frase de planejamento, e sem os itens desmarcados', () => {
+    const next = report().next;
+    assert.equal(
+      planSentence(next, TODAY),
+      'Para hoje, buscarei encerrar os chamados TESTE-2 – Lentidão fictícia e TESTE-3 – Fictício, e atuarei nas demandas Projeto Alfa e Projeto Beta.',
+    );
+    assert.equal(planSentence(next, TODAY, new Set([3, 4, 7])), 'Para hoje, atuarei na demanda Projeto Alfa.');
+    assert.equal(planSentence(next, '2026-10-30', new Set([1, 3, 4, 7])), 'Para quinta-feira (29/10), não há demandas em aberto.');
+  });
+
+  it('chamado antigo não iniciado fica na fila', () => {
+    const old = report({ changes: [{ demandId: 4, from: null, to: 'nao_iniciado', date: '2026-10-20' }] }).next;
+    assert.deepEqual(old.tickets.map((i) => i.label), ['TESTE-2']);
+    assert.equal(old.queued, 2);
   });
 });
 
 describe('relatório diário: Markdown', () => {
-  it('fala de ciclos, tarefas e reuniões, não de apontamentos', () => {
+  it('dois tópicos, cada um aberto pela sua frase', () => {
     const md = dailyReportMarkdown(report(), { today: TODAY });
     assert.equal(
       md,
       [
         '# Daily — Qua 28/10',
         '',
-        '## O que foi feito',
-        '1 ciclo · 2 tarefas (1 concluída) · 2 reuniões',
+        '## O que foi feito ontem',
+        'Ontem, atendi 2 chamados, participei de 2 reuniões e fiz 3h30 de demandas de Ciclo.',
         '',
-        '**Ciclos**',
-        '- **Projeto Alfa** — Em andamento',
-        '  - Ajuste das consultas',
-        '  - Testes (PR aberto)',
-        '  - Deploy: Publicado em staging',
+        'Atendi aos chamados TESTE-1 – Erro no relatório fictício (concluído) e TESTE-2 – Lentidão fictícia, entrei em reunião ' +
+          'com Equipe Exemplo, e fiz minhas demandas de ciclo: Projeto Alfa (ajuste das consultas; testes – PR aberto; ' +
+          'deploy: publicado em staging; impedimento com Equipe D resolvido).',
         '',
-        '**Tarefas**',
-        '- **TESTE-1** (Chamado): Erro no relatório fictício — Em andamento → Concluído',
-        '  - Correção aplicada',
-        '- **TESTE-2** (Chamado): Lentidão fictícia — Em andamento',
-        '  - Análise do log',
+        '## O que será feito hoje',
+        'Para hoje, buscarei encerrar os chamados TESTE-2 – Lentidão fictícia e TESTE-3 – Fictício, e atuarei nas demandas Projeto Alfa e Projeto Beta.',
         '',
-        '**Reuniões**',
-        '- Daily · Status do dia (com Equipe Exemplo)',
-        '- Planejamento · Sprint (com Equipe Exemplo)',
-        '',
-        '## Impedimentos',
-        '1 aberto · 1 resolvido no dia',
-        '',
-        '- **Projeto Alfa** — aguardando Equipe B desde 26/10 (3 dias úteis): Libera o acesso',
-        '- **Projeto Alfa** — resolvido em 28/10 (Equipe D)',
-        '',
-        '## O que será feito hoje (Qui 29/10)',
-        '- **Projeto Alfa** — Em andamento · prazo 02/11 (prazo próximo) · impedimento aberto',
-        '- **Projeto Beta** — Em andamento',
-        '- **TESTE-2** (Chamado): Lentidão fictícia',
-        '- Na fila: 2 tarefas',
+        '- Na fila: 1 tarefa',
+        '- **Projeto Alfa** — impedimento aguardando Equipe B desde 26/10 (3 dias úteis): Libera o acesso',
         '',
       ].join('\n'),
     );
   });
 
-  it('itens desmarcados saem do texto; sem nenhum, a seção some', () => {
-    const r = report();
-    const some = dailyReportMarkdown(r, { today: TODAY, skipNext: new Set([3, 'fila']) });
-    assert.match(some, /## O que será feito hoje/);
-    assert.doesNotMatch(some, /- \*\*TESTE-2\*\* \(Chamado\): Lentidão fictícia\n/);
-    assert.doesNotMatch(some, /Na fila/);
-
-    const none = dailyReportMarkdown(r, { today: TODAY, skipNext: new Set([1, 7, 3, 'fila']) });
-    assert.doesNotMatch(none, /O que será feito/);
+  it('itens desmarcados saem da frase e da fila', () => {
+    const md = dailyReportMarkdown(report(), { today: TODAY, skipNext: new Set([3, 4, 'fila']) });
+    assert.match(md, /Para hoje, atuarei nas demandas Projeto Alfa e Projeto Beta\./);
+    assert.doesNotMatch(md, /Na fila/);
   });
 
-  it('dia vazio e sem impedimentos', () => {
+  it('dia vazio', () => {
     const md = dailyReportMarkdown(report({ acts: [], changes: [], blockers: [], demands: [beta] }), { today: TODAY });
-    assert.match(md, /## O que foi feito\nNada registrado neste dia\./);
-    assert.match(md, /## Impedimentos\nSem impedimentos\./);
+    assert.match(md, /## O que foi feito ontem\nNada registrado ontem\./);
+    assert.match(md, /## O que será feito hoje\nPara hoje, atuarei na demanda Projeto Beta\./);
   });
 
-  it('a seção final diz a data quando não é hoje', () => {
-    assert.match(dailyReportMarkdown(report(), { today: '2026-10-30' }), /## O que será feito em Qui 29\/10/);
+  it('os títulos dizem o dia quando não é ontem nem hoje', () => {
+    const md = dailyReportMarkdown(report(), { today: '2026-10-30' });
+    assert.match(md, /## O que foi feito na quarta-feira \(28\/10\)\nNa quarta-feira \(28\/10\), atendi/);
+    assert.match(md, /## O que será feito na quinta-feira \(29\/10\)\nPara quinta-feira \(29\/10\), buscarei/);
   });
 });
