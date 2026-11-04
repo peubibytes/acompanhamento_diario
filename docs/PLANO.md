@@ -175,14 +175,14 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 
 1. **Painel (`/`)** — no canto superior esquerdo, o seletor de **escala** do período (**Semana** |
    **Mês**, v0.9, guardada na URL como `?escala=mes`) e, ao lado, o seletor da visão (**Dia útil**,
-   **Distribuição**, **Tarefas** ou **Ciclos**); a navegação entre períodos fica à direita (em todas as
+   **Distribuição**, **Ciclos** ou **Rendimento**; a visão **Tarefas** saiu na v0.11); a navegação entre períodos fica à direita (em todas as
    visões). A escala vale para todas as visões; no celular, escala e visões se empilham à esquerda e a
    navegação desce. A semana é sexta → quinta; o mês é o mês civil, com os dias úteis Seg–Sex.
    *Visões no mês (v0.9):* **Dia útil** com uma barra por dia útil do mês (rótulo "dd"; o ícone e o valor só
    aparecem quando cabem, pela largura do gráfico; o resto fica no tooltip), Meta do período, Total realizado
    e Dias conformes `X/N` (a linha de meta é a meta diária mais comum do mês; o popover de meta edita a meta
    diária do ciclo de apontamento de hoje, ou do último/primeiro dia útil num mês passado/futuro);
-   **Distribuição** com a rosca do mês inteiro, sem a escolha de dia; **Tarefas** e **Ciclos** usam o
+   **Distribuição** com a rosca do mês inteiro, sem a escolha de dia; **Ciclos** usa o
    período ("no período"). Na semana nada muda.
    - *Dia útil:* faixa fina com o anel de % preenchido, o selo da situação ("Faltam 17h15",
      "Excedeu 1h", "Meta atingida"), total realizado, meta semanal (no mês, "Meta do período") e dias conformes; abaixo, o
@@ -192,8 +192,6 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
      mostra o apontado, a diferença, o nº de apontamentos, quantas reuniões, chamados,
      treinamentos e ciclos foram apontados no dia (demandas distintas) e o diagnóstico.
    - *Distribuição:* rosca grande do dia escolhido (Sex–Qui) e legenda com nome, horas e %.
-   - *Tarefas (v0.7):* concluídas no ciclo, na fila e em andamento, e a divisão entre chamados e
-     treinamentos (barra empilhada, com os números escritos).
    - *Ciclos:* cada ciclo aberto com o selo de prazo, a última atualização, as horas apontadas
      (como número) e o **mapa da linha do tempo** em serpentina (v0.8, seção 11), no lugar da barra.
    - *Rendimento (v0.9):* em semana e em mês, dois blocos num só cartão: **Tempo por categoria** (horas em
@@ -246,7 +244,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 | 10 | v0.8: linha do tempo dos ciclos: impedimentos dentro dela, bandeira, Detalhes → Ciclos e mapa no Painel (seção 11) | ✅ |
 | 11 | v0.9: "Período" no lugar de "ciclo de apontamento", escala Semana \| Mês no Painel e visão Rendimento (seção 12) | ✅ |
 | 12 | v0.10: segurança de acesso, backup e exportação, README, CI e testes de tela, organização (rotas por domínio, Painel por visão, `docs/HISTORICO.md`, PDF) e relatório do período com as intempestivas (seção 13) | ✅ (tag `v0.10.0`) |
-| 13 | v0.11: relatório diário consolidado (dois tópicos abertos por frases, seção 10) | ✅ |
+| 13 | v0.11: relatório diário consolidado (dois tópicos abertos por frases, seção 10); visão Tarefas removida do Painel | ✅ |
 | — | Integração com o Azure | futuro |
 
 ### Decisões registradas
@@ -502,6 +500,8 @@ Decisão em `docs/decisions/0003-status-so-na-demanda.md`.
 - **Métricas de tarefas** (só chamados e treinamentos; reunião não tem status):
   - *Concluídas:* `completedAt` dentro do ciclo de apontamento (sexta → quinta);
   - *Na fila:* status Não iniciado, agora; *Em andamento:* Iniciado ou Em andamento, agora.
+  - Desde a v0.11 nenhuma tela mostra essas métricas (a visão Tarefas saiu do Painel); `GET /api/metrics`
+    continua devolvendo `tasks`.
 - **Métricas de ciclos abertos:** última atualização, dias úteis sem atualização (**parado** a partir
   de 3, `STALLED_WORKDAYS`), horas apontadas no total e no ciclo de apontamento.
 - **API:** `GET /api/metrics?date=` devolve o período e as duas métricas; as regras ficam em
