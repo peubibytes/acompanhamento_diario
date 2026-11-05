@@ -328,3 +328,45 @@ describe('relatório diário: Markdown', () => {
     assert.match(md, /## O que será feito na quinta-feira \(29\/10\)\nPara quinta-feira \(29\/10\), buscarei/);
   });
 });
+
+describe('relatório diário: atividades', () => {
+  const doc: Demand = { id: 9, category: 'atividade', title: 'Documentação fictícia', description: '', status: 'em_andamento' };
+  const kits: Demand = { id: 10, category: 'atividade', title: 'Busca de kits fictícios', description: '', status: 'nao_iniciado' };
+
+  it('ficam numa seção própria, fora da frase de métricas e do detalhamento', () => {
+    const r = report({
+      demands: [working, doc],
+      acts: [act(3, '08:00', '09:00', 'Análise do log'), act(9, '09:00', '11:00', 'Revisão do texto', 'Enviado para validação')],
+      changes: [],
+      blockers: [],
+    });
+    assert.deepEqual(r.done.otherWork.map((i) => [i.label, i.progress]), [['Documentação fictícia', ['Revisão do texto – Enviado para validação']]]);
+    assert.equal(doneHeadline(r, TODAY), 'Ontem, atendi 1 chamado.');
+    assert.doesNotMatch(doneDetail(r.done), /Documentação/);
+    assert.equal(r.done.completedTasks, 0);
+
+    const md = dailyReportMarkdown(r, { today: TODAY });
+    assert.match(md, /\*\*Outras atividades\*\*\n- Documentação fictícia \(revisão do texto – Enviado para validação\)\n/);
+  });
+
+  it('um dia só com atividades tem seção, mas não tem frase de métricas', () => {
+    const r = report({ demands: [doc], acts: [act(9, '09:00', '10:00', 'Revisão do texto')], changes: [], blockers: [] });
+    assert.equal(doneHeadline(r, TODAY), '');
+    const md = dailyReportMarkdown(r, { today: TODAY });
+    assert.doesNotMatch(md, /Nada registrado/);
+    assert.match(md, /## O que foi feito ontem\n\n\*\*Outras atividades\*\*\n- Documentação fictícia \(revisão do texto\)\n/);
+  });
+
+  it('concluída no dia não conta como tarefa concluída e nunca entra no plano nem na fila', () => {
+    const r = report({
+      demands: [doc, kits],
+      acts: [act(9, '09:00', '10:00', 'Revisão do texto')],
+      changes: [{ demandId: 9, from: 'em_andamento', to: 'concluido', date: DATE }],
+      blockers: [],
+    });
+    assert.equal(r.done.completedTasks, 0);
+    assert.equal(r.done.otherWork[0].status, 'Em andamento → Concluído');
+    assert.deepEqual([r.next.tickets.length, r.next.trainings.length, r.next.cycles.length, r.next.queued], [0, 0, 0, 0]);
+    assert.equal(planSentence(r.next, TODAY), 'Para hoje, não há demandas em aberto.');
+  });
+});

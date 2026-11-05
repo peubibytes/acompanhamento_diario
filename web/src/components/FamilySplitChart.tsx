@@ -23,7 +23,7 @@ import { SectionTitle } from './SectionTitle';
 const HINT = (
   <>
     <span className="block">
-      Quanto do tempo apontado foi em chamados, reuniões, treinamentos e ciclos, por dia útil. Apontamentos antigos, sem
+      Quanto do tempo apontado foi em chamados, reuniões, treinamentos, atividades e ciclos, por dia útil. Apontamentos antigos, sem
       demanda, aparecem à parte.
     </span>
     <span className="mt-1.5 block">
@@ -32,7 +32,7 @@ const HINT = (
     </span>
     <span className="mt-1.5 block">
       <strong className="font-semibold text-ink">Predominou:</strong> entre{' '}
-      <strong className="font-semibold text-ink">Tarefas</strong> (chamados, reuniões e treinamentos) e{' '}
+      <strong className="font-semibold text-ink">Tarefas</strong> (chamados, reuniões, treinamentos e atividades) e{' '}
       <strong className="font-semibold text-ink">Ciclos</strong>, a família com mais tempo e a fatia dela no total do
       período. Em empate, equilibrado.
     </span>
@@ -55,6 +55,7 @@ const PARTS: { key: SplitGroup; label: string; color: string; icon: (s: number) 
   { key: 'chamado', label: DEMAND_CATEGORY_PLURAL.chamado, color: 'var(--series-1)', icon: categoryIcon.chamado },
   { key: 'reuniao', label: DEMAND_CATEGORY_PLURAL.reuniao, color: 'var(--series-3)', icon: categoryIcon.reuniao },
   { key: 'treinamento', label: DEMAND_CATEGORY_PLURAL.treinamento, color: 'var(--series-5)', icon: categoryIcon.treinamento },
+  { key: 'atividade', label: DEMAND_CATEGORY_PLURAL.atividade, color: 'var(--series-4)', icon: categoryIcon.atividade },
   { key: 'ciclo', label: DEMAND_CATEGORY_PLURAL.ciclo, color: 'var(--series-2)', icon: categoryIcon.ciclo },
   { key: 'semDemanda', label: 'Sem demanda', color: 'var(--series-other)', icon: (s) => <DashIcon size={s} /> },
 ];

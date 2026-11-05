@@ -210,6 +210,28 @@ describe('API de demandas: declaração', () => {
     for (const d of [cycle, ticket, training]) await api('DELETE', `/demands/${d.id}`);
   });
 
+  it('declara uma atividade (nome, descrição e status), edita e filtra por categoria', async () => {
+    const created = await api('POST', '/demands', { category: 'atividade', title: 'Documentação do processo', description: 'Rascunho' });
+    assert.equal(created.status, 201);
+    const activity = created.data as DemandSummary;
+    assert.equal(activity.category, 'atividade');
+    assert.equal(activity.label, 'Documentação do processo');
+    assert.equal(activity.category === 'atividade' && activity.status, 'nao_iniciado');
+
+    const saved = await api('PUT', `/demands/${activity.id}`, {
+      category: 'atividade',
+      title: 'Documentação do processo',
+      status: 'concluido',
+    });
+    assert.equal(saved.status, 200);
+    assert.equal(saved.data.completedAt, today);
+
+    const listed = (await api('GET', '/demands?category=atividade')).data as DemandSummary[];
+    assert.deepEqual(listed.map((d) => d.id), [activity.id]);
+
+    assert.equal((await api('DELETE', `/demands/${activity.id}`)).status, 204);
+  });
+
   it('valida os campos de cada tipo', async () => {
     const cases: [object, RegExp][] = [
       [{ ...cycleBody, title: ' ' }, /nome do projeto/],
@@ -224,6 +246,8 @@ describe('API de demandas: declaração', () => {
       [{ category: 'reuniao', participants: 'Equipe', subject: 'Status' }, /tipo da reunião/],
       [{ category: 'reuniao', meetingType: 'Daily', participants: 'Equipe' }, /assunto/],
       [{ category: 'treinamento' }, /nome do treinamento/],
+      [{ category: 'atividade' }, /nome da atividade/],
+      [{ category: 'atividade', title: 'x', status: 'cancelado' }, /Status inválido/],
       [{ category: 'outro', title: 'x' }, /Tipo de demanda inválido/],
       [{ title: 'Sem categoria' }, /Tipo de demanda inválido/],
     ];
@@ -766,6 +790,32 @@ describe('API do relatório do período', () => {
 });
 
 describe('migração do banco', () => {
+  it('a categoria atividade entra sem mexer nas demandas, apontamentos e históricos existentes', () => {
+    const db = new DatabaseSync(':memory:');
+    migrate(db, 7);
+    db.exec(`
+      INSERT INTO demands (category, ticket_number, description, status)
+        VALUES ('chamado', 'MIG0000009', 'Descrição fictícia', 'iniciado');
+      INSERT INTO demands (category, title, kind, priority, status, start_date)
+        VALUES ('ciclo', 'Ciclo fictício', 'planejada', 'media', 'novo', '2026-10-01');
+      INSERT INTO demand_events (demand_id, date, kind, text) VALUES (2, '2026-10-02', 'acao', 'Evento antigo');
+      INSERT INTO demand_status_changes (demand_id, from_status, to_status, changed_at) VALUES (1, NULL, 'iniciado', '2026-10-01');
+      INSERT INTO activities (date, start_minute, end_minute, project, demand_id) VALUES ('2026-10-02', 480, 540, 'Chamado', 1);
+    `);
+
+    migrate(db);
+
+    const repo = createRepo(db);
+    assert.deepEqual(repo.listDemands().map((d) => [d.id, d.category]), [[1, 'chamado'], [2, 'ciclo']]);
+    assert.equal(repo.listDemandEvents(2).length, 1);
+    assert.equal(repo.listAllStatusChanges().length, 1);
+    assert.equal(repo.listDemandActivities(1).length, 1);
+    // O chamado continua único e a nova categoria é aceita.
+    assert.throws(() => db.exec(`INSERT INTO demands (category, ticket_number, description, status) VALUES ('chamado', 'MIG0000009', 'x', 'iniciado')`));
+    db.exec(`INSERT INTO demands (category, title, status) VALUES ('atividade', 'Atividade fictícia', 'em_andamento')`);
+    assert.equal(repo.listDemands().at(-1)?.category, 'atividade');
+  });
+
   it('a bandeira nasce desmarcada nos eventos e impedimentos existentes', () => {
     const db = new DatabaseSync(':memory:');
     migrate(db, 6);

@@ -60,3 +60,19 @@ describe('Declarar chamado', () => {
     expect(onDirtyChange).toHaveBeenLastCalledWith(true);
   });
 });
+
+describe('Declarar atividade', () => {
+  it('grava nome, descrição e o status inicial "Em andamento"', async () => {
+    const onDone = vi.fn();
+    renderPage(<DemandForm category="atividade" onDone={onDone} />);
+    await userEvent.type(screen.getByLabelText('Nome da atividade'), 'Documentação de exemplo');
+    await userEvent.type(screen.getByLabelText(/^Descrição/), 'Rascunho inicial');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Declarar atividade' }));
+    expect(await screen.findByText('Atividade declarada.')).toBeInTheDocument();
+    expect(onDone).toHaveBeenCalledOnce();
+    expect(await api.call<DemandSummary[]>('GET', '/demands')).toMatchObject([
+      { category: 'atividade', title: 'Documentação de exemplo', description: 'Rascunho inicial', status: 'em_andamento' },
+    ]);
+  });
+});

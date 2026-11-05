@@ -113,6 +113,14 @@ function toDemand(r: DemandRow): Demand {
         description: r.description,
         status: r.status as Extract<Demand, { category: 'treinamento' }>['status'],
       };
+    case 'atividade':
+      return {
+        id: r.id,
+        category: 'atividade',
+        title: r.title,
+        description: r.description,
+        status: r.status as Extract<Demand, { category: 'atividade' }>['status'],
+      };
   }
 }
 
@@ -154,6 +162,7 @@ function demandParams(d: DemandInput) {
     case 'reuniao':
       return { ...none, title: d.subject, meetingType: d.meetingType, participants: d.participants };
     case 'treinamento':
+    case 'atividade':
       return { ...none, title: d.title, description: d.description, status: d.status };
   }
 }

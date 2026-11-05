@@ -337,6 +337,21 @@ function DoneSection({ report, today }: { report: DailyReport; today: ISODate })
               rows={d.trainings.map((i) => ({ key: i.demandId, cells: [demandLink(i), <StatusChip item={i} />] }))}
             />
           )}
+          {d.otherWork.length > 0 && (
+            <div className="mt-5">
+              <h3 className={GROUP}>Outras atividades</h3>
+              <ul className="space-y-2 text-sm">
+                {d.otherWork.map((i) => (
+                  <li key={i.demandId} className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="shrink-0 text-ink-3">{categoryIcon.atividade(15)}</span>
+                    {demandLink(i)}
+                    <StatusChip item={i} />
+                    {i.progress.length > 0 && <span className="min-w-0 text-ink-2">{i.progress.join('; ')}</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {many(d.cycles.length) && (
             <LightTable
               caption="Demandas de ciclo"

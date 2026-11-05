@@ -116,6 +116,7 @@ const KINDS: { category: DemandCategory; label: string }[] = [
   { category: 'reuniao', label: 'Reuniões' },
   { category: 'chamado', label: 'Chamados' },
   { category: 'treinamento', label: 'Treinamentos' },
+  { category: 'atividade', label: 'Atividades' },
   { category: 'ciclo', label: 'Ciclos' },
 ];
 

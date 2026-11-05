@@ -39,6 +39,7 @@ const DONE_PLACEHOLDER: Record<DemandSummary['category'], string> = {
   chamado: 'Ex.: Análise do log e correção aplicada',
   reuniao: 'Ex.: Pontos discutidos e combinados',
   treinamento: 'Ex.: Módulo 2 concluído',
+  atividade: 'Ex.: Rascunho da documentação revisado',
 };
 
 /** Apontar = escolher uma demanda já declarada e registrar o horário em que ela foi feita. */
@@ -179,7 +180,7 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone, onDirtyCh
             </p>
             <LoggedSummary metrics={chosen.metrics} compact />
           </div>
-          {(chosen.category === 'ciclo' || chosen.category === 'chamado' || chosen.category === 'treinamento') && (
+          {chosen.category !== 'reuniao' && (
             <div className="flex shrink-0 flex-col items-end gap-1">
               {chosen.category === 'ciclo' ? (
                 <CycleStatusBadge status={chosen.status} />

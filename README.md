@@ -1,6 +1,6 @@
 # Acompanhamento Diário
 
-Gestor de tempo e atividades para colaboradores: demandas (chamados, reuniões, treinamentos e ciclos),
+Gestor de tempo e atividades para colaboradores: demandas (chamados, reuniões, treinamentos, atividades e ciclos),
 apontamentos de horas, linha do tempo dos ciclos, painel com rendimento e relatório para a daily ou o 1:1.
 Roda na sua máquina, sem login e sem nuvem.
 

@@ -111,11 +111,11 @@ function DoneSection({ report }: { report: PeriodReport }) {
   return (
     <section className="card rise p-5 sm:p-6" aria-label="O que foi feito">
       <SectionTitle title="O que foi feito" />
-      {!summary ? (
+      {!summary && d.otherWork.length === 0 ? (
         <p className="mt-3 text-sm text-ink-2">Nada registrado neste período.</p>
       ) : (
         <>
-          <p className="tabular mt-1 text-sm font-medium text-ink-2">{summary}</p>
+          {summary && <p className="tabular mt-1 text-sm font-medium text-ink-2">{summary}</p>}
           <div className="mt-5 space-y-5 border-t border-line pt-5">
             {d.cycles.length > 0 && (
               <div>
@@ -152,6 +152,7 @@ function DoneSection({ report }: { report: PeriodReport }) {
             )}
             {d.completedTasks.length > 0 && <TaskGroup title="Tarefas concluídas" items={d.completedTasks} />}
             {d.workedTasks.length > 0 && <TaskGroup title="Tarefas em andamento" items={d.workedTasks} />}
+            {d.otherWork.length > 0 && <TaskGroup title="Outras atividades" items={d.otherWork} />}
             {d.meetings.length > 0 && (
               <div>
                 <h3 className={GROUP}>Reuniões</h3>

@@ -172,3 +172,31 @@ describe('relatório do período', () => {
     assert.match(periodReportMarkdown(build(MONTH)), /^# Relatório mensal — Outubro de 2026/);
   });
 });
+
+describe('relatório do período: atividades', () => {
+  const doc: Demand = { id: 8, category: 'atividade', title: 'Documentação fictícia', description: '', status: 'concluido' };
+  const withDoc = [...activities, act(8, '2026-10-27', '13:00', '14:00')];
+  const docChanges: DemandStatusChange[] = [...changes, { demandId: 8, from: 'em_andamento', to: 'concluido', date: '2026-10-27' }];
+
+  function buildWithDoc(list: Demand[], acts: Activity[], statusChanges: DemandStatusChange[]) {
+    const history = { events, blockers, statusChanges };
+    const summaries = list.map((d) => buildDemandSummary(d, acts, TODAY, history));
+    return buildPeriodReport({ period: WEEK, today: TODAY, activities: acts, demands: summaries, events, blockers, statusChanges });
+  }
+
+  it('têm seção própria e não entram no resumo nem na contagem de tarefas', () => {
+    const base = build();
+    const r = buildWithDoc([...demandList, doc], withDoc, docChanges);
+    assert.deepEqual(r.done.otherWork.map((i) => [i.label, i.status]), [['Documentação fictícia', 'Em andamento → Concluído']]);
+    assert.equal(periodDoneSummary(r.done), periodDoneSummary(base.done));
+    assert.deepEqual(r.done.completedTasks.map((t) => t.label), base.done.completedTasks.map((t) => t.label));
+    assert.match(periodReportMarkdown(r), /\*\*Outras atividades\*\*\n- \*\*Documentação fictícia\*\* \(Atividade\) — Em andamento → Concluído/);
+    assert.doesNotMatch(periodReportMarkdown(base), /Outras atividades/);
+  });
+
+  it('um período só com atividades não é "nada registrado"', () => {
+    const md = periodReportMarkdown(buildWithDoc([doc], [act(8, '2026-10-27', '13:00', '14:00')], []));
+    assert.doesNotMatch(md, /Nada registrado/);
+    assert.match(md, /\*\*Outras atividades\*\*/);
+  });
+});

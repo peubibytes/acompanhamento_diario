@@ -102,4 +102,27 @@ describe('Relatório', () => {
     await userEvent.click(next.getByRole('checkbox', { name: /TESTE-1/ }));
     expect(next.getByText('Para hoje, atuarei na demanda Ciclo de exemplo.')).toBeInTheDocument();
   });
+
+  it('só o que houve: sem "0 reuniões" nem "0h", e as atividades numa seção própria', async () => {
+    const ticket = await api.call<DemandSummary>('POST', '/demands', {
+      category: 'chamado',
+      ticketNumber: 'TESTE-7',
+      description: 'Erro fictício',
+      status: 'em_andamento',
+    });
+    const general = await api.call<DemandSummary>('POST', '/demands', { category: 'atividade', title: 'Repasse de exemplo' });
+    const log = (demandId: number, startMinute: number, endMinute: number, description: string) =>
+      api.call('POST', '/activities', { date: '2026-10-27', startMinute, endMinute, demandId, description, notes: '' });
+    await log(ticket.id, 540, 600, 'Análise');
+    await log(general.id, 600, 660, 'alinhamento com a equipe');
+
+    renderPage(<Report />);
+    const done = within(await screen.findByRole('region', { name: 'O que foi feito' }));
+    expect(done.getByText('Ontem, atendi 1 chamado.')).toBeInTheDocument();
+    expect(done.queryByText('Reuniões')).not.toBeInTheDocument();
+    expect(done.queryByText('Ciclos')).not.toBeInTheDocument();
+    expect(done.getByRole('heading', { name: 'Outras atividades' })).toBeInTheDocument();
+    expect(done.getByText('Repasse de exemplo')).toBeInTheDocument();
+    expect(done.getByText('Alinhamento com a equipe')).toBeInTheDocument();
+  });
 });

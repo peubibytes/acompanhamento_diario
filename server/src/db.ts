@@ -210,6 +210,49 @@ const MIGRATIONS = [
   ALTER TABLE demand_events ADD COLUMN flagged INTEGER NOT NULL DEFAULT 0 CHECK (flagged IN (0, 1));
   ALTER TABLE demand_blockers ADD COLUMN flagged INTEGER NOT NULL DEFAULT 0 CHECK (flagged IN (0, 1));
   `,
+  // 8 — categoria "atividade" (docs/decisions/0009): o que não é chamado, reunião, treinamento nem ciclo.
+  // Mesmo formato do treinamento (nome, descrição, status). O CHECK da categoria não se altera no SQLite,
+  // então a tabela é recriada com o mesmo nome, como na migração 4; as linhas existentes não mudam.
+  `
+  CREATE TABLE demands_v8 (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    category      TEXT    NOT NULL CHECK (category IN ('ciclo', 'chamado', 'reuniao', 'treinamento', 'atividade')),
+    title         TEXT    NOT NULL DEFAULT '', -- ciclo: nome do projeto · treinamento e atividade: nome · reunião: assunto
+    description   TEXT    NOT NULL DEFAULT '',
+    ticket_number TEXT,                        -- chamado
+    meeting_type  TEXT,                        -- reunião
+    participants  TEXT,                        -- reunião: com quem
+    kind          TEXT    CHECK (kind IS NULL OR kind IN ('planejada', 'intempestiva', 'preventiva')),
+    priority      TEXT    CHECK (priority IS NULL OR priority IN ('baixa', 'media', 'alta', 'urgente')),
+    status        TEXT,
+    start_date    TEXT,
+    due_date      TEXT,
+    branch        TEXT    NOT NULL DEFAULT '',
+    pr_url        TEXT    NOT NULL DEFAULT '',
+    environment   TEXT    CHECK (environment IS NULL OR environment IN ('desenvolvimento', 'staging', 'producao')),
+    created_at    TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CHECK (due_date IS NULL OR start_date IS NULL OR due_date >= start_date),
+    CHECK (category <> 'ciclo' OR (
+      title <> '' AND kind IS NOT NULL AND priority IS NOT NULL AND start_date IS NOT NULL AND status IN
+      ('novo', 'em_andamento', 'aguardando_terceiro', 'em_homologacao', 'concluido', 'cancelado'))),
+    CHECK (category <> 'chamado' OR (
+      ticket_number IS NOT NULL AND status IN ('nao_iniciado', 'iniciado', 'em_andamento', 'concluido'))),
+    CHECK (category <> 'reuniao' OR (meeting_type IS NOT NULL AND participants IS NOT NULL AND title <> '')),
+    CHECK (category NOT IN ('treinamento', 'atividade') OR (
+      title <> '' AND status IN ('nao_iniciado', 'iniciado', 'em_andamento', 'concluido')))
+  );
+
+  INSERT INTO demands_v8 (id, category, title, description, ticket_number, meeting_type, participants, kind,
+                          priority, status, start_date, due_date, branch, pr_url, environment, created_at, updated_at)
+  SELECT id, category, title, description, ticket_number, meeting_type, participants, kind,
+         priority, status, start_date, due_date, branch, pr_url, environment, created_at, updated_at
+  FROM demands;
+
+  DROP TABLE demands;
+  ALTER TABLE demands_v8 RENAME TO demands;
+  CREATE UNIQUE INDEX idx_demands_ticket ON demands(ticket_number) WHERE category = 'chamado';
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

@@ -45,6 +45,7 @@ const NOUN: Record<DemandCategory, string> = {
   chamado: 'chamado',
   reuniao: 'reunião',
   treinamento: 'treinamento',
+  atividade: 'atividade',
 };
 
 const EMPTY: Record<DemandCategory, string> = {
@@ -52,6 +53,7 @@ const EMPTY: Record<DemandCategory, string> = {
   chamado: 'Nenhum chamado por aqui',
   reuniao: 'Nenhuma reunião declarada',
   treinamento: 'Nenhum treinamento por aqui',
+  atividade: 'Nenhuma atividade por aqui',
 };
 
 const REMOVED: Record<DemandCategory, string> = {
@@ -59,6 +61,7 @@ const REMOVED: Record<DemandCategory, string> = {
   chamado: 'Chamado excluído.',
   reuniao: 'Reunião excluída.',
   treinamento: 'Treinamento excluído.',
+  atividade: 'Atividade excluída.',
 };
 
 const matches = (d: DemandSummary, f: StatusFilter) => f === 'todas' || (f === 'abertas') === isOpenDemand(d);
@@ -68,8 +71,10 @@ const PAGE_HINT = (
   <>
     <span className="block">Declare o que você faz. O tempo gasto é registrado depois, em Apontamentos.</span>
     <span className="mt-1.5 block">
-      <strong className="font-semibold text-ink">Tarefas:</strong> chamados, reuniões e treinamentos do dia a dia.
-      Cada um é declarado uma vez e apontado a cada ocorrência.
+      <strong className="font-semibold text-ink">Tarefas:</strong> chamados, reuniões, treinamentos e atividades do dia a dia.
+      Cada um é declarado uma vez e apontado a cada ocorrência. <em>Atividade</em> é tudo o que não é chamado,
+      reunião, treinamento nem ciclo (documentação, busca de informações, repasses…); no relatório ela aparece numa
+      seção própria, sem entrar nos números.
     </span>
     <span className="mt-1.5 block">
       <strong className="font-semibold text-ink">Ciclo:</strong> trabalhos longos, com prazo, prioridade, linha do tempo
@@ -256,7 +261,7 @@ function DemandRow(row: RowProps) {
   const { demand: d, expanded, highlighted, onToggle } = row;
   const detailId = useId();
   const open = isOpenDemand(d);
-  const preview = d.category === 'reuniao' ? `com ${d.participants}` : d.category === 'ciclo' || d.category === 'chamado' || d.category === 'treinamento' ? d.description : '';
+  const preview = d.category === 'reuniao' ? `com ${d.participants}` : d.description;
 
   return (
     <li id={`demanda-${d.id}`} className={`group scroll-mt-24 ${highlighted ? 'bg-surface-2/70' : ''}`}>
@@ -312,7 +317,9 @@ function DemandRow(row: RowProps) {
 
 /** Status e, nos ciclos, o prazo (só enquanto aberto e com data). Reuniões não têm status. */
 function RowStatus({ demand: d }: { demand: DemandSummary }) {
-  if (d.category === 'chamado' || d.category === 'treinamento') return <TaskStatusSelect demand={d} status={d.status} />;
+  if (d.category === 'chamado' || d.category === 'treinamento' || d.category === 'atividade') {
+    return <TaskStatusSelect demand={d} status={d.status} />;
+  }
   if (d.category !== 'ciclo') return null;
   const m = d.metrics;
   return (
@@ -349,14 +356,14 @@ function Logged({ demand: d }: { demand: DemandSummary }) {
   );
 }
 
-/** Troca rápida do status de chamados e treinamentos, direto na linha. */
+/** Troca rápida do status de chamados, treinamentos e atividades, direto na linha. */
 function TaskStatusSelect({ demand, status }: { demand: DemandSummary; status: TaskStatus }) {
   const save = useSaveDemand();
   const toast = useToast();
   const style = taskStatusStyle[status];
   const change = (next: TaskStatus) => {
     const input = demandInputOf(demand);
-    if (input.category !== 'chamado' && input.category !== 'treinamento') return;
+    if (input.category !== 'chamado' && input.category !== 'treinamento' && input.category !== 'atividade') return;
     save.mutate(
       { id: demand.id, input: { ...input, status: next } },
       {
