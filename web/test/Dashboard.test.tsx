@@ -92,4 +92,31 @@ describe('Painel', () => {
     expect(item('Treinamentos')).toMatch(/0%$/);
     expect(legend.queryByText('Sem demanda')).not.toBeInTheDocument();
   });
+
+  it('Distribuição mostra todas as demandas na legenda, sem "Outros", e fatia pequena como <1%', async () => {
+    for (let i = 1; i <= 8; i++) {
+      const d = await api.call<DemandSummary>('POST', '/demands', {
+        category: 'chamado',
+        ticketNumber: `TESTE-${i}`,
+        description: 'Fictício',
+        status: 'em_andamento',
+      });
+      // O último dura 1 minuto; os demais, 1h.
+      const start = 420 + i * 60;
+      await api.call('POST', '/activities', {
+        date: TODAY,
+        startMinute: start,
+        endMinute: start + (i === 8 ? 1 : 60),
+        demandId: d.id,
+        description: '',
+        notes: '',
+      });
+    }
+    renderPage(<Dashboard />);
+    await userEvent.click(viewTabs().getByRole('tab', { name: 'Distribuição' }));
+    const panel = within(await screen.findByRole('tabpanel', { name: 'Distribuição' }));
+    for (let i = 1; i <= 8; i++) expect(await panel.findByText(`TESTE-${i}`)).toBeInTheDocument();
+    expect(panel.queryByText(/Outros/)).not.toBeInTheDocument();
+    expect(panel.getByText('<1%')).toBeInTheDocument();
+  });
 });
