@@ -7,6 +7,7 @@ import {
   formatDuration,
   formatHM,
   getCycle,
+  loggableMinutes,
   todayISO,
   unionMinutesByDay,
   type Activity,
@@ -68,6 +69,7 @@ export function TimeEntries() {
   const metrics = cycle.data?.days.find((d) => d.date === day);
   const list = activities.data ?? [];
   const editing = panel?.mode === 'edit' ? list.find((a) => a.id === panel.id) : undefined;
+  const loggable = loggableMinutes(list);
   const lastEnd = list.length ? formatHM(Math.max(...list.map((a) => a.endMinute))) : DEFAULT_START;
 
   const chooseView = (next: View) => {
@@ -101,6 +103,7 @@ export function TimeEntries() {
   const rowProps = (a: Activity) => ({
     activity: a,
     demand: a.demandId ? byId.get(a.demandId) : undefined,
+    loggable: loggable.get(a.id) ?? 0,
     expanded: expandedId === a.id,
     onToggle: () => setExpandedId((id) => (id === a.id ? null : a.id)),
     onEdit: () => open({ mode: 'edit', id: a.id }),
@@ -264,7 +267,8 @@ function DaySummary({
           {m.overlapMinutes > 0 && (
             <span className="mt-1.5 block">
               Horários sobrepostos: o trecho em comum ({formatDuration(m.overlapMinutes)}) entrou uma única vez no total
-              do dia.
+              do dia. Em cada apontamento, "Apontar" divide esse trecho em partes iguais entre os simultâneos: a soma
+              dos "Apontar" é o total do dia, o que deve ser lançado no Azure.
             </span>
           )}
         </InfoHint>
@@ -289,6 +293,8 @@ function DaySummary({
 interface RowProps {
   activity: Activity;
   demand?: DemandSummary;
+  /** Minutos a apontar (no Azure) neste apontamento: a duração, descontada a parte dividida com outros simultâneos. */
+  loggable: number;
   expanded: boolean;
   onToggle: () => void;
   onEdit: () => void;
@@ -326,7 +332,10 @@ function EntryRow({ grouped = false, ...row }: RowProps & { grouped?: boolean })
               <span className="truncate text-sm font-semibold text-ink">{demand?.label ?? a.project}</span>
             </span>
           )}
-          <span className="tabular shrink-0 text-sm font-semibold text-ink">{formatDuration(durationOf(a))}</span>
+          <span className="tabular shrink-0 text-right">
+            <span className="block text-sm font-semibold text-ink">{formatDuration(durationOf(a))}</span>
+            <LoggableTag minutes={row.loggable} differs={row.loggable !== durationOf(a)} />
+          </span>
           <ChevronDown size={15} className={`shrink-0 text-ink-3 transition ${expanded ? 'rotate-180' : ''}`} />
         </button>
         <EntryActions
@@ -363,6 +372,18 @@ function EntryRow({ grouped = false, ...row }: RowProps & { grouped?: boolean })
         </div>
       )}
     </li>
+  );
+}
+
+/** "Apontar 1h30": o que lançar no Azure. Em destaque (âmbar, com o rótulo escrito) quando difere da duração. */
+function LoggableTag({ minutes, differs }: { minutes: number; differs: boolean }) {
+  return (
+    <span
+      className={`block text-2xs ${differs ? 'font-semibold text-warning-text' : 'text-ink-3'}`}
+      title={differs ? 'Parte do horário foi dividida com outro apontamento simultâneo.' : undefined}
+    >
+      Apontar {formatDuration(minutes)}
+    </span>
   );
 }
 
@@ -457,23 +478,30 @@ function ByDemand({
   const groups = [
     ...Map.groupBy(activities, (a) => (a.demandId !== null ? `d${a.demandId}` : `p${a.project}`)).values(),
   ]
-    .map((items) => ({ items, total: unionMinutesByDay(items) }))
+    .map((items) => ({
+      items,
+      total: unionMinutesByDay(items),
+      loggable: items.reduce((sum, a) => sum + rowProps(a).loggable, 0),
+    }))
     .sort((x, y) => y.total - x.total);
 
   return (
     <div className="card divide-y divide-line">
-      {groups.map(({ items, total }) => {
+      {groups.map(({ items, total, loggable }) => {
         const first = items[0];
         const demand = first.demandId ? demands.get(first.demandId) : undefined;
         return (
           <section key={first.id} className="py-1">
             <div className="flex items-center justify-between gap-3 px-3 pt-3 pb-1">
               <GroupHeading activity={first} demand={demand} />
-              <span className="tabular shrink-0 text-right text-sm font-semibold text-ink">
-                {formatDuration(total)}
-                <span className="ml-2 text-xs font-normal text-ink-3">
-                  {items.length === 1 ? '1 horário' : `${items.length} horários`}
+              <span className="tabular shrink-0 text-right">
+                <span className="block text-sm font-semibold text-ink">
+                  {formatDuration(total)}
+                  <span className="ml-2 text-xs font-normal text-ink-3">
+                    {items.length === 1 ? '1 horário' : `${items.length} horários`}
+                  </span>
                 </span>
+                <LoggableTag minutes={loggable} differs={loggable !== total} />
               </span>
             </div>
             <ul>
