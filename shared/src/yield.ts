@@ -14,17 +14,17 @@ type Logged = Pick<Activity, 'date' | 'startMinute' | 'endMinute' | 'demandId'>;
 
 export type DemandFamily = 'tarefas' | 'ciclos';
 
-/** Chamados, reuniões e treinamentos são Tarefas; a categoria `ciclo` é a família Ciclos. */
+/** Chamados, reuniões, treinamentos e atividades são Tarefas; a categoria `ciclo` é a família Ciclos. */
 export function familyOf(category: DemandCategory): DemandFamily {
   return category === 'ciclo' ? 'ciclos' : 'tarefas';
 }
 
 /** Os grupos do tempo: as quatro categorias e os apontamentos antigos, sem demanda. */
 export type SplitGroup = DemandCategory | 'semDemanda';
-const GROUPS: readonly SplitGroup[] = ['chamado', 'reuniao', 'treinamento', 'ciclo', 'semDemanda'];
+const GROUPS: readonly SplitGroup[] = ['chamado', 'reuniao', 'treinamento', 'atividade', 'ciclo', 'semDemanda'];
 
 export interface SplitMinutes extends Record<SplitGroup, number> {
-  /** Família Tarefas: chamado + reunião + treinamento. */
+  /** Família Tarefas: chamado + reunião + treinamento + atividade. */
   tarefas: number;
   /** Família Ciclos: o mesmo que `ciclo`. */
   ciclos: number;
@@ -45,7 +45,7 @@ export interface CategorySplit {
 
 /** Acrescenta as somas por família aos minutos de cada grupo. */
 function withFamilies(minutes: Record<SplitGroup, number>, total: number): SplitMinutes {
-  return { ...minutes, tarefas: minutes.chamado + minutes.reuniao + minutes.treinamento, ciclos: minutes.ciclo, total };
+  return { ...minutes, tarefas: minutes.chamado + minutes.reuniao + minutes.treinamento + minutes.atividade, ciclos: minutes.ciclo, total };
 }
 
 /**

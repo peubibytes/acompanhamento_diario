@@ -118,7 +118,10 @@ export function DayView({
 /** Demandas concluídas (chamados, treinamentos e ciclos); o cartão suspenso separa tarefas de ciclos. */
 function FulfilledStat() {
   const demands = useDemands();
-  const done = (demands.data ?? []).filter((d) => d.category !== 'reuniao' && d.status === 'concluido');
+  // Atividades ficam de fora: não entram nos números (decisão 0009).
+  const done = (demands.data ?? []).filter(
+    (d) => d.category !== 'reuniao' && d.category !== 'atividade' && d.status === 'concluido',
+  );
   const cycles = done.filter((d) => d.category === 'ciclo').length;
   const tasks = done.length - cycles;
   const id = useId();

@@ -18,6 +18,7 @@ import {
   CalendarIcon,
   CapIcon,
   CheckIcon,
+  ChecklistIcon,
   ClockIcon,
   DashIcon,
   HourglassIcon,
@@ -33,6 +34,7 @@ export const categoryIcon: Record<DemandCategory, (s: number) => ReactNode> = {
   chamado: (s) => <TicketIcon size={s} />,
   reuniao: (s) => <UsersIcon size={s} />,
   treinamento: (s) => <CapIcon size={s} />,
+  atividade: (s) => <ChecklistIcon size={s} />,
 };
 
 /** Ícone do tipo num círculo suave, para listas e cabeçalhos de grupo. */

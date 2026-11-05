@@ -1,5 +1,5 @@
 // Demandas: o que o colaborador declara que faz. São de duas famílias:
-// - Tarefas (rotina): chamados, reuniões e treinamentos;
+// - Tarefas (rotina): chamados, reuniões, treinamentos e atividades (o que não cabe nas outras);
 // - Ciclo: trabalhos longos, com prazo, prioridade, linha do tempo e impedimentos.
 // A declaração não tem horas: o tempo gasto é registrado em Apontamentos, sempre sobre uma
 // demanda já declarada. Ver docs/decisions/0002-demandas-declaradas-e-apontamentos.md.
@@ -9,11 +9,11 @@ import { unionMinutesByDay } from './metrics.ts';
 import { formatDuration } from './time.ts';
 import type { Activity } from './types.ts';
 
-export const DEMAND_CATEGORIES = ['ciclo', 'chamado', 'reuniao', 'treinamento'] as const;
+export const DEMAND_CATEGORIES = ['ciclo', 'chamado', 'reuniao', 'treinamento', 'atividade'] as const;
 export type DemandCategory = (typeof DEMAND_CATEGORIES)[number];
 
 /** Categorias da família "Tarefas" (rotina). */
-export const TASK_CATEGORIES = ['chamado', 'reuniao', 'treinamento'] as const;
+export const TASK_CATEGORIES = ['chamado', 'reuniao', 'treinamento', 'atividade'] as const;
 export type TaskCategory = (typeof TASK_CATEGORIES)[number];
 
 export const DEMAND_CATEGORY_LABEL: Record<DemandCategory, string> = {
@@ -21,6 +21,7 @@ export const DEMAND_CATEGORY_LABEL: Record<DemandCategory, string> = {
   chamado: 'Chamado',
   reuniao: 'Reunião',
   treinamento: 'Treinamento',
+  atividade: 'Atividade',
 };
 
 export const DEMAND_CATEGORY_PLURAL: Record<DemandCategory, string> = {
@@ -28,6 +29,7 @@ export const DEMAND_CATEGORY_PLURAL: Record<DemandCategory, string> = {
   chamado: 'Chamados',
   reuniao: 'Reuniões',
   treinamento: 'Treinamentos',
+  atividade: 'Atividades',
 };
 
 // ── Ciclo ──────────────────────────────────────────────────────────────────────
@@ -139,7 +141,17 @@ export interface TrainingDemand {
   status: TaskStatus;
 }
 
-export type Demand = CycleDemand | TicketDemand | MeetingDemand | TrainingDemand;
+/** Tudo o que não é chamado, reunião, treinamento nem ciclo (documentação, busca de informações, repasses…). */
+export interface GeneralDemand {
+  id: number;
+  category: 'atividade';
+  /** Nome da atividade. */
+  title: string;
+  description: string;
+  status: TaskStatus;
+}
+
+export type Demand = CycleDemand | TicketDemand | MeetingDemand | TrainingDemand | GeneralDemand;
 
 /** Omit que preserva a união discriminada (um Omit comum a desfaria). */
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
@@ -168,6 +180,8 @@ export function demandInputOf(d: Demand): DemandInput {
       return { category: 'reuniao', meetingType: d.meetingType, participants: d.participants, subject: d.subject };
     case 'treinamento':
       return { category: 'treinamento', title: d.title, description: d.description, status: d.status };
+    case 'atividade':
+      return { category: 'atividade', title: d.title, description: d.description, status: d.status };
   }
 }
 
@@ -179,6 +193,7 @@ export function demandLabel(d: DemandInput): string {
   switch (d.category) {
     case 'ciclo':
     case 'treinamento':
+    case 'atividade':
       return d.title;
     case 'chamado':
       return d.ticketNumber;
@@ -483,7 +498,7 @@ export function buildDemandSummary(
   };
 }
 
-const CATEGORY_ORDER: Record<DemandCategory, number> = { ciclo: 0, chamado: 1, reuniao: 2, treinamento: 3 };
+const CATEGORY_ORDER: Record<DemandCategory, number> = { ciclo: 0, chamado: 1, reuniao: 2, treinamento: 3, atividade: 4 };
 
 const URGENCY: Record<DeadlineStatus, number> = {
   atrasada: 0,

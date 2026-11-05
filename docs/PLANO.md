@@ -15,7 +15,7 @@ metas e relatórios de prestação de contas (daily, 1:1, relatório mensal).
 | Módulo | Situação | Descrição |
 |---|---|---|
 | Apontamento de horas | Existente (seções 1–7 e 9) | Ciclo sex→qui, meta, apontamentos sobre demandas, métricas, conformidade |
-| Demandas | Existente (seções 6, 8.1 e 9) | Declarações: Tarefas (chamados, reuniões, treinamentos) e Ciclos (prazo, linha do tempo, impedimentos) |
+| Demandas | Existente (seções 6, 8.1 e 9) | Declarações: Tarefas (chamados, reuniões, treinamentos, atividades) e Ciclos (prazo, linha do tempo, impedimentos) |
 | Treinamentos | Existente como Tarefa (seção 9) | Nome, descrição e status; as horas de estudo são apontadas |
 | Metas | Novo (seção 8) | Objetivos com prazo e progresso, ligados a atividades/demandas/treinamentos |
 | Relatórios | Existente (seções 10 e 13) | Diário (v0.7, consolidado na v0.11), semanal e mensal (v0.10), exportáveis; indicador de trabalho não planejado |
@@ -23,9 +23,14 @@ metas e relatórios de prestação de contas (daily, 1:1, relatório mensal).
 
 ### Glossário
 - **Demanda:** o que o colaborador declara que faz. Não tem horas. Duas famílias: Tarefas e Ciclo.
-- **Tarefa:** demanda de rotina: **chamado**, **reunião** ou **treinamento**. (Até a v0.6 era
-  chamada "Atividade"; o nome mudou para não se confundir com o apontamento, que no código é
-  `activity`.)
+- **Tarefa:** demanda de rotina: **chamado**, **reunião**, **treinamento** ou **atividade**. (Até a v0.6 a
+  família toda era chamada "Atividade"; o nome mudou para não se confundir com o apontamento, que no código é
+  `activity`. Desde a v0.12 "Atividade" voltou como uma categoria específica, descrita abaixo; no código a
+  categoria é `atividade` e o tipo é `GeneralDemand`, e `activity` segue sendo o apontamento.)
+- **Atividade (v0.12):** tudo o que não cabe em chamado, reunião, treinamento nem ciclo: documentação sem relação
+  com um ciclo ou chamado, busca de informações para ajudar outro colaborador, repasses e alinhamentos. Nome,
+  descrição e status. **Não entra em números** (frase e indicadores do relatório, "Demandas cumpridas"); aparece
+  numa seção própria do relatório. Decisão em `docs/decisions/0009`.
 - **Chamado:** número do chamado (único), descrição (problema, solicitante, contexto) e status.
 - **Reunião:** tipo (ex.: Daily, Semanal, Planejamento), com quem e assunto; declarada uma vez,
   apontada a cada ocorrência.
@@ -124,8 +129,8 @@ activities(id, date, start_minute, end_minute, project, description, notes,
 cycle_goals(cycle_start PRIMARY KEY, daily_goal_minutes)
 settings(key PRIMARY KEY, value)          -- default_daily_goal_minutes
 -- uma linha por demanda; colunas fora da categoria ficam nulas/vazias (CHECKs por categoria)
-demands(id, category ('ciclo'|'chamado'|'reuniao'|'treinamento'),
-        title (ciclo: nome do projeto · treinamento: nome · reunião: assunto), description,
+demands(id, category ('ciclo'|'chamado'|'reuniao'|'treinamento'|'atividade'),
+        title (ciclo: nome do projeto · treinamento e atividade: nome · reunião: assunto), description,
         ticket_number (chamado, único), meeting_type, participants (reunião),
         kind, priority, start_date, due_date, branch, pr_url, environment (ciclo),
         status (ciclo: 6 estados · chamado/treinamento: 4 estados · reunião: nulo),
@@ -245,6 +250,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 | 11 | v0.9: "Período" no lugar de "ciclo de apontamento", escala Semana \| Mês no Painel e visão Rendimento (seção 12) | ✅ |
 | 12 | v0.10: segurança de acesso, backup e exportação, README, CI e testes de tela, organização (rotas por domínio, Painel por visão, `docs/HISTORICO.md`, PDF) e relatório do período com as intempestivas (seção 13) | ✅ (tag `v0.10.0`) |
 | 13 | v0.11: relatório diário consolidado (dois tópicos abertos por frases, seção 10); visão Tarefas removida do Painel | ✅ |
+| 14 | v0.12: relatório só com o que houve (sem "0 reuniões"), campo "Apontar" para horários sobrepostos (decisão 0010) e categoria Atividade (decisão 0009; migração 8) | ✅ |
 | — | Integração com o Azure | futuro |
 
 ### Decisões registradas
@@ -441,7 +447,7 @@ cada dia, um chamado retomado à tarde) aparece reunida.
 
 ### Demandas (`/demandas`)
 - Duas famílias, nas abas do topo: **Tarefas** e **Ciclo**.
-- **Tarefas** têm três tipos (menu ao lado das abas):
+- **Tarefas** têm quatro tipos (menu ao lado das abas):
   - **Chamados:** número do chamado (obrigatório, normalizado em maiúsculas, único), descrição
     (obrigatória: problema, quem solicitou, outras informações) e status: Não iniciado,
     Iniciado, Em andamento, Concluído. Troca rápida de status na própria linha.
@@ -449,6 +455,9 @@ cada dia, um chamado retomado à tarde) aparece reunida.
     quem e assunto, todos obrigatórios. Sem status: ficam sempre disponíveis para apontar. A
     mesma reunião (tipo, participantes e assunto iguais) não é declarada duas vezes.
   - **Treinamentos:** nome (obrigatório), descrição e status (os mesmos dos chamados).
+  - **Atividades (v0.12):** nome (obrigatório), descrição e status (os mesmos dos chamados; o formulário começa em
+    "Em andamento"). Sem número nem prazo. Ficam fora de "O que será feito", dos números do relatório e de
+    "Demandas cumpridas"; o tempo apontado nelas entra no total e em Tarefas (Rendimento), com cor e ícone próprios.
 - **Ciclo:** nome do projeto, tipo (planejada, intempestiva, preventiva), status (os 6 da seção
   8.1), prioridade, descrição, início e prazo opcional, vínculos técnicos opcionais. Mantém prazo,
   lembretes, linha do tempo, impedimentos e espera.
@@ -466,6 +475,11 @@ cada dia, um chamado retomado à tarde) aparece reunida.
   e observações. O status da demanda aparece só para leitura (ele se altera em Demandas).
 - A lista do dia pode ser vista **por horário** ou **por demanda** (cada demanda com o total do dia
   e os horários em que aconteceu). A escolha fica salva no navegador.
+- **Apontar (v0.12, `docs/decisions/0010`):** cada apontamento mostra "Apontar X", o que lançar no Azure. O trecho em
+  que horários se sobrepõem é dividido em partes iguais entre os apontamentos simultâneos (`loggableMinutes`, em
+  `shared/src/breakdown.ts`), em minutos inteiros: a soma dos "Apontar" do dia é o total do dia. Sem sobreposição,
+  é a duração; quando difere, aparece em destaque. Na visão por demanda, o cabeçalho do grupo soma os do grupo.
+  Calculado na tela: nada é gravado e as horas, a meta e a conformidade não mudam.
 - Apontamentos antigos, sem demanda, continuam valendo nas métricas e aparecem com o aviso
   "Sem demanda"; para editá-los é preciso escolher uma demanda.
 
@@ -541,12 +555,18 @@ Decisão em `docs/decisions/0008-relatorio-diario-consolidado.md`. Regras em `sh
 dados fictícios. Os registros soltos (apontamentos, eventos, trocas de status) viram um item por demanda, com a
 digitação arrumada (`tidyText`) e sem repetir. O Markdown sai sem introdução, pronto para colar ou integrar.
 
+**Atividades (v0.12, `docs/decisions/0009`):** ficam numa seção própria, **Outras atividades**, dentro de "O que
+foi feito" (nome, situação e o que foi feito), fora dos indicadores e das frases de resumo e detalhamento. Um dia só
+com atividades tem a seção, mas não tem frase de métricas. Não entram em "O que será feito" nem na fila.
+
 1. **O que foi feito ontem** (fora de ontem e hoje, "na terça-feira (27/10)").
    - *Métricas* (na tela, três ou quatro números): chamados atendidos, reuniões, treinamentos (só se houve) e horas
      em ciclos (união dos intervalos; a única medida de tempo do diário).
-   - *Frase de resumo:* "Ontem, atendi X chamados, participei de Y reuniões e fiz Z de demandas de Ciclo."
+   - *Frase de resumo:* "Ontem, atendi X chamados, participei de Y reuniões e fiz Z de demandas de Ciclo." (v0.12:
+     só entra o que houve — "Ontem, atendi 1 chamado." —, sem "0 reuniões" nem "0h"; os itens se juntam com vírgulas
+     e um "e" final, sem vírgula antes dele. Os indicadores da tela seguem a mesma regra.)
    - *Frase de detalhamento:* "Atendi aos chamados (número – descrição), entrei em reunião com (pessoas, sem
-     repetir), e fiz minhas demandas de ciclo: ciclo (ações)". Ações = "o que foi feito" dos apontamentos, eventos
+     repetir) e fiz minhas demandas de ciclo: ciclo (ações)". Ações = "o que foi feito" dos apontamentos, eventos
      da linha do tempo e impedimentos resolvidos no dia. Chamado concluído no dia leva "(concluído)".
 2. **O que será feito hoje** (ou "na quinta-feira (29/10)").
    - *Frase de planejamento:* "Para hoje, buscarei encerrar os chamados (…), seguirei nos treinamentos (…) e
@@ -676,6 +696,8 @@ fictícios. Copiar (Markdown), `Baixar .md` e `Imprimir / PDF`, como no diário.
    - *Reuniões:* cada uma uma vez, com quantos dias aconteceu.
 2. **Impedimentos.** Os que estiveram abertos em algum momento do período: abertos no fim dele ou resolvidos nele.
    A espera conta até a resolução, o fim do período ou hoje (o que vier primeiro).
+   - *Outras atividades (v0.12):* as atividades apontadas ou com troca de status no período, numa seção própria, fora
+     do resumo e da contagem de tarefas (`docs/decisions/0009`).
 3. **Trabalho não planejado.** A fatia e as horas ("27% do tempo (3h de 11h) em ciclos intempestivos"); sem
    apontamento, "Sem apontamentos no período". É a única medida de tempo do relatório.
 

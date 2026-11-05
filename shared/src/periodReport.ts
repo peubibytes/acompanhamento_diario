@@ -41,7 +41,7 @@ export interface PeriodCycleItem {
 export interface PeriodTaskItem {
   demandId: number;
   label: string;
-  category: 'chamado' | 'treinamento';
+  category: 'chamado' | 'treinamento' | 'atividade';
   subtitle: string;
   status: string;
   /** Trocou de status no período. */
@@ -64,6 +64,8 @@ export interface PeriodReport {
     completedTasks: PeriodTaskItem[];
     /** Trabalhados no período (apontados ou com troca de status), sem conclusão nele. */
     workedTasks: PeriodTaskItem[];
+    /** Atividades trabalhadas no período: seção própria, fora do resumo e dos números. */
+    otherWork: PeriodTaskItem[];
     meetings: PeriodMeeting[];
   };
   blockers: {
@@ -139,12 +141,14 @@ export function buildPeriodReport(input: PeriodReportInput): PeriodReport {
   const touchedTasks = new Set<number>([...logged.map((a) => a.demandId!), ...changes.map((c) => c.demandId)]);
   const completedTasks: PeriodTaskItem[] = [];
   const workedTasks: PeriodTaskItem[] = [];
+  const otherWork: PeriodTaskItem[] = [];
   for (const d of [...demands].sort(compareDemands)) {
-    if (d.category !== 'chamado' && d.category !== 'treinamento') continue;
+    if (d.category !== 'chamado' && d.category !== 'treinamento' && d.category !== 'atividade') continue;
     const completed = d.completedAt !== null && inPeriod(d.completedAt);
     if (!completed && !touchedTasks.has(d.id)) continue;
     const item = { demandId: d.id, label: d.label, category: d.category, subtitle: shorten(d.subtitle), ...statusOf(d) };
-    (completed ? completedTasks : workedTasks).push(item);
+    // Atividades ficam numa seção própria, sem entrar na contagem de tarefas.
+    (d.category === 'atividade' ? otherWork : completed ? completedTasks : workedTasks).push(item);
   }
 
   // ── Reuniões: cada uma uma vez, com os dias em que aconteceu ──
@@ -175,7 +179,7 @@ export function buildPeriodReport(input: PeriodReportInput): PeriodReport {
 
   return {
     period,
-    done: { cycles, completedTasks, workedTasks, meetings },
+    done: { cycles, completedTasks, workedTasks, otherWork, meetings },
     blockers: {
       open: blockerItems.filter((b) => b.resolvedAt === null).length,
       resolved: blockerItems.filter((b) => b.resolvedAt !== null).length,
@@ -229,10 +233,10 @@ export function periodReportMarkdown(report: PeriodReport): string {
   const d = report.done;
   lines.push('## O que foi feito');
   const summary = periodDoneSummary(d);
-  if (!summary) {
+  if (!summary && d.otherWork.length === 0) {
     lines.push('Nada registrado neste período.');
   } else {
-    lines.push(summary);
+    if (summary) lines.push(summary);
     if (d.cycles.length) {
       lines.push('', '**Ciclos**');
       for (const c of d.cycles) {
@@ -243,6 +247,7 @@ export function periodReportMarkdown(report: PeriodReport): string {
     }
     if (d.completedTasks.length) lines.push('', '**Tarefas concluídas**', ...d.completedTasks.map(taskLine));
     if (d.workedTasks.length) lines.push('', '**Tarefas em andamento**', ...d.workedTasks.map(taskLine));
+    if (d.otherWork.length) lines.push('', '**Outras atividades**', ...d.otherWork.map(taskLine));
     if (d.meetings.length) {
       lines.push(
         '',

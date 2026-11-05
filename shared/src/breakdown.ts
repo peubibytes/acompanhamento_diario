@@ -93,6 +93,37 @@ export function dayBreakdown(activities: Input[], demands: { id: number; label: 
   return { total, slices, overlapSplit };
 }
 
+/**
+ * Quanto apontar em cada apontamento de um dia (por exemplo, no Azure), para que a soma seja o total do dia.
+ * Cada trecho de tempo é dividido igualmente entre os apontamentos que o ocupam; sem sobreposição, é a própria
+ * duração. Minutos inteiros pelo maior resto (a soma continua igual à união dos intervalos). Devolve os minutos
+ * por `id`; apontamentos de dias diferentes são tratados dia a dia.
+ */
+export function loggableMinutes(activities: Pick<Activity, 'id' | 'date' | 'startMinute' | 'endMinute'>[]): Map<number, number> {
+  const result = new Map<number, number>();
+  const valid = activities.filter((a) => a.endMinute > a.startMinute);
+
+  for (const ofDay of Map.groupBy(valid, (a) => a.date).values()) {
+    const exact = new Map<number, number>(ofDay.map((a) => [a.id, 0]));
+    const bounds = [...new Set(ofDay.flatMap((a) => [a.startMinute, a.endMinute]))].sort((x, y) => x - y);
+    for (let i = 0; i < bounds.length - 1; i++) {
+      const [from, to] = [bounds[i], bounds[i + 1]];
+      const active = ofDay.filter((a) => a.startMinute <= from && a.endMinute >= to);
+      for (const a of active) exact.set(a.id, exact.get(a.id)! + (to - from) / active.length);
+    }
+
+    const total = Math.round([...exact.values()].reduce((sum, m) => sum + m, 0));
+    const floors = new Map([...exact].map(([id, m]) => [id, Math.floor(m + 1e-9)]));
+    let leftover = total - [...floors.values()].reduce((sum, m) => sum + m, 0);
+    const byRest = [...exact].sort(([ia, a], [ib, b]) => b - floors.get(ib)! - (a - floors.get(ia)!) || ia - ib);
+    for (const [id] of byRest) {
+      if (leftover-- > 0) floors.set(id, floors.get(id)! + 1);
+    }
+    for (const [id, m] of floors) result.set(id, m);
+  }
+  return result;
+}
+
 /** Mantém as maiores fatias e junta o restante em "Outros", para a pizza continuar legível. */
 export function foldSlices(slices: BreakdownSlice[], max = 6): BreakdownSlice[] {
   if (slices.length <= max) return slices;

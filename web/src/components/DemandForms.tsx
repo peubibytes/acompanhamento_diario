@@ -23,6 +23,7 @@ import {
   type MeetingDemand,
   type TaskStatus,
   type TicketDemand,
+  type GeneralDemand,
   type TrainingDemand,
 } from '@acomp/shared';
 import { useSaveDemand } from '../api/client';
@@ -59,6 +60,8 @@ export function DemandForm({
       return <MeetingForm editing={same as Editing<'reuniao'> | undefined} {...shared} />;
     case 'treinamento':
       return <TrainingForm editing={same as Editing<'treinamento'> | undefined} {...shared} />;
+    case 'atividade':
+      return <GeneralForm editing={same as Editing<'atividade'> | undefined} {...shared} />;
   }
 }
 
@@ -85,6 +88,7 @@ const CREATED: Record<DemandCategory, string> = {
   chamado: 'Chamado declarado.',
   reuniao: 'Reunião declarada.',
   treinamento: 'Treinamento declarado.',
+  atividade: 'Atividade declarada.',
 };
 
 /** Grava a declaração e fecha o painel. */
@@ -425,6 +429,48 @@ function TrainingForm({ editing, onDone, onDirtyChange }: FormProps<TrainingDema
       </Field>
       <TaskStatusPicker value={status} onChange={setStatus} />
       <Actions editing={Boolean(editing)} pending={pending} onCancel={onDone} create="Declarar treinamento" />
+    </form>
+  );
+}
+
+/** Atividade: tudo o que não é chamado, reunião, treinamento nem ciclo. Começa "Em andamento": costuma já estar em curso. */
+function GeneralForm({ editing, onDone, onDirtyChange }: FormProps<GeneralDemand>) {
+  const [title, setTitle] = useState(editing?.title ?? '');
+  const [description, setDescription] = useState(editing?.description ?? '');
+  const [status, setStatus] = useState<TaskStatus>(editing?.status ?? 'em_andamento');
+  const { submit, pending } = useSubmit(editing, onDone);
+  useDirty({ title, description, status }, onDirtyChange);
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit({ category: 'atividade', title, description, status });
+      }}
+      className="space-y-4"
+    >
+      <Field label="Nome da atividade">
+        <input
+          required
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Ex.: Documentação do processo de entrega"
+          maxLength={200}
+          className="field"
+        />
+      </Field>
+      <Field label="Descrição" optional>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="O que é, para quem e o que se espera entregar…"
+          rows={3}
+          maxLength={4000}
+          className="field resize-y"
+        />
+      </Field>
+      <TaskStatusPicker value={status} onChange={setStatus} />
+      <Actions editing={Boolean(editing)} pending={pending} onCancel={onDone} create="Declarar atividade" />
     </form>
   );
 }

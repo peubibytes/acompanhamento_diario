@@ -254,3 +254,13 @@ describe('trabalho não planejado (intempestivas)', () => {
     assert.deepEqual(unplannedTime([log(2, DAY, 540, 600), log(null, DAY, 600, 630)], withKinds, WEEK), { minutes: 0, total: 90, percent: 0 });
   });
 });
+
+describe('atividades no tempo por categoria', () => {
+  it('têm a própria fatia, entram na família Tarefas e a soma bate com o total do dia', () => {
+    const withActivity = [...demands, { id: 5, category: 'atividade' as DemandCategory }];
+    assert.equal(familyOf('atividade'), 'tarefas');
+    const split = categorySplit([log(5, DAY, 480, 540), log(2, DAY, 540, 600)], withActivity, WEEK);
+    const day = split.days.find((d) => d.date === DAY)!;
+    assert.deepEqual([day.atividade, day.ciclo, day.tarefas, day.total], [60, 60, 60, 120]);
+  });
+});

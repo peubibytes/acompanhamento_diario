@@ -41,12 +41,12 @@ export function nextWorkday(iso: ISODate): ISODate {
 /** Acima disso, a frase cita a quantidade e os itens vão para uma tabela ou lista. */
 export const REPORT_INLINE_LIMIT = 3;
 
-/** Um ciclo, chamado ou treinamento trabalhado no dia. */
+/** Um ciclo, chamado, treinamento ou atividade trabalhado no dia. */
 export interface ReportWorkItem {
   demandId: number;
-  /** Número do chamado ou nome do ciclo/treinamento. */
+  /** Número do chamado ou nome do ciclo/treinamento/atividade. */
   label: string;
-  category: 'ciclo' | 'chamado' | 'treinamento';
+  category: 'ciclo' | 'chamado' | 'treinamento' | 'atividade';
   /** Descrição curta e arrumada (chamados e treinamentos); vazia nos ciclos. */
   subtitle: string;
   /** Situação: a troca de status do dia (ex.: "Em andamento → Concluído") ou o status atual. */
@@ -95,6 +95,8 @@ export interface DailyReport {
     tickets: ReportWorkItem[];
     trainings: ReportWorkItem[];
     cycles: ReportWorkItem[];
+    /** Atividades (o que não é chamado, reunião, treinamento nem ciclo): ficam numa seção própria, fora dos números. */
+    otherWork: ReportWorkItem[];
     meetings: ReportMeeting[];
     /** Com quem foram as reuniões, sem repetir. */
     people: string[];
@@ -271,6 +273,7 @@ export function buildDailyReport(input: DailyReportInput): DailyReport {
   const cycles = worked.filter((d) => d.category === 'ciclo').sort(compareDemands).map((d) => work(d)!);
   const tickets = worked.filter((d) => d.category === 'chamado').sort(byDone).map((d) => work(d)!);
   const trainings = worked.filter((d) => d.category === 'treinamento').sort(byDone).map((d) => work(d)!);
+  const otherWork = worked.filter((d) => d.category === 'atividade').sort(byDone).map((d) => work(d)!);
 
   const meetings: ReportMeeting[] = [];
   for (const a of ofDay) {
@@ -337,7 +340,7 @@ export function buildDailyReport(input: DailyReportInput): DailyReport {
 
   return {
     date,
-    done: { tickets, trainings, cycles, meetings, people, cycleMinutes, completedTasks },
+    done: { tickets, trainings, cycles, otherWork, meetings, people, cycleMinutes, completedTasks },
     blockers: {
       open: blockerItems.filter((b) => b.resolvedAt === null).length,
       resolved: blockerItems.filter((b) => b.resolvedAt === date).length,
@@ -358,12 +361,6 @@ export function joinList(items: string[], separator = ', '): string {
   return `${items.slice(0, -1).join(separator)} e ${items.at(-1)}`;
 }
 
-/** Orações de uma frase: "a", "a, e b", "a, b, e c" (a vírgula antes do "e" separa orações que já têm listas). */
-function joinClauses(clauses: string[]): string {
-  if (clauses.length <= 1) return clauses.join('');
-  return `${clauses.slice(0, -1).join(', ')}, e ${clauses.at(-1)}`;
-}
-
 /** Como a frase se refere a um dia, a partir de hoje: "ontem", "hoje" ou "na terça-feira (27/10)". */
 export function dayReference(date: ISODate, today: ISODate): string {
   if (date === today) return 'hoje';
@@ -381,26 +378,23 @@ const planReference = (nextDate: ISODate, today: ISODate) =>
 /** "O que será feito hoje" ou "O que será feito na quinta-feira (29/10)". */
 export const nextTitle = (nextDate: ISODate, today: ISODate) => `O que será feito ${planReference(nextDate, today)}`;
 
-/** Houve algo no dia (chamado, treinamento, ciclo ou reunião). */
+/** Houve algo no dia (chamado, treinamento, ciclo, atividade ou reunião). */
 export const hasDoneWork = (done: DailyReport['done']) =>
-  done.tickets.length + done.trainings.length + done.cycles.length + done.meetings.length > 0;
-
-const hoursText = (minutes: number) => (minutes === 0 ? '0h' : formatDuration(minutes));
+  done.tickets.length + done.trainings.length + done.cycles.length + done.otherWork.length + done.meetings.length > 0;
 
 /**
  * A frase de métricas: "Ontem, atendi 2 chamados, participei de 1 reunião e fiz 3h30 de demandas
- * de Ciclo." O treinamento entra só quando houve. Vazia se nada aconteceu no dia.
+ * de Ciclo." Só entra o que houve (nada de "0 reuniões"). Vazia se não há nada a dizer.
  */
 export function doneHeadline(report: DailyReport, today: ISODate): string {
   const d = report.done;
-  if (!hasDoneWork(d)) return '';
-  const parts = [
-    `atendi ${count(d.tickets.length, 'chamado', 'chamados')}`,
-    `participei de ${count(d.meetings.length, 'reunião', 'reuniões')}`,
-  ];
+  const parts: string[] = [];
+  if (d.tickets.length) parts.push(`atendi ${count(d.tickets.length, 'chamado', 'chamados')}`);
+  if (d.meetings.length) parts.push(`participei de ${count(d.meetings.length, 'reunião', 'reuniões')}`);
   if (d.trainings.length) parts.push(`avancei em ${count(d.trainings.length, 'treinamento', 'treinamentos')}`);
-  const last = `fiz ${hoursText(d.cycleMinutes)} de demandas de Ciclo`;
-  return `${capitalize(dayReference(report.date, today))}, ${parts.join(', ')} e ${last}.`;
+  if (d.cycleMinutes > 0) parts.push(`fiz ${formatDuration(d.cycleMinutes)} de demandas de Ciclo`);
+  if (!parts.length) return '';
+  return `${capitalize(dayReference(report.date, today))}, ${joinList(parts)}.`;
 }
 
 const ticketText = (i: { label: string; subtitle?: string; detail?: string }, extra = '') => {
@@ -453,7 +447,7 @@ export function doneDetail(done: DailyReport['done']): string {
         : `fiz minhas demandas de ciclo: ${joinList(c.map(cycleText), '; ')}`,
     );
   }
-  return clauses.length ? `${capitalize(joinClauses(clauses))}.` : '';
+  return clauses.length ? `${capitalize(joinList(clauses))}.` : '';
 }
 
 /** Itens de "O que será feito" a deixar de fora: ids de demanda e 'fila' (a linha da fila). */
@@ -503,7 +497,7 @@ export function planSentence(next: DailyReport['next'], today: ISODate, skip?: S
     );
   }
   if (!clauses.length) return `${lead}, não há demandas em aberto.`;
-  return `${lead}, ${joinClauses(clauses)}.`;
+  return `${lead}, ${joinList(clauses)}.`;
 }
 
 /** "Aguardando Equipe B desde 26/10 (3 dias úteis): Libera o acesso". */
@@ -539,7 +533,14 @@ export function dailyReportMarkdown(report: DailyReport, options: MarkdownOption
   if (!hasDoneWork(d)) {
     lines.push(`Nada registrado ${dayReference(report.date, today)}.`);
   } else {
-    lines.push(doneHeadline(report, today), '', doneDetail(d));
+    const headline = doneHeadline(report, today);
+    const detail = doneDetail(d);
+    if (headline) lines.push(headline, '');
+    if (detail) lines.push(detail);
+    if (d.otherWork.length) {
+      // Atividades não entram nos números nem nas frases: só nesta seção.
+      lines.push('', '**Outras atividades**', ...d.otherWork.map((i) => `- ${cycleText(i)}`));
+    }
     if (!inline(d.tickets.length)) {
       lines.push('', ...table(['Chamado', 'Descrição', 'Situação'], d.tickets.map((i) => [i.label, i.subtitle, i.status])));
     }

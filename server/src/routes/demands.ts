@@ -1,4 +1,4 @@
-// Demandas: declaração de chamados, reuniões, treinamentos e ciclos.
+// Demandas: declaração de chamados, reuniões, treinamentos, atividades e ciclos.
 
 import type { Express } from 'express';
 import { z } from 'zod';
@@ -79,8 +79,14 @@ const demandSchema = (defaultStart: ISODate) =>
         description: z.string().trim().max(4000).default(''),
         status: taskStatus,
       }),
+      z.object({
+        category: z.literal('atividade'),
+        title: z.string('Informe o nome da atividade.').trim().min(1, 'Informe o nome da atividade.').max(200),
+        description: z.string().trim().max(4000).default(''),
+        status: taskStatus,
+      }),
     ],
-    { error: 'Tipo de demanda inválido (use ciclo, chamado, reuniao ou treinamento).' },
+    { error: 'Tipo de demanda inválido (use ciclo, chamado, reuniao, treinamento ou atividade).' },
   );
 
 const demandFilterSchema = z.object({

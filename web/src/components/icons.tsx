@@ -62,6 +62,13 @@ export const CapIcon = (p: IconProps) => (
     <path d="M6.5 11v4.5c0 1.5 2.5 3 5.5 3s5.5-1.5 5.5-3V11M21.5 9v5" />
   </Icon>
 );
+/** Atividade (o que não é chamado, reunião, treinamento nem ciclo): lista de tarefas. */
+export const ChecklistIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M10 6.5h10.5M10 12h10.5M10 17.5h10.5" />
+    <path d="M3.5 6.5l1.5 1.5 2.5-3M3.5 12l1.5 1.5 2.5-3M3.5 17.5l1.5 1.5 2.5-3" />
+  </Icon>
+);
 export const AlertIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M12 8v5M12 16.5v.01" />
