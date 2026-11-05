@@ -4,7 +4,7 @@ import { useSetGoal } from '../api/client';
 import { PencilIcon } from './icons';
 import { useToast } from './Toast';
 
-/** Meta diária: 5h30, 8h48 ou "Outro" (valor livre em hh:mm). */
+/** Meta diária: 5h30, 9h ou "Outro" (valor livre em hh:mm). */
 export function GoalSelector({
   date,
   dailyGoal,

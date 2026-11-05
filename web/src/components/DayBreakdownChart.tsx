@@ -4,7 +4,6 @@ import {
   anchorDate,
   dayBreakdown,
   DEMAND_CATEGORY_LABEL,
-  foldSlices,
   formatDayMonth,
   formatPeriodLabel,
   formatDuration,
@@ -25,9 +24,13 @@ const SIZE = 280;
 const STROKE = 40;
 const RADIUS = (SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
-/** Espaço de 3px (cor da superfície) entre fatias vizinhas. */
+/** Espaço (cor da superfície) entre fatias vizinhas: 3px, mas nunca mais que 40% do arco, para fatia pequena não sumir. */
 const GAP = 3;
-const SLOT_COLORS = ['var(--series-1)', 'var(--series-2)', 'var(--series-3)', 'var(--series-4)', 'var(--series-5)'];
+const GAP_MAX_SHARE = 0.4;
+/** Tamanho mínimo visível de um arco (px do SVG). */
+const MIN_ARC = 1.5;
+/** 5 tons da paleta e 5 variações (mais escuras no claro, mais claras no escuro); depois disso as cores se repetem. */
+const SLOT_COLORS = [1, 2, 3, 4, 5, '1b', '2b', '3b', '4b', '5b'].map((n) => `var(--series-${n})`);
 
 interface ColoredSlice extends BreakdownSlice {
   color: string;
@@ -35,22 +38,23 @@ interface ColoredSlice extends BreakdownSlice {
 
 /**
  * Cores pela identidade, não pelo tamanho: demandas (por id) e depois projetos (por nome)
- * recebem os slots na ordem fixa da paleta, e "Outros" fica sempre em cinza. As fatias são
- * desenhadas nessa mesma ordem, que é a que garante vizinhas distinguíveis para daltônicos.
+ * recebem os slots na ordem fixa da paleta (10 cores; passando disso, repetem). As fatias são
+ * desenhadas nessa mesma ordem, que é a que garante vizinhas distinguíveis para daltônicos; com
+ * cores repetidas, a legenda e o hover seguem identificando cada fatia pelo nome.
  */
 function colorize(slices: BreakdownSlice[]): ColoredSlice[] {
-  const named = slices
-    .filter((s) => s.kind !== 'outros')
+  return [...slices]
     .sort(
       (a, b) =>
         (a.kind === 'demanda' ? 0 : 1) - (b.kind === 'demanda' ? 0 : 1) ||
         (a.demandId ?? 0) - (b.demandId ?? 0) ||
         a.label.localeCompare(b.label, 'pt-BR'),
     )
-    .map((s, i) => ({ ...s, color: SLOT_COLORS[i] ?? 'var(--series-other)' }));
-  const others = slices.filter((s) => s.kind === 'outros').map((s) => ({ ...s, color: 'var(--series-other)' }));
-  return [...named, ...others];
+    .map((s, i) => ({ ...s, color: SLOT_COLORS[i % SLOT_COLORS.length] }));
 }
+
+/** "<1%" para fatia pequena, em vez de "0%". */
+const percentText = (share: number) => (share > 0 && share < 1 ? '<1%' : `${Math.round(share)}%`);
 
 /** Dia inicial: hoje, se estiver no ciclo; senão o último dia útil já passado (ou a sexta). */
 function initialDay(days: DayMetrics[]): ISODate {
@@ -90,7 +94,7 @@ export function DayBreakdownChart({ days, period }: { days: DayMetrics[]; period
 
   const breakdown = activities.data && demands.data ? dayBreakdown(activities.data, demands.data) : null;
   const categoryOf = new Map(demands.data?.map((d) => [d.id, d.category]));
-  const drawn = breakdown ? colorize(foldSlices(breakdown.slices)) : [];
+  const drawn = breakdown ? colorize(breakdown.slices) : [];
   const legend = [...drawn].sort((a, b) => b.minutes - a.minutes);
   const focus = drawn.find((s) => s.key === active);
 
@@ -98,15 +102,15 @@ export function DayBreakdownChart({ days, period }: { days: DayMetrics[]; period
     `${
       s.kind === 'demanda'
         ? DEMAND_CATEGORY_LABEL[categoryOf.get(s.demandId!) ?? 'ciclo']
-        : s.kind === 'projeto'
-          ? 'Sem demanda (antigo)'
-          : 'Demais itens'
+        : 'Sem demanda (antigo)'
     } · ${s.activityCount} ${s.activityCount === 1 ? 'apontamento' : 'apontamentos'}`;
 
   let offset = 0;
   const arcs = drawn.map((s) => {
     const length = (s.minutes / (breakdown?.total || 1)) * CIRCUMFERENCE;
-    const arc = { ...s, dash: Math.max(0.01, length - (drawn.length > 1 ? GAP : 0)), offset };
+    // O espaço é proporcional: 3px, no máximo 40% do arco; e o arco nunca fica abaixo do mínimo visível.
+    const gap = drawn.length > 1 ? Math.min(GAP, length * GAP_MAX_SHARE) : 0;
+    const arc = { ...s, dash: Math.max(MIN_ARC, length - gap), offset };
     offset += length;
     return arc;
   });
@@ -168,7 +172,7 @@ export function DayBreakdownChart({ days, period }: { days: DayMetrics[]; period
               className="h-auto w-full -rotate-90 overflow-visible"
               role="img"
               aria-label={`${formatDuration(breakdown.total)} em ${month ? formatPeriodLabel(period) : selected.weekdayLong}: ${legend
-                .map((s) => `${s.label} ${formatDuration(s.minutes)} (${Math.round(s.share)}%)`)
+                .map((s) => `${s.label} ${formatDuration(s.minutes)} (${percentText(s.share)})`)
                 .join(', ')}`}
             >
               {arcs.map((a) => (
@@ -194,7 +198,7 @@ export function DayBreakdownChart({ days, period }: { days: DayMetrics[]; period
                 <div>
                   <p className="line-clamp-2 text-xs font-medium text-ink-2">{focus.label}</p>
                   <p className="tabular mt-0.5 text-2xl font-bold text-ink">{formatDuration(focus.minutes)}</p>
-                  <p className="tabular text-xs text-ink-3">{Math.round(focus.share)}% do {scope}</p>
+                  <p className="tabular text-xs text-ink-3">{percentText(focus.share)} do {scope}</p>
                   <p className="mt-1 text-2xs text-ink-3">{detail(focus)}</p>
                 </div>
               ) : (
@@ -223,7 +227,7 @@ export function DayBreakdownChart({ days, period }: { days: DayMetrics[]; period
                   <span className="size-3 shrink-0 rounded-sm" style={{ background: s.color }} />
                   <span className="min-w-0 flex-1 truncate text-sm text-ink">{s.label}</span>
                   <span className="tabular shrink-0 text-sm font-semibold text-ink">{formatDuration(s.minutes)}</span>
-                  <span className="tabular w-10 shrink-0 text-right text-xs text-ink-3">{Math.round(s.share)}%</span>
+                  <span className="tabular w-10 shrink-0 text-right text-xs text-ink-3">{percentText(s.share)}</span>
                 </div>
               </li>
             ))}

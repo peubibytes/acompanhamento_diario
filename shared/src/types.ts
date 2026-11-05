@@ -25,7 +25,7 @@ export type ActivityInput = Omit<Activity, 'id' | 'project' | 'demandId'> & { de
 
 export const GOAL_PRESETS = [
   { label: '5h30', minutes: 330 },
-  { label: '8h48', minutes: 528 },
+  { label: '9h', minutes: 540 },
 ] as const;
 
 export const DEFAULT_DAILY_GOAL = 330;

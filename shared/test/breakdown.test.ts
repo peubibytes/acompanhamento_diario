@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { dayBreakdown, foldSlices, loggableMinutes, parseHM, unionMinutes } from '../src/index.ts';
+import { dayBreakdown, loggableMinutes, parseHM, unionMinutes } from '../src/index.ts';
 
 const demands = [
   { id: 1, label: 'Migração dos relatórios' },
@@ -74,16 +74,14 @@ describe('distribuição do dia por demanda', () => {
     assert.deepEqual(dayBreakdown([], demands), { total: 0, slices: [], overlapSplit: false });
   });
 
-  it('junta o excedente em "Outros" a partir da 6ª fatia', () => {
-    const many = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((p, i) =>
-      act(`${String(8 + i).padStart(2, '0')}:00`, `${String(8 + i).padStart(2, '0')}:${String(50 - i * 5)}`, null, p),
+  it('não agrupa: cada demanda ou projeto tem a sua fatia, por menor que seja', () => {
+    const many = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((p, i) =>
+      act(`${String(8 + i).padStart(2, '0')}:00`, `${String(8 + i).padStart(2, '0')}:${String(50 - i * 5).padStart(2, '0')}`, null, p),
     );
-    const folded = foldSlices(dayBreakdown(many, demands).slices);
-    assert.equal(folded.length, 6);
-    assert.equal(folded[5].label, 'Outros (2)');
-    assert.equal(folded[5].kind, 'outros');
-    assert.equal(folded[5].minutes, 25 + 20); // F e G, as duas menores
-    assert.equal(foldSlices(folded.slice(0, 3)).length, 3);
+    const b = dayBreakdown(many, demands);
+    assert.equal(b.slices.length, 8);
+    assert.equal(b.slices.reduce((s, x) => s + x.minutes, 0), b.total);
+    assert.ok(b.slices.every((s) => s.kind === 'projeto'));
   });
 });
 

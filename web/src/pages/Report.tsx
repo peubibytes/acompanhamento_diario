@@ -43,7 +43,7 @@ import {
   type ReportScale,
 } from './report/parts';
 
-type SkipKey = number | 'fila';
+type SkipKey = number;
 
 const dayLabel = (iso: ISODate) => `${WEEKDAY_SHORT[weekdayOf(iso)]} ${formatDayMonth(iso)}`;
 
@@ -395,7 +395,7 @@ function NextSection({
   const next = report.next;
   const chosen = selectedNext(next, skip);
   const openBlockers = report.blockers.items.filter((b) => b.resolvedAt === null);
-  const hasItems = next.tickets.length + next.trainings.length + next.cycles.length + next.queued > 0;
+  const hasItems = next.tickets.length + next.trainings.length + next.cycles.length > 0;
 
   const row = (key: SkipKey, content: ReactNode) => (
     <li key={String(key)}>
@@ -437,7 +437,6 @@ function NextSection({
             {next.tickets.map(item)}
             {next.trainings.map(item)}
             {next.cycles.map(item)}
-            {next.queued > 0 && row('fila', <>Na fila: {plural(next.queued, 'tarefa', 'tarefas')}</>)}
           </ul>
         </div>
       )}
@@ -449,6 +448,16 @@ function NextSection({
             rows={chosen.tickets.map((i) => ({ key: i.demandId, cells: [i.label, i.detail] }))}
           />
         )}
+        {many(chosen.trainings.length) && (
+          <div className="mt-5">
+            <h3 className={GROUP}>Treinamentos</h3>
+            <ul className="list-disc pl-5 text-sm text-ink-2">
+              {chosen.trainings.map((i) => (
+                <li key={i.demandId}>{i.label}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         {many(chosen.cycles.length) && (
           <LightTable
             caption="Demandas de ciclo"
@@ -456,7 +465,6 @@ function NextSection({
             rows={chosen.cycles.map((i) => ({ key: i.demandId, cells: [i.label, i.detail] }))}
           />
         )}
-        {chosen.queued > 0 && <p className="mt-3 text-sm text-ink-2">Na fila: {plural(chosen.queued, 'tarefa', 'tarefas')}</p>}
       </div>
 
       {openBlockers.length > 0 && (

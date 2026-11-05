@@ -126,18 +126,18 @@ describe('resumo de período', () => {
 
   it('mês: usa a meta do ciclo de apontamento de cada dia e soma as metas', () => {
     const nov = getPeriod('2026-11-10', 'month');
-    // O ciclo que abre em 30/10 usa 5h30; o seguinte (a partir de 06/11) usa 8h48.
-    const goalForDay = (date: string) => (getCycle(date).start < '2026-11-06' ? 330 : 528);
-    const s = buildPeriodSummary(nov, [activity(1, '2026-11-02', 480, 810), activity(2, '2026-11-09', 480, 1008)], goalForDay);
+    // O ciclo que abre em 30/10 usa 5h30; o seguinte (a partir de 06/11) usa 9h.
+    const goalForDay = (date: string) => (getCycle(date).start < '2026-11-06' ? 330 : 540);
+    const s = buildPeriodSummary(nov, [activity(1, '2026-11-02', 480, 810), activity(2, '2026-11-09', 480, 1020)], goalForDay);
     const early = nov.workdays.filter((d) => d < '2026-11-06').length; // 02–05/11
     assert.equal(early, 4);
     assert.equal(s.days.length, 21);
-    assert.equal(s.totals.goal, early * 330 + (21 - early) * 528);
+    assert.equal(s.totals.goal, early * 330 + (21 - early) * 540);
     assert.equal(s.days[0].goal, 330);
-    assert.equal(s.days.at(-1)!.goal, 528);
-    assert.equal(s.totals.conformDays, 2); // 02/11 = 5h30 e 09/11 = 8h48
+    assert.equal(s.days.at(-1)!.goal, 540);
+    assert.equal(s.totals.conformDays, 2); // 02/11 = 5h30 e 09/11 = 9h
     assert.equal(s.totals.conformityLabel, '2/21 conformes');
-    assert.equal(s.totals.total, 330 + 528);
+    assert.equal(s.totals.total, 330 + 540);
     assert.equal(s.totals.fillPercent, Math.floor((858 * 100) / s.totals.goal));
   });
 

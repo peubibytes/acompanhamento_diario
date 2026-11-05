@@ -63,7 +63,8 @@ metas e relatórios de prestação de contas (daily, 1:1, relatório mensal).
 - O ciclo de uma data é derivado dela: `início = sexta-feira mais recente ≤ data`.
 
 ### Meta diária (definida pelo usuário)
-- Opções: **5h30**, **8h48** ou **Outro** (valor livre em `hh:mm`).
+- Opções: **5h30**, **9h** (era 8h48 até a v0.12) ou **Outro** (valor livre em `hh:mm`). Sem migração: uma meta
+  já gravada em 8h48 continua valendo e aparece como "Outro 08:48".
 - Meta semanal = meta diária × 5.
 - A meta fica gravada por ciclo: alterar a meta vale para o ciclo atual e para os próximos,
   sem reescrever o histórico de ciclos anteriores.
@@ -193,7 +194,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
      "Excedeu 1h", "Meta atingida"), total realizado, meta semanal (no mês, "Meta do período") e dias conformes; abaixo, o
      gráfico por dia útil (~340 px), com o valor e o ícone de status em cima de cada barra e
      a linha de meta por cima das barras. Tocar em "Meta semanal" abre a meta diária (5h30,
-     8h48 ou outro). O lembrete de dia de apontamento fica no sino. Passar o mouse numa coluna
+     9h ou outro). O lembrete de dia de apontamento fica no sino. Passar o mouse numa coluna
      mostra o apontado, a diferença, o nº de apontamentos, quantas reuniões, chamados,
      treinamentos e ciclos foram apontados no dia (demandas distintas) e o diagnóstico.
    - *Distribuição:* rosca grande do dia escolhido (Sex–Qui) e legenda com nome, horas e %.
@@ -251,11 +252,12 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 | 12 | v0.10: segurança de acesso, backup e exportação, README, CI e testes de tela, organização (rotas por domínio, Painel por visão, `docs/HISTORICO.md`, PDF) e relatório do período com as intempestivas (seção 13) | ✅ (tag `v0.10.0`) |
 | 13 | v0.11: relatório diário consolidado (dois tópicos abertos por frases, seção 10); visão Tarefas removida do Painel | ✅ |
 | 14 | v0.12: relatório só com o que houve (sem "0 reuniões"), campo "Apontar" para horários sobrepostos (decisão 0010) e categoria Atividade (decisão 0009; migração 8) | ✅ |
+| 15 | v0.13: preset de meta 8h48 → 9h, Distribuição sem "Outros" e relatório diário sem "Na fila" (decisão 0011) | ✅ |
 | — | Integração com o Azure | futuro |
 
 ### Decisões registradas
 - **Conformidade estrita, como na planilha:** só é "Conforme" o dia com exatamente a meta
-  definida pelo usuário (5h30, 8h48 ou "Outro").
+  definida pelo usuário (5h30, 9h ou "Outro").
 - **Acima da meta = irregular:** o dia aparece em vermelho com o aviso "Excedeu a meta de 5h30 em
   00:15. Reajuste o apontamento", e o painel lista os dias irregulares com link para corrigir.
   Abaixo da meta aparece em âmbar ("Faltam hh:mm").
@@ -346,8 +348,10 @@ O texto original da v0.2 (demandas com meta de horas, gráfico de horas × meta)
   servidor (com backup antes, seção 5).
 - **Distribuição (Painel):** o tempo de um dia (na semana) ou do mês dividido por demanda; apontamentos sem
   demanda aparecem pelo projeto. Trechos sobrepostos são divididos igualmente entre os apontamentos
-  simultâneos, para a soma das fatias bater com o total. Até 6 fatias (o resto vira "Outros"); cores da
-  paleta categórica, atribuídas pela identidade e não pelo tamanho.
+  simultâneos, para a soma das fatias bater com o total. Todas as fatias aparecem (v0.13: sem "Outros"); cores
+  da paleta categórica (5 tons e 5 variações por tema, 10 no total; depois repetem), atribuídas pela identidade
+  e não pelo tamanho. O espaço entre arcos é proporcional (no máximo 3px, nunca mais que 40% do arco) e o arco
+  tem um mínimo visível; a legenda cresce sem limite e fatia abaixo de 1% mostra "<1%".
 - **Celular:** barra inferior com as telas principais.
 
 ## 7. Painel sob demanda, sino, lembretes e estilo visual
@@ -546,7 +550,7 @@ Montado na hora (nada é gravado); regras em `shared/src/report.ts`, testadas co
 3. **O que será feito hoje.** Só existe se houver demanda aberta que não seja reunião. O dia é o
    próximo dia útil depois do relatório ("hoje" quando é hoje). Traz os ciclos abertos (ordem de
    urgência, com prazo e "impedimento aberto"), as tarefas iniciadas ou em andamento e a fila
-   ("Na fila: N tarefas"). Na tela, cada item tem uma caixa para tirá-lo antes de copiar. O status
+   (até a v0.12; sem a fila desde a v0.13). Na tela, cada item tem uma caixa para tirá-lo antes de copiar. O status
    usado é o de agora, mesmo em relatório de dia passado.
 
 ### Relatório diário consolidado (v0.11)
@@ -557,7 +561,7 @@ digitação arrumada (`tidyText`) e sem repetir. O Markdown sai sem introdução
 
 **Atividades (v0.12, `docs/decisions/0009`):** ficam numa seção própria, **Outras atividades**, dentro de "O que
 foi feito" (nome, situação e o que foi feito), fora dos indicadores e das frases de resumo e detalhamento. Um dia só
-com atividades tem a seção, mas não tem frase de métricas. Não entram em "O que será feito" nem na fila.
+com atividades tem a seção, mas não tem frase de métricas. Não entram em "O que será feito".
 
 1. **O que foi feito ontem** (fora de ontem e hoje, "na terça-feira (27/10)").
    - *Métricas* (na tela, três ou quatro números): chamados atendidos, reuniões, treinamentos (só se houve) e horas
@@ -570,9 +574,10 @@ com atividades tem a seção, mas não tem frase de métricas. Não entram em "O
      da linha do tempo e impedimentos resolvidos no dia. Chamado concluído no dia leva "(concluído)".
 2. **O que será feito hoje** (ou "na quinta-feira (29/10)").
    - *Frase de planejamento:* "Para hoje, buscarei encerrar os chamados (…), seguirei nos treinamentos (…) e
-     atuarei nas demandas (…)". Entram os chamados iniciados ou em andamento, os chamados novos (declarados no dia
-     do relatório ou depois, com o selo "novo"), os treinamentos iniciados e os ciclos abertos já começados; os
-     demais não iniciados ficam em "Na fila". Sem nada: "Para hoje, não há demandas em aberto."
+     atuarei nas demandas (…)". Desde a v0.13 (decisão `0011`) entram **todos** os chamados e treinamentos em
+     aberto, iniciados ou não, e os ciclos abertos já começados; não existe mais "Na fila". O selo "novo" fica
+     só no chamado não iniciado e declarado no dia do relatório ou depois. Sem nada: "Para hoje, não há demandas
+     em aberto."
    - *Itens do plano:* cada um com uma caixa para tirá-lo da frase antes de copiar.
    - *Impedimentos em aberto:* "aguardando {responsável} desde dd/mm (N dias úteis)".
 - **Mais de três itens de um tipo** (`REPORT_INLINE_LIMIT`): a frase cita a quantidade ("os 5 chamados da tabela
