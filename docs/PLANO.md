@@ -466,6 +466,11 @@ cada dia, um chamado retomado à tarde) aparece reunida.
   e observações. O status da demanda aparece só para leitura (ele se altera em Demandas).
 - A lista do dia pode ser vista **por horário** ou **por demanda** (cada demanda com o total do dia
   e os horários em que aconteceu). A escolha fica salva no navegador.
+- **Apontar (v0.12, `docs/decisions/0010`):** cada apontamento mostra "Apontar X", o que lançar no Azure. O trecho em
+  que horários se sobrepõem é dividido em partes iguais entre os apontamentos simultâneos (`loggableMinutes`, em
+  `shared/src/breakdown.ts`), em minutos inteiros: a soma dos "Apontar" do dia é o total do dia. Sem sobreposição,
+  é a duração; quando difere, aparece em destaque. Na visão por demanda, o cabeçalho do grupo soma os do grupo.
+  Calculado na tela: nada é gravado e as horas, a meta e a conformidade não mudam.
 - Apontamentos antigos, sem demanda, continuam valendo nas métricas e aparecem com o aviso
   "Sem demanda"; para editá-los é preciso escolher uma demanda.
 

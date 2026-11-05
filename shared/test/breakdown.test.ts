@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { dayBreakdown, foldSlices, parseHM } from '../src/index.ts';
+import { dayBreakdown, foldSlices, loggableMinutes, parseHM, unionMinutes } from '../src/index.ts';
 
 const demands = [
   { id: 1, label: 'Migração dos relatórios' },
@@ -84,5 +84,52 @@ describe('distribuição do dia por demanda', () => {
     assert.equal(folded[5].kind, 'outros');
     assert.equal(folded[5].minutes, 25 + 20); // F e G, as duas menores
     assert.equal(foldSlices(folded.slice(0, 3)).length, 3);
+  });
+});
+
+describe('quanto apontar em cada apontamento', () => {
+  let id = 1;
+  const at = (start: string, end: string, date = '2026-10-26') => ({
+    id: id++,
+    date,
+    startMinute: parseHM(start)!,
+    endMinute: parseHM(end)!,
+  });
+  const sum = (m: Map<number, number>) => [...m.values()].reduce((s, x) => s + x, 0);
+
+  it('sem sobreposição, é a própria duração', () => {
+    const [a, b] = [at('08:00', '09:00'), at('10:00', '10:45')];
+    const m = loggableMinutes([a, b]);
+    assert.deepEqual([m.get(a.id), m.get(b.id)], [60, 45]);
+  });
+
+  it('o trecho em comum é dividido ao meio e a soma é o total do dia', () => {
+    const [chamado, reuniao] = [at('08:00', '10:00'), at('09:00', '10:00')];
+    const m = loggableMinutes([chamado, reuniao]);
+    assert.deepEqual([m.get(chamado.id), m.get(reuniao.id)], [90, 30]);
+    assert.equal(sum(m), 120);
+  });
+
+  it('um apontamento dentro do outro e três ao mesmo tempo', () => {
+    const [outer, inner] = [at('08:00', '12:00'), at('09:00', '10:00')];
+    const m1 = loggableMinutes([outer, inner]);
+    assert.deepEqual([m1.get(outer.id), m1.get(inner.id)], [210, 30]);
+
+    const three = [at('08:00', '09:00'), at('08:00', '09:00'), at('08:00', '09:00')];
+    const m2 = loggableMinutes(three);
+    assert.deepEqual([...m2.values()], [20, 20, 20]);
+  });
+
+  it('divisão ímpar fica em minutos inteiros e a soma bate com a união', () => {
+    const items = [at('08:00', '08:45'), at('08:00', '08:45')];
+    const m = loggableMinutes(items);
+    assert.deepEqual([...m.values()].sort(), [22, 23]);
+    assert.equal(sum(m), unionMinutes(items));
+  });
+
+  it('cada dia é calculado separado; intervalo inválido é ignorado', () => {
+    const [mon, tue, bad] = [at('08:00', '09:00'), at('08:00', '09:00', '2026-10-27'), at('09:00', '09:00')];
+    const m = loggableMinutes([mon, tue, bad]);
+    assert.deepEqual([m.get(mon.id), m.get(tue.id), m.has(bad.id)], [60, 60, false]);
   });
 });
