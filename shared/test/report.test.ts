@@ -134,9 +134,23 @@ describe('relatório diário: o que foi feito', () => {
     assert.equal(
       doneDetail(r.done),
       'Atendi aos chamados TESTE-1 – Erro no relatório fictício (concluído) e TESTE-2 – Lentidão fictícia, entrei em reunião ' +
-        'com Equipe Exemplo, e fiz minhas demandas de ciclo: Projeto Alfa (ajuste das consultas; testes – PR aberto; ' +
+        'com Equipe Exemplo e fiz minhas demandas de ciclo: Projeto Alfa (ajuste das consultas; testes – PR aberto; ' +
         'deploy: publicado em staging; impedimento com Equipe D resolvido).',
     );
+  });
+
+  it('a frase de métricas cita só o que houve, com a pontuação certa', () => {
+    const only = (acts: Activity[], demands: Demand[]) => doneHeadline(report({ acts, demands, changes: [], blockers: [] }), TODAY);
+    assert.equal(only([act(3, '15:00', '16:00')], [working]), 'Ontem, atendi 1 chamado.');
+    assert.equal(only([act(6, '09:00', '09:15')], [daily]), 'Ontem, participei de 1 reunião.');
+    assert.equal(only([act(1, '09:00', '10:00')], [alpha]), 'Ontem, fiz 1h de demandas de Ciclo.');
+    // Chamado e ciclo, sem reunião: sem vírgula antes do "e".
+    assert.equal(only([act(3, '08:00', '09:00'), act(1, '09:00', '10:00')], [working, alpha]), 'Ontem, atendi 1 chamado e fiz 1h de demandas de Ciclo.');
+    assert.equal(
+      only([act(3, '08:00', '09:00'), act(6, '09:00', '09:15'), act(1, '10:00', '11:00')], [working, daily, alpha]),
+      'Ontem, atendi 1 chamado, participei de 1 reunião e fiz 1h de demandas de Ciclo.',
+    );
+    assert.doesNotMatch(only([act(3, '08:00', '09:00')], [working]), /\b0\b|, e /);
   });
 
   it('ciclos: o que andou, sem repetir, com eventos e impedimentos resolvidos no dia', () => {
@@ -258,7 +272,7 @@ describe('relatório diário: o que será feito', () => {
     const next = report().next;
     assert.equal(
       planSentence(next, TODAY),
-      'Para hoje, buscarei encerrar os chamados TESTE-2 – Lentidão fictícia e TESTE-3 – Fictício, e atuarei nas demandas Projeto Alfa e Projeto Beta.',
+      'Para hoje, buscarei encerrar os chamados TESTE-2 – Lentidão fictícia e TESTE-3 – Fictício e atuarei nas demandas Projeto Alfa e Projeto Beta.',
     );
     assert.equal(planSentence(next, TODAY, new Set([3, 4, 7])), 'Para hoje, atuarei na demanda Projeto Alfa.');
     assert.equal(planSentence(next, '2026-10-30', new Set([1, 3, 4, 7])), 'Para quinta-feira (29/10), não há demandas em aberto.');
@@ -283,11 +297,11 @@ describe('relatório diário: Markdown', () => {
         'Ontem, atendi 2 chamados, participei de 2 reuniões e fiz 3h30 de demandas de Ciclo.',
         '',
         'Atendi aos chamados TESTE-1 – Erro no relatório fictício (concluído) e TESTE-2 – Lentidão fictícia, entrei em reunião ' +
-          'com Equipe Exemplo, e fiz minhas demandas de ciclo: Projeto Alfa (ajuste das consultas; testes – PR aberto; ' +
+          'com Equipe Exemplo e fiz minhas demandas de ciclo: Projeto Alfa (ajuste das consultas; testes – PR aberto; ' +
           'deploy: publicado em staging; impedimento com Equipe D resolvido).',
         '',
         '## O que será feito hoje',
-        'Para hoje, buscarei encerrar os chamados TESTE-2 – Lentidão fictícia e TESTE-3 – Fictício, e atuarei nas demandas Projeto Alfa e Projeto Beta.',
+        'Para hoje, buscarei encerrar os chamados TESTE-2 – Lentidão fictícia e TESTE-3 – Fictício e atuarei nas demandas Projeto Alfa e Projeto Beta.',
         '',
         '- Na fila: 1 tarefa',
         '- **Projeto Alfa** — impedimento aguardando Equipe B desde 26/10 (3 dias úteis): Libera o acesso',

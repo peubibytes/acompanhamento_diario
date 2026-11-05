@@ -358,12 +358,6 @@ export function joinList(items: string[], separator = ', '): string {
   return `${items.slice(0, -1).join(separator)} e ${items.at(-1)}`;
 }
 
-/** Orações de uma frase: "a", "a, e b", "a, b, e c" (a vírgula antes do "e" separa orações que já têm listas). */
-function joinClauses(clauses: string[]): string {
-  if (clauses.length <= 1) return clauses.join('');
-  return `${clauses.slice(0, -1).join(', ')}, e ${clauses.at(-1)}`;
-}
-
 /** Como a frase se refere a um dia, a partir de hoje: "ontem", "hoje" ou "na terça-feira (27/10)". */
 export function dayReference(date: ISODate, today: ISODate): string {
   if (date === today) return 'hoje';
@@ -385,22 +379,19 @@ export const nextTitle = (nextDate: ISODate, today: ISODate) => `O que será fei
 export const hasDoneWork = (done: DailyReport['done']) =>
   done.tickets.length + done.trainings.length + done.cycles.length + done.meetings.length > 0;
 
-const hoursText = (minutes: number) => (minutes === 0 ? '0h' : formatDuration(minutes));
-
 /**
  * A frase de métricas: "Ontem, atendi 2 chamados, participei de 1 reunião e fiz 3h30 de demandas
- * de Ciclo." O treinamento entra só quando houve. Vazia se nada aconteceu no dia.
+ * de Ciclo." Só entra o que houve (nada de "0 reuniões"). Vazia se não há nada a dizer.
  */
 export function doneHeadline(report: DailyReport, today: ISODate): string {
   const d = report.done;
-  if (!hasDoneWork(d)) return '';
-  const parts = [
-    `atendi ${count(d.tickets.length, 'chamado', 'chamados')}`,
-    `participei de ${count(d.meetings.length, 'reunião', 'reuniões')}`,
-  ];
+  const parts: string[] = [];
+  if (d.tickets.length) parts.push(`atendi ${count(d.tickets.length, 'chamado', 'chamados')}`);
+  if (d.meetings.length) parts.push(`participei de ${count(d.meetings.length, 'reunião', 'reuniões')}`);
   if (d.trainings.length) parts.push(`avancei em ${count(d.trainings.length, 'treinamento', 'treinamentos')}`);
-  const last = `fiz ${hoursText(d.cycleMinutes)} de demandas de Ciclo`;
-  return `${capitalize(dayReference(report.date, today))}, ${parts.join(', ')} e ${last}.`;
+  if (d.cycleMinutes > 0) parts.push(`fiz ${formatDuration(d.cycleMinutes)} de demandas de Ciclo`);
+  if (!parts.length) return '';
+  return `${capitalize(dayReference(report.date, today))}, ${joinList(parts)}.`;
 }
 
 const ticketText = (i: { label: string; subtitle?: string; detail?: string }, extra = '') => {
@@ -453,7 +444,7 @@ export function doneDetail(done: DailyReport['done']): string {
         : `fiz minhas demandas de ciclo: ${joinList(c.map(cycleText), '; ')}`,
     );
   }
-  return clauses.length ? `${capitalize(joinClauses(clauses))}.` : '';
+  return clauses.length ? `${capitalize(joinList(clauses))}.` : '';
 }
 
 /** Itens de "O que será feito" a deixar de fora: ids de demanda e 'fila' (a linha da fila). */
@@ -503,7 +494,7 @@ export function planSentence(next: DailyReport['next'], today: ISODate, skip?: S
     );
   }
   if (!clauses.length) return `${lead}, não há demandas em aberto.`;
-  return `${lead}, ${joinClauses(clauses)}.`;
+  return `${lead}, ${joinList(clauses)}.`;
 }
 
 /** "Aguardando Equipe B desde 26/10 (3 dias úteis): Libera o acesso". */
@@ -539,7 +530,9 @@ export function dailyReportMarkdown(report: DailyReport, options: MarkdownOption
   if (!hasDoneWork(d)) {
     lines.push(`Nada registrado ${dayReference(report.date, today)}.`);
   } else {
-    lines.push(doneHeadline(report, today), '', doneDetail(d));
+    const headline = doneHeadline(report, today);
+    if (headline) lines.push(headline, '');
+    lines.push(doneDetail(d));
     if (!inline(d.tickets.length)) {
       lines.push('', ...table(['Chamado', 'Descrição', 'Situação'], d.tickets.map((i) => [i.label, i.subtitle, i.status])));
     }

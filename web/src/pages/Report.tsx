@@ -212,6 +212,9 @@ function DayNav({ date, onChange }: { date: ISODate; onChange: (d: ISODate) => v
 
 const many = (n: number) => n > REPORT_INLINE_LIMIT;
 
+/** Colunas dos indicadores, de 1 a 4. */
+const METRIC_GRID = ['grid-cols-1', 'grid-cols-2', 'grid-cols-3', 'grid-cols-2 sm:grid-cols-4'];
+
 /** A frase que abre cada tópico: em destaque, com o filete da cor de destaque. */
 function Lead({ children }: { children: ReactNode }) {
   return (
@@ -261,6 +264,14 @@ function StatusChip({ item }: { item: ReportWorkItem }) {
 function DoneSection({ report, today }: { report: DailyReport; today: ISODate }) {
   const d = report.done;
   const title = doneTitle(report.date, today);
+  const headline = doneHeadline(report, today);
+  // Só os indicadores com valor: não há "0 reuniões" nem "0h de ciclo".
+  const metrics = [
+    d.tickets.length > 0 && { label: 'Chamados', value: String(d.tickets.length), icon: categoryIcon.chamado(12) },
+    d.meetings.length > 0 && { label: 'Reuniões', value: String(d.meetings.length), icon: categoryIcon.reuniao(12) },
+    d.trainings.length > 0 && { label: 'Treinamentos', value: String(d.trainings.length), icon: categoryIcon.treinamento(12) },
+    d.cycleMinutes > 0 && { label: 'Ciclos', value: formatDuration(d.cycleMinutes), icon: categoryIcon.ciclo(12) },
+  ].filter((m) => m !== false);
 
   return (
     <section className="card rise p-5 sm:p-6" aria-label="O que foi feito">
@@ -274,19 +285,14 @@ function DoneSection({ report, today }: { report: DailyReport; today: ISODate })
         </p>
       ) : (
         <>
-          <dl className={`mt-4 grid gap-2 ${d.trainings.length ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
-            <Metric label="Chamados" value={String(d.tickets.length)} icon={categoryIcon.chamado(12)} />
-            <Metric label="Reuniões" value={String(d.meetings.length)} icon={categoryIcon.reuniao(12)} />
-            {d.trainings.length > 0 && (
-              <Metric label="Treinamentos" value={String(d.trainings.length)} icon={categoryIcon.treinamento(12)} />
-            )}
-            <Metric
-              label="Ciclos"
-              value={d.cycleMinutes ? formatDuration(d.cycleMinutes) : '0h'}
-              icon={categoryIcon.ciclo(12)}
-            />
-          </dl>
-          <Lead>{doneHeadline(report, today)}</Lead>
+          {metrics.length > 0 && (
+            <dl className={`mt-4 grid gap-2 ${METRIC_GRID[metrics.length - 1]}`}>
+              {metrics.map((m) => (
+                <Metric key={m.label} {...m} />
+              ))}
+            </dl>
+          )}
+          {headline && <Lead>{headline}</Lead>}
           <p className="mt-3 text-sm leading-relaxed text-pretty text-ink-2">{doneDetail(d)}</p>
 
           {many(d.tickets.length) && (

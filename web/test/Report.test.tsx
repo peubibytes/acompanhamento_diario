@@ -90,14 +90,14 @@ describe('Relatório', () => {
     ).toBeInTheDocument();
     expect(
       done.getByText(
-        'Atendi ao chamado TESTE-1 – Erro fictício na tela, entrei em reunião com Equipe Exemplo, e fiz minhas ' +
+        'Atendi ao chamado TESTE-1 – Erro fictício na tela, entrei em reunião com Equipe Exemplo e fiz minhas ' +
           'demandas de ciclo: Ciclo de exemplo (ajuste das consultas).',
       ),
     ).toBeInTheDocument();
 
     const next = within(screen.getByRole('region', { name: 'O que será feito' }));
     expect(next.getByRole('heading', { name: 'O que será feito hoje' })).toBeInTheDocument();
-    const plan = 'Para hoje, buscarei encerrar o chamado TESTE-1 – Erro fictício na tela, e atuarei na demanda Ciclo de exemplo.';
+    const plan = 'Para hoje, buscarei encerrar o chamado TESTE-1 – Erro fictício na tela e atuarei na demanda Ciclo de exemplo.';
     expect(next.getByText(plan)).toBeInTheDocument();
     await userEvent.click(next.getByRole('checkbox', { name: /TESTE-1/ }));
     expect(next.getByText('Para hoje, atuarei na demanda Ciclo de exemplo.')).toBeInTheDocument();

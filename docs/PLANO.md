@@ -544,9 +544,11 @@ digitação arrumada (`tidyText`) e sem repetir. O Markdown sai sem introdução
 1. **O que foi feito ontem** (fora de ontem e hoje, "na terça-feira (27/10)").
    - *Métricas* (na tela, três ou quatro números): chamados atendidos, reuniões, treinamentos (só se houve) e horas
      em ciclos (união dos intervalos; a única medida de tempo do diário).
-   - *Frase de resumo:* "Ontem, atendi X chamados, participei de Y reuniões e fiz Z de demandas de Ciclo."
+   - *Frase de resumo:* "Ontem, atendi X chamados, participei de Y reuniões e fiz Z de demandas de Ciclo." (v0.12:
+     só entra o que houve — "Ontem, atendi 1 chamado." —, sem "0 reuniões" nem "0h"; os itens se juntam com vírgulas
+     e um "e" final, sem vírgula antes dele. Os indicadores da tela seguem a mesma regra.)
    - *Frase de detalhamento:* "Atendi aos chamados (número – descrição), entrei em reunião com (pessoas, sem
-     repetir), e fiz minhas demandas de ciclo: ciclo (ações)". Ações = "o que foi feito" dos apontamentos, eventos
+     repetir) e fiz minhas demandas de ciclo: ciclo (ações)". Ações = "o que foi feito" dos apontamentos, eventos
      da linha do tempo e impedimentos resolvidos no dia. Chamado concluído no dia leva "(concluído)".
 2. **O que será feito hoje** (ou "na quinta-feira (29/10)").
    - *Frase de planejamento:* "Para hoje, buscarei encerrar os chamados (…), seguirei nos treinamentos (…) e
