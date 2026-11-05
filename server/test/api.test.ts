@@ -137,20 +137,20 @@ describe('API de apontamentos e ciclos', () => {
     // Ciclo passado com apontamento, ainda seguindo a meta padrão (5h30).
     await api('POST', '/activities', { ...sample, date: '2026-10-16' });
 
-    const res = await api('PUT', '/cycles/2026-10-27/goal', { dailyGoalMinutes: 528 });
+    const res = await api('PUT', '/cycles/2026-10-27/goal', { dailyGoalMinutes: 540 });
     assert.equal(res.data.appliesToNextCycles, true);
 
-    assert.equal((await api('GET', '/cycles/2026-10-27')).data.dailyGoal, 528);
-    assert.equal((await api('GET', '/cycles/2026-11-03')).data.dailyGoal, 528);
+    assert.equal((await api('GET', '/cycles/2026-10-27')).data.dailyGoal, 540);
+    assert.equal((await api('GET', '/cycles/2026-11-03')).data.dailyGoal, 540);
     assert.equal((await api('GET', '/cycles/2026-10-16')).data.dailyGoal, 330);
-    assert.equal((await api('GET', '/cycles/2026-10-27')).data.week.goal, 2640);
+    assert.equal((await api('GET', '/cycles/2026-10-27')).data.week.goal, 2700);
   });
 
   it('meta editada em ciclo passado vale só para ele', async () => {
     const res = await api('PUT', '/cycles/2026-10-09/goal', { dailyGoalMinutes: 400 });
     assert.equal(res.data.appliesToNextCycles, false);
     assert.equal((await api('GET', '/cycles/2026-10-09')).data.dailyGoal, 400);
-    assert.equal((await api('GET', '/cycles/2026-10-27')).data.dailyGoal, 528);
+    assert.equal((await api('GET', '/cycles/2026-10-27')).data.dailyGoal, 540);
   });
 
   it('rejeita meta inválida e JSON malformado', async () => {

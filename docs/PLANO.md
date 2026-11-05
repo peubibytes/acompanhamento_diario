@@ -63,7 +63,7 @@ metas e relatórios de prestação de contas (daily, 1:1, relatório mensal).
 - O ciclo de uma data é derivado dela: `início = sexta-feira mais recente ≤ data`.
 
 ### Meta diária (definida pelo usuário)
-- Opções: **5h30**, **8h48** ou **Outro** (valor livre em `hh:mm`).
+- Opções: **5h30**, **9h** ou **Outro** (valor livre em `hh:mm`).
 - Meta semanal = meta diária × 5.
 - A meta fica gravada por ciclo: alterar a meta vale para o ciclo atual e para os próximos,
   sem reescrever o histórico de ciclos anteriores.
@@ -193,7 +193,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
      "Excedeu 1h", "Meta atingida"), total realizado, meta semanal (no mês, "Meta do período") e dias conformes; abaixo, o
      gráfico por dia útil (~340 px), com o valor e o ícone de status em cima de cada barra e
      a linha de meta por cima das barras. Tocar em "Meta semanal" abre a meta diária (5h30,
-     8h48 ou outro). O lembrete de dia de apontamento fica no sino. Passar o mouse numa coluna
+     9h ou outro). O lembrete de dia de apontamento fica no sino. Passar o mouse numa coluna
      mostra o apontado, a diferença, o nº de apontamentos, quantas reuniões, chamados,
      treinamentos e ciclos foram apontados no dia (demandas distintas) e o diagnóstico.
    - *Distribuição:* rosca grande do dia escolhido (Sex–Qui) e legenda com nome, horas e %.
@@ -255,7 +255,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 
 ### Decisões registradas
 - **Conformidade estrita, como na planilha:** só é "Conforme" o dia com exatamente a meta
-  definida pelo usuário (5h30, 8h48 ou "Outro").
+  definida pelo usuário (5h30, 9h ou "Outro").
 - **Acima da meta = irregular:** o dia aparece em vermelho com o aviso "Excedeu a meta de 5h30 em
   00:15. Reajuste o apontamento", e o painel lista os dias irregulares com link para corrigir.
   Abaixo da meta aparece em âmbar ("Faltam hh:mm").

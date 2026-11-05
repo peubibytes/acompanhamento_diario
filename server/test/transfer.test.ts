@@ -56,7 +56,7 @@ async function seed(api: Api) {
   await api('POST', `/demands/${cycle.id}/blockers`, { owner: 'Equipe Exemplo', since: '2026-10-22', description: 'Aguardando acesso' });
   await api('POST', '/activities', { date: '2026-10-26', startMinute: 480, endMinute: 540, demandId: cycle.id, description: 'Trabalho fictício' });
   await api('POST', '/activities', { date: '2026-10-26', startMinute: 600, endMinute: 630, demandId: meeting.id });
-  await api('PUT', '/cycles/2026-10-27/goal', { dailyGoalMinutes: 528 });
+  await api('PUT', '/cycles/2026-10-27/goal', { dailyGoalMinutes: 540 });
 }
 
 /** A exportação sem o carimbo de hora, para comparar dois bancos. */

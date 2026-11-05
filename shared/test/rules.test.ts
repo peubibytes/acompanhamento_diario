@@ -170,12 +170,12 @@ describe('métricas do dia (fórmulas da planilha)', () => {
     assert.equal(d.diagnosis, 'Meta 5h30 atingida');
   });
 
-  it('acima da meta é irregular e pede reajuste (meta 8h48)', () => {
-    const d = dayMetrics('2026-10-26', [act('2026-10-26', '08:00', '17:00')], 528);
+  it('acima da meta é irregular e pede reajuste (meta 9h)', () => {
+    const d = dayMetrics('2026-10-26', [act('2026-10-26', '08:00', '17:30')], 540);
     assert.equal(d.conformity, 'nao_conforme');
     assert.equal(d.exceeded, true);
-    assert.equal(d.diffLabel, '+00:12');
-    assert.equal(d.diagnosis, 'Excedeu a meta de 8h48 em 00:12. Reajuste o apontamento');
+    assert.equal(d.diffLabel, '+00:30');
+    assert.equal(d.diagnosis, 'Excedeu a meta de 9h em 00:30. Reajuste o apontamento');
   });
 
   it('acima de uma meta personalizada também é irregular', () => {
@@ -223,8 +223,8 @@ describe('métricas da semana', () => {
 
   it('semana completa fica 100% conforme', () => {
     const cycle = getCycle('2026-10-26');
-    const acts = cycle.workdays.map((d) => act(d, '09:00', '17:48'));
-    const s = buildCycleSummary('2026-10-26', acts, 528);
+    const acts = cycle.workdays.map((d) => act(d, '09:00', '18:00'));
+    const s = buildCycleSummary('2026-10-26', acts, 540);
     assert.equal(s.week.fillPercent, 100);
     assert.equal(s.week.conformityLabel, '100% conforme');
     assert.equal(s.week.diagnosis, 'Meta total atingida');
