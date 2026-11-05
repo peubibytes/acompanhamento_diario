@@ -115,8 +115,6 @@ export interface DailyReport {
     tickets: ReportNextItem[];
     trainings: ReportNextItem[];
     cycles: ReportNextItem[];
-    /** Tarefas ainda não iniciadas que não entraram no plano. */
-    queued: number;
   };
 }
 
@@ -317,7 +315,6 @@ export function buildDailyReport(input: DailyReportInput): DailyReport {
   const nextTickets: ReportNextItem[] = [];
   const nextTrainings: ReportNextItem[] = [];
   const nextCycles: ReportNextItem[] = [];
-  let queued = 0;
   // Chamados: os que ficaram de ontem (já iniciados) antes dos que acabaram de chegar.
   const startedFirst = [...open].sort((a, b) => Number(!isTaskStarted(a)) - Number(!isTaskStarted(b)));
   for (const d of startedFirst) {
@@ -331,10 +328,10 @@ export function buildDailyReport(input: DailyReportInput): DailyReport {
     } else if (d.category === 'chamado' || d.category === 'treinamento') {
       const detail = capitalize(shorten(tidyText(d.subtitle)));
       const started = d.status !== 'nao_iniciado';
-      // Chamado novo (declarado no dia do relatório ou depois) entra mesmo sem ter começado.
-      if (d.category === 'chamado' && (started || isRecent(d))) nextTickets.push(nextItem(d, detail, !started));
-      else if (d.category === 'treinamento' && started) nextTrainings.push(nextItem(d, detail));
-      else queued++;
+      // Todo chamado e treinamento aberto entra no plano; "novo" só no chamado ainda não iniciado e recém-declarado
+      // (declarado no dia do relatório ou depois).
+      if (d.category === 'chamado') nextTickets.push(nextItem(d, detail, !started && isRecent(d)));
+      else nextTrainings.push(nextItem(d, detail));
     }
   }
 
@@ -346,7 +343,7 @@ export function buildDailyReport(input: DailyReportInput): DailyReport {
       resolved: blockerItems.filter((b) => b.resolvedAt === date).length,
       items: blockerItems,
     },
-    next: { date: nextDate, tickets: nextTickets, trainings: nextTrainings, cycles: nextCycles, queued },
+    next: { date: nextDate, tickets: nextTickets, trainings: nextTrainings, cycles: nextCycles },
   };
 }
 
@@ -450,8 +447,8 @@ export function doneDetail(done: DailyReport['done']): string {
   return clauses.length ? `${capitalize(joinList(clauses))}.` : '';
 }
 
-/** Itens de "O que será feito" a deixar de fora: ids de demanda e 'fila' (a linha da fila). */
-export type SkipNext = ReadonlySet<number | 'fila'>;
+/** Itens de "O que será feito" a deixar de fora: ids de demanda. */
+export type SkipNext = ReadonlySet<number>;
 
 /** O plano sem os itens desmarcados. */
 export function selectedNext(next: DailyReport['next'], skip: SkipNext = new Set()) {
@@ -460,7 +457,6 @@ export function selectedNext(next: DailyReport['next'], skip: SkipNext = new Set
     tickets: next.tickets.filter(keep),
     trainings: next.trainings.filter(keep),
     cycles: next.cycles.filter(keep),
-    queued: skip.has('fila') ? 0 : next.queued,
   };
 }
 
@@ -573,7 +569,6 @@ export function dailyReportMarkdown(report: DailyReport, options: MarkdownOption
   if (!inline(s.cycles.length)) lines.push('', ...table(['Ciclo', 'Situação'], s.cycles.map((i) => [i.label, i.detail])));
   const open = report.blockers.items.filter((b) => b.resolvedAt === null);
   const notes = [
-    ...(s.queued ? [`- Na fila: ${count(s.queued, 'tarefa', 'tarefas')}`] : []),
     ...open.map((b) => `- **${b.label}** — impedimento ${blockerText(b)}`),
   ];
   if (notes.length) lines.push('', ...notes);
