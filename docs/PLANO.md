@@ -204,7 +204,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
    - *Ciclos:* cada ciclo aberto com o selo de prazo, a última atualização, as horas apontadas
      (como número) e o **mapa da linha do tempo** em serpentina (v0.8, seção 11), no lugar da barra.
    - *Rendimento (v0.9):* em semana e em mês, um só bloco, **Tempo por categoria** (horas em
-     Tarefas e em Ciclos, quem predominou e barras empilhadas por dia útil com chamados, reuniões,
+     Tarefas e em Ciclos, a categoria que predominou e barras empilhadas por dia útil com chamados, reuniões,
      treinamentos, atividades e ciclos). O bloco **Rendimento por ciclo** saiu na v0.15 (decisão 0015). Ver seção 12. Na
      faixa, o selo **Não planejado** (v0.10): a fatia do tempo em ciclos intempestivos (seção 13).
    - Ação principal: "Registrar apontamentos". Link "Detalhes" no gráfico.
@@ -256,7 +256,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 | 15 | v0.13: preset de meta 8h48 → 9h, Distribuição sem "Outros" e relatório diário sem "Na fila" (decisão 0011) | ✅ |
 | 16 | v0.14: reunião só pelo tipo (decisão 0012), chamado "Em espera" no lugar de "Iniciado" (0013), status pelo apontamento, ciclo reaberto no relatório e plano com ciclos futuros e atividades (migração 9) | ✅ |
 | 17 | v0.15: seletor de demanda com busca no apontamento (decisão 0014) | ✅ |
-| 18 | v0.15: Painel → Rendimento sem o bloco "Rendimento por ciclo" (decisão 0015) | ✅ |
+| 18 | v0.15: Painel → Rendimento sem o bloco "Rendimento por ciclo" (decisão 0015) e "Predominou" pela categoria (decisão 0016) | ✅ |
 | — | Integração com o Azure | futuro |
 | — | Integração com o Google Agenda (reuniões do dia → sugestões de apontamento) | futuro |
 
@@ -685,14 +685,18 @@ Só leitura dos apontamentos: nada é gravado. Regras em `shared/src/yield.ts`.
      diferentes se sobrepõem é dividido igualmente entre elas (uma reunião durante um chamado vale metade
      para cada; três ao mesmo tempo, um terço), a mesma ideia da Distribuição (seção 6). A soma por dia
      bate com o total do dia nas métricas; os minutos são inteiros (maior resto).
-   - Faixa: horas em Tarefas, horas em Ciclos e quem **predominou** entre as duas famílias ("Mais em
-     Ciclos · 62%": a fatia da família maior no total do período; empate ou período vazio não têm
-     predominante).
+   - Faixa: horas em Tarefas, horas em Ciclos e a categoria que **predominou** (v0.15, decisão 0016). Concorrem as cinco
+     categorias (chamado, reunião, treinamento, atividade e ciclo); "Sem demanda" não concorre, mas conta no total. O selo
+     diz "Mais em Chamados · 38%" (minutos da categoria ÷ tempo apontado do período) e, em empate no topo, as empatadas
+     ("Chamados e Reuniões · 30% cada"; com mais de duas, "Empate · 33% cada", com os nomes no `title`). Sem tempo apontado:
+     "Sem apontamentos". Como são cinco categorias, a fatia de quem predomina é menor que a da antiga comparação entre
+     famílias ("Mais em Tarefas · 63%" pode virar "Mais em Chamados · 38%"): não é piora.
    - Barras empilhadas por dia útil (chamados, reuniões, treinamentos, ciclos e Sem demanda, esta só se
      houver), com legenda escrita (cor, ícone da categoria, nome, horas e %), valor do dia em cima quando
      cabe e tooltip com ícone, horas e % de cada parte. A cor é fixa por categoria (paleta `--series-*`).
    - API: `split` em `GET /api/yield` traz, por dia e no total, `chamado`, `reuniao`, `treinamento`,
-     `ciclo`, `semDemanda` e `total`, além de `tarefas` e `ciclos` (as famílias) e `predominant`.
+     `ciclo`, `semDemanda` e `total`, além de `tarefas` e `ciclos` (as famílias) e `predominant`
+     (`{ categories, percent }`, v0.15; até a v0.14, `{ family, percent }`).
 O antigo item 2, **Rendimento por ciclo**, saiu na v0.15 (decisão `docs/decisions/0015`); o texto está em
 `docs/HISTORICO.md`.
 

@@ -705,6 +705,7 @@ describe('API de períodos e rendimento', () => {
     assert.equal(y.period.start, '2026-11-01');
     // O rendimento por ciclo e o período anterior saíram da resposta (v0.15).
     assert.equal(y.cycles, undefined);
+    assert.deepEqual(y.split.predominant, { categories: ['ciclo'], percent: 80 }); // 120 de 150
     assert.equal(y.previous, undefined);
     assert.equal(y.split.days.length, 21);
     assert.ok(y.split.total.ciclos >= 120);

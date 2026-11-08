@@ -50,7 +50,7 @@ describe('tempo por categoria', () => {
     assert.deepEqual([day.chamado, day.reuniao, day.treinamento, day.ciclo, day.semDemanda], [60, 30, 20, 120, 0]);
     assert.deepEqual([day.tarefas, day.ciclos, day.total], [110, 120, 230]);
     assert.equal(s.total.total, 230);
-    assert.deepEqual(s.predominant, { family: 'ciclos', percent: 52 });
+    assert.deepEqual(s.predominant, { categories: ['ciclo'], percent: 52 });
   });
 
   it('sobreposição entre categorias é dividida igualmente e a soma bate com o dia', () => {
@@ -78,7 +78,7 @@ describe('tempo por categoria', () => {
     const day = s.days.find((d) => d.date === DAY)!;
     // 480–600 só chamados; 600–660 chamado e ciclo (30 cada); 660–720 só ciclo.
     assert.deepEqual([day.chamado, day.ciclo, day.total], [150, 90, 240]);
-    assert.deepEqual(s.predominant, { family: 'tarefas', percent: 63 });
+    assert.deepEqual(s.predominant, { categories: ['chamado'], percent: 63 });
   });
 
   it('a soma dos grupos é sempre o total do dia nas métricas, em minutos inteiros', () => {
@@ -106,9 +106,39 @@ describe('tempo por categoria', () => {
     assert.deepEqual([day.chamado, day.ciclo, day.semDemanda], [60, 0, 60]);
   });
 
-  it('empate entre Tarefas e Ciclos ou período vazio não têm família predominante', () => {
+  it('período vazio não tem categoria predominante', () => {
     assert.equal(categorySplit([], demands, WEEK).predominant, null);
-    assert.equal(categorySplit([log(1, DAY, 480, 510), log(4, DAY, 510, 540), log(2, DAY, 600, 660)], demands, WEEK).predominant, null);
+  });
+
+  it('predomina a categoria, não a família: a reunião ganha de um chamado e de um ciclo menores', () => {
+    // Antes, chamado + reunião somavam "Tarefas" (120) e venciam o ciclo (90); agora a reunião (70) perde do ciclo (90)...
+    const a = categorySplit([log(1, DAY, 480, 530), log(3, DAY, 530, 600), log(2, DAY, 600, 690)], demands, WEEK);
+    assert.deepEqual(a.predominant, { categories: ['ciclo'], percent: 43 }); // 90 de 210
+    // ...e com a reunião maior que todas, é ela que aparece.
+    const b = categorySplit([log(1, DAY, 480, 530), log(3, DAY, 530, 640), log(2, DAY, 640, 700)], demands, WEEK);
+    assert.deepEqual(b.predominant, { categories: ['reuniao'], percent: 50 }); // 110 de 220
+  });
+
+  it('treinamento e atividade também podem predominar', () => {
+    const more = [...demands, { id: 6, category: 'atividade' as const }];
+    assert.deepEqual(categorySplit([log(4, DAY, 480, 600), log(1, DAY, 600, 630)], more, WEEK).predominant, { categories: ['treinamento'], percent: 80 });
+    assert.deepEqual(categorySplit([log(6, DAY, 480, 600), log(1, DAY, 600, 630)], more, WEEK).predominant, { categories: ['atividade'], percent: 80 });
+  });
+
+  it('empate no topo devolve todas as empatadas, na ordem da legenda', () => {
+    const two = categorySplit([log(3, DAY, 480, 510), log(1, DAY, 510, 540), log(2, DAY, 600, 615)], demands, WEEK);
+    assert.deepEqual(two.predominant, { categories: ['chamado', 'reuniao'], percent: 40 }); // 30 de 75
+    const three = categorySplit([log(1, DAY, 480, 510), log(3, DAY, 510, 540), log(4, DAY, 540, 570)], demands, WEEK);
+    assert.deepEqual(three.predominant, { categories: ['chamado', 'reuniao', 'treinamento'], percent: 33 });
+  });
+
+  it('"Sem demanda" não concorre, mas entra no total da fatia', () => {
+    const s = categorySplit([log(null, DAY, 480, 660), log(1, DAY, 660, 720)], demands, WEEK); // sem demanda 180, chamado 60
+    assert.deepEqual(s.predominant, { categories: ['chamado'], percent: 25 }); // 60 de 240
+    // Só apontamentos antigos: ninguém predomina, mas há tempo.
+    const only = categorySplit([log(null, DAY, 480, 540)], demands, WEEK);
+    assert.equal(only.predominant, null);
+    assert.equal(only.total.total, 60);
   });
 
   it('no mês: um dia por dia útil; sábado e fora do mês não entram', () => {

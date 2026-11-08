@@ -92,6 +92,41 @@ describe('Painel', () => {
     expect(item('Chamados')).toMatch(/0%$/);
     expect(item('Treinamentos')).toMatch(/0%$/);
     expect(legend.queryByText('Sem demanda')).not.toBeInTheDocument();
+    // O selo diz a categoria que predominou, não a família.
+    expect(screen.getByText('Mais em Ciclos · 75%')).toBeInTheDocument();
+  });
+
+  it('Predominou mostra a reunião quando ela tem mais tempo que o chamado e que o ciclo', async () => {
+    const [ticket, meeting, cycle] = await Promise.all([
+      api.call<DemandSummary>('POST', '/demands', { category: 'chamado', ticketNumber: 'TESTE-1', description: 'Fictício', status: 'em_andamento' }),
+      api.call<DemandSummary>('POST', '/demands', { category: 'reuniao', meetingType: 'Alinhamento fictício' }),
+      api.call<DemandSummary>('POST', '/demands', { category: 'ciclo', title: 'Ciclo de exemplo', startDate: '2026-10-01' }),
+    ]);
+    const log = (demandId: number, startMinute: number, endMinute: number) =>
+      api.call('POST', '/activities', { date: '2026-10-27', startMinute, endMinute, demandId, description: '', notes: '' });
+    await log(ticket.id, 480, 540);
+    await log(meeting.id, 540, 660);
+    await log(cycle.id, 660, 720);
+
+    renderPage(<Dashboard />);
+    await userEvent.click(viewTabs().getByRole('tab', { name: 'Rendimento' }));
+    // Chamado 1h + reunião 2h + ciclo 1h: antes, Tarefas (3h) venceria; agora a reunião (2h de 4h).
+    expect(await screen.findByText('Mais em Reuniões · 50%')).toBeInTheDocument();
+  });
+
+  it('Predominou mostra as categorias empatadas', async () => {
+    const [ticket, meeting] = await Promise.all([
+      api.call<DemandSummary>('POST', '/demands', { category: 'chamado', ticketNumber: 'TESTE-1', description: 'Fictício', status: 'em_andamento' }),
+      api.call<DemandSummary>('POST', '/demands', { category: 'reuniao', meetingType: 'Alinhamento fictício' }),
+    ]);
+    const log = (demandId: number, startMinute: number, endMinute: number) =>
+      api.call('POST', '/activities', { date: '2026-10-27', startMinute, endMinute, demandId, description: '', notes: '' });
+    await log(ticket.id, 480, 540);
+    await log(meeting.id, 540, 600);
+
+    renderPage(<Dashboard />);
+    await userEvent.click(viewTabs().getByRole('tab', { name: 'Rendimento' }));
+    expect(await screen.findByText('Chamados e Reuniões · 50% cada')).toBeInTheDocument();
   });
 
   it('Distribuição mostra todas as demandas na legenda, sem "Outros", e fatia pequena como <1%', async () => {

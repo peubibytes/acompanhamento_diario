@@ -37,8 +37,11 @@ export interface SplitDay extends SplitMinutes {
 export interface CategorySplit {
   days: SplitDay[];
   total: SplitMinutes;
-  /** A família (Tarefas × Ciclos) com mais tempo e a sua fatia do total (%); nulo sem tempo ou em empate. */
-  predominant: { family: DemandFamily; percent: number } | null;
+  /**
+   * A categoria com mais tempo no período e a sua fatia do total apontado (%). Em empate no topo, todas as empatadas, na
+   * ordem da legenda. "Sem demanda" não concorre (mas conta no total). Nulo sem tempo apontado.
+   */
+  predominant: { categories: DemandCategory[]; percent: number } | null;
 }
 
 /** Acrescenta as somas por família aos minutos de cada grupo. */
@@ -70,6 +73,16 @@ function splitDay<G extends string>(ofDay: Logged[], groupOf: (a: Logged) => G, 
   return { minutes, total };
 }
 
+/** Categorias que concorrem ao "Predominou": as cinco que o colaborador escolhe, na ordem da legenda. */
+const CONTENDERS = GROUPS.filter((g): g is DemandCategory => g !== 'semDemanda');
+
+function predominantOf(total: SplitMinutes): CategorySplit['predominant'] {
+  if (total.total <= 0) return null;
+  const top = Math.max(...CONTENDERS.map((c) => total[c]));
+  if (top <= 0) return null; // só apontamentos sem demanda
+  return { categories: CONTENDERS.filter((c) => total[c] === top), percent: Math.round((top * 100) / total.total) };
+}
+
 /**
  * Divide o tempo de cada dia útil do período por categoria (chamados, reuniões, treinamentos e ciclos)
  * e "Sem demanda". Dentro de uma categoria, apontamentos sobrepostos contam uma vez (união); o trecho
@@ -95,14 +108,7 @@ export function categorySplit(
 
   const sums = Object.fromEntries(GROUPS.map((g) => [g, days.reduce((sum, d) => sum + d[g], 0)]));
   const total = withFamilies(sums as Record<SplitGroup, number>, days.reduce((sum, d) => sum + d.total, 0));
-  const predominant =
-    total.total > 0 && total.tarefas !== total.ciclos
-      ? {
-          family: (total.tarefas > total.ciclos ? 'tarefas' : 'ciclos') as DemandFamily,
-          percent: Math.round((Math.max(total.tarefas, total.ciclos) * 100) / total.total),
-        }
-      : null;
-  return { days, total, predominant };
+  return { days, total, predominant: predominantOf(total) };
 }
 
 // ── Trabalho não planejado (intempestivas) ─────────────────────────────────────
