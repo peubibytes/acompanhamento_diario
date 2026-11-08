@@ -1,11 +1,9 @@
-// Rendimento: como o tempo do período se divide entre as categorias (e entre Tarefas e Ciclos) e como cada ciclo rendeu
-// em relação ao período anterior. Só leitura dos apontamentos; nada é gravado.
+// Rendimento: como o tempo do período se divide entre as categorias (e entre Tarefas e Ciclos) e quanto foi para
+// trabalho não planejado. Só leitura dos apontamentos; nada é gravado.
 
 import type { ISODate } from './cycle.ts';
-import type { CycleStatus, DemandCategory, DemandKind } from './demands.ts';
-import { unionMinutes } from './metrics.ts';
+import type { DemandCategory, DemandKind } from './demands.ts';
 import type { PeriodWindow } from './period.ts';
-import type { TimelineEntry } from './timeline.ts';
 import type { Activity } from './types.ts';
 
 type Logged = Pick<Activity, 'date' | 'startMinute' | 'endMinute' | 'demandId'>;
@@ -39,8 +37,11 @@ export interface SplitDay extends SplitMinutes {
 export interface CategorySplit {
   days: SplitDay[];
   total: SplitMinutes;
-  /** A família (Tarefas × Ciclos) com mais tempo e a sua fatia do total (%); nulo sem tempo ou em empate. */
-  predominant: { family: DemandFamily; percent: number } | null;
+  /**
+   * A categoria com mais tempo no período e a sua fatia do total apontado (%). Em empate no topo, todas as empatadas, na
+   * ordem da legenda. "Sem demanda" não concorre (mas conta no total). Nulo sem tempo apontado.
+   */
+  predominant: { categories: DemandCategory[]; percent: number } | null;
 }
 
 /** Acrescenta as somas por família aos minutos de cada grupo. */
@@ -72,6 +73,16 @@ function splitDay<G extends string>(ofDay: Logged[], groupOf: (a: Logged) => G, 
   return { minutes, total };
 }
 
+/** Categorias que concorrem ao "Predominou": as cinco que o colaborador escolhe, na ordem da legenda. */
+const CONTENDERS = GROUPS.filter((g): g is DemandCategory => g !== 'semDemanda');
+
+function predominantOf(total: SplitMinutes): CategorySplit['predominant'] {
+  if (total.total <= 0) return null;
+  const top = Math.max(...CONTENDERS.map((c) => total[c]));
+  if (top <= 0) return null; // só apontamentos sem demanda
+  return { categories: CONTENDERS.filter((c) => total[c] === top), percent: Math.round((top * 100) / total.total) };
+}
+
 /**
  * Divide o tempo de cada dia útil do período por categoria (chamados, reuniões, treinamentos e ciclos)
  * e "Sem demanda". Dentro de uma categoria, apontamentos sobrepostos contam uma vez (união); o trecho
@@ -97,14 +108,7 @@ export function categorySplit(
 
   const sums = Object.fromEntries(GROUPS.map((g) => [g, days.reduce((sum, d) => sum + d[g], 0)]));
   const total = withFamilies(sums as Record<SplitGroup, number>, days.reduce((sum, d) => sum + d.total, 0));
-  const predominant =
-    total.total > 0 && total.tarefas !== total.ciclos
-      ? {
-          family: (total.tarefas > total.ciclos ? 'tarefas' : 'ciclos') as DemandFamily,
-          percent: Math.round((Math.max(total.tarefas, total.ciclos) * 100) / total.total),
-        }
-      : null;
-  return { days, total, predominant };
+  return { days, total, predominant: predominantOf(total) };
 }
 
 // ── Trabalho não planejado (intempestivas) ─────────────────────────────────────
@@ -144,101 +148,6 @@ export function unplannedTime(
 /** O que `GET /api/yield` devolve. */
 export interface YieldReport {
   period: PeriodWindow;
-  previous: PeriodWindow;
   split: CategorySplit;
   unplanned: UnplannedTime;
-  cycles: CycleYield[];
-}
-
-// ── Rendimento por ciclo ───────────────────────────────────────────────────────
-
-/** O que o rendimento precisa saber de um ciclo (vem do resumo da demanda). */
-export interface YieldCycle {
-  id: number;
-  label: string;
-  status: CycleStatus;
-  startDate: ISODate;
-}
-
-export interface CycleYieldDay {
-  date: ISODate;
-  minutes: number;
-  /**
-   * Média, em minutos, dos dias úteis anteriores do período que tiveram apontamento neste ciclo;
-   * nula enquanto não houve nenhum.
-   */
-  priorAverage: number | null;
-}
-
-export interface CycleYield {
-  id: number;
-  label: string;
-  open: boolean;
-  days: CycleYieldDay[];
-  total: number;
-  /** Total no período anterior equivalente (mês anterior ou semana anterior). */
-  previousTotal: number;
-  change: {
-    minutes: number;
-    /** Variação sobre o período anterior, em % inteiro; nula se o anterior for 0. */
-    percent: number | null;
-  };
-  /** Registros da linha do tempo no período: eventos, e início e resolução de impedimentos. */
-  timelineCount: number;
-}
-
-const isOpen = (c: YieldCycle) => c.status !== 'concluido' && c.status !== 'cancelado';
-
-function minutesByDay(activities: Logged[], workdays: ISODate[]): number[] {
-  const byDay = Map.groupBy(activities, (a) => a.date);
-  return workdays.map((date) => unionMinutes(byDay.get(date) ?? []));
-}
-
-/**
- * Rendimento de cada ciclo com apontamento ou registro no período, ou ainda aberto (e já iniciado):
- * horas por dia útil, total, variação sobre o período anterior e a média dos dias anteriores.
- * Do maior total para o menor. `timeline` são os registros da linha do tempo (buildTimeline).
- */
-export function cycleYield(
-  cycles: YieldCycle[],
-  activities: Logged[],
-  timeline: TimelineEntry[],
-  period: PeriodWindow,
-  previous: PeriodWindow,
-): CycleYield[] {
-  const valid = activities.filter((a) => a.endMinute > a.startMinute);
-  const inRange = (date: ISODate | null) => date !== null && date >= period.start && date <= period.end;
-
-  const result: CycleYield[] = [];
-  for (const c of cycles) {
-    const own = valid.filter((a) => a.demandId === c.id);
-    const minutes = minutesByDay(own, period.workdays);
-    const total = minutes.reduce((sum, m) => sum + m, 0);
-    const timelineCount = timeline
-      .filter((e) => e.demandId === c.id)
-      .reduce((sum, e) => sum + Number(inRange(e.date)) + Number(e.source === 'impedimento' && inRange(e.resolvedAt)), 0);
-    const startedOpen = isOpen(c) && c.startDate <= period.end;
-    if (total === 0 && timelineCount === 0 && !startedOpen) continue;
-
-    const previousTotal = minutesByDay(own, previous.workdays).reduce((sum, m) => sum + m, 0);
-    const days = period.workdays.map((date, i): CycleYieldDay => {
-      const earlier = minutes.slice(0, i).filter((m) => m > 0);
-      const priorAverage = earlier.length > 0 ? Math.round(earlier.reduce((s, m) => s + m, 0) / earlier.length) : null;
-      return { date, minutes: minutes[i], priorAverage };
-    });
-    result.push({
-      id: c.id,
-      label: c.label,
-      open: isOpen(c),
-      days,
-      total,
-      previousTotal,
-      change: {
-        minutes: total - previousTotal,
-        percent: previousTotal > 0 ? Math.round(((total - previousTotal) * 100) / previousTotal) : null,
-      },
-      timelineCount,
-    });
-  }
-  return result.sort((a, b) => b.total - a.total || a.label.localeCompare(b.label, 'pt-BR'));
 }

@@ -694,7 +694,7 @@ describe('API de períodos e rendimento', () => {
     await api('DELETE', `/demands/${id}`);
   });
 
-  it('rendimento: tempo por categoria, Tarefas × Ciclos e o rendimento de cada ciclo contra o período anterior', async () => {
+  it('rendimento: tempo por categoria e Tarefas × Ciclos', async () => {
     today = '2026-11-12';
     const c = await ciclo('Ciclo do rendimento');
     const t = ((await api('POST', '/demands', { category: 'reuniao', meetingType: 'Rendimento' })).data as DemandSummary).id;
@@ -703,7 +703,10 @@ describe('API de períodos e rendimento', () => {
 
     const y = (await api('GET', '/yield?date=2026-11-12&scale=month')).data;
     assert.equal(y.period.start, '2026-11-01');
-    assert.equal(y.previous.start, '2026-10-01');
+    // O rendimento por ciclo e o período anterior saíram da resposta (v0.15).
+    assert.equal(y.cycles, undefined);
+    assert.deepEqual(y.split.predominant, { categories: ['ciclo'], percent: 80 }); // 120 de 150
+    assert.equal(y.previous, undefined);
     assert.equal(y.split.days.length, 21);
     assert.ok(y.split.total.ciclos >= 120);
     const day = y.split.days.find((d: { date: string }) => d.date === '2026-11-03');
@@ -711,17 +714,11 @@ describe('API de períodos e rendimento', () => {
     assert.equal(day.tarefas, 30);
     assert.equal(day.total, 150);
     assert.deepEqual([day.ciclo, day.reuniao, day.chamado, day.treinamento, day.semDemanda], [120, 30, 0, 0, 0]);
-    const row = y.cycles.find((x: { id: number }) => x.id === c);
-    assert.equal(row.total, 120);
-    assert.equal(row.previousTotal, 60);
-    assert.deepEqual(row.change, { minutes: 60, percent: 100 });
-    assert.equal(row.days.length, 21);
 
-    // Sem escala, é a semana (Sex 06/11 → Qui 12/11), e o anterior é Sex 30/10 → Qui 05/11.
+    // Sem escala, é a semana (Sex 06/11 → Qui 12/11).
     const week = (await api('GET', '/yield?date=2026-11-12')).data;
     assert.equal(week.period.scale, 'week');
-    assert.equal(week.previous.start, '2026-10-30');
-    assert.equal(week.cycles.find((x: { id: number }) => x.id === c).total, 0);
+    assert.equal(week.cycles, undefined);
 
     for (const a of nov) await api('DELETE', `/activities/${a.data.activity.id}`);
     await api('DELETE', `/demands/${t}`);
