@@ -63,10 +63,13 @@ describe('Painel', () => {
     expect(viewTabs().getByRole('tab', { name: 'Rendimento' })).toHaveAttribute('aria-selected', 'true');
   });
 
-  it('Rendimento sem apontamentos mostra o estado vazio dos ciclos', async () => {
+  it('Rendimento sem apontamentos mostra só o Tempo por categoria, sem o Rendimento por ciclo', async () => {
     renderPage(<Dashboard />, { url: '/?escala=mes' });
     await userEvent.click(viewTabs().getByRole('tab', { name: 'Rendimento' }));
-    expect(await screen.findByText('Nenhum apontamento em ciclos neste período')).toBeInTheDocument();
+    expect(await screen.findByText('Tempo por categoria')).toBeInTheDocument();
+    expect(screen.getAllByText('Sem apontamentos').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Rendimento por ciclo')).not.toBeInTheDocument();
+    expect(screen.queryByText('Nenhum apontamento em ciclos neste período')).not.toBeInTheDocument();
   });
 
   it('Rendimento mostra o tempo por categoria, com nome, horas e % de cada uma', async () => {

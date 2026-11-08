@@ -6,11 +6,9 @@ import {
   buildCycleSummary,
   buildOverview,
   buildPeriodSummary,
-  cycleYield,
   categorySplit,
   getCycle,
   getPeriod,
-  previousPeriod,
   unplannedTime,
   type ISODate,
 } from '@acomp/shared';
@@ -20,7 +18,7 @@ const goalSchema = z.object({
   dailyGoalMinutes: z.int('Meta inválida.').min(1, 'A meta deve ser maior que zero.').max(24 * 60),
 });
 
-export function registerPeriodRoutes(app: Express, { repo, today, summarize, timelineOf }: RouteContext) {
+export function registerPeriodRoutes(app: Express, { repo, today, summarize }: RouteContext) {
   app.get('/api/cycles/:date', (req, res) => {
     const date = isoDate.safeParse(req.params.date);
     if (!date.success) return badRequest(res, date.error);
@@ -72,8 +70,7 @@ export function registerPeriodRoutes(app: Express, { repo, today, summarize, tim
   });
 
   /**
-   * Rendimento do período: tempo por categoria (e Tarefas × Ciclos) e o rendimento de cada ciclo em relação ao
-   * período anterior equivalente.
+   * Rendimento do período: tempo por categoria (e Tarefas × Ciclos) e o trabalho não planejado.
    */
   app.get('/api/yield', (req, res) => {
     const date = isoDate.default(today()).safeParse(req.query.date);
@@ -82,17 +79,11 @@ export function registerPeriodRoutes(app: Express, { repo, today, summarize, tim
     if (!scale.success) return badRequest(res, scale.error);
 
     const period = getPeriod(date.data, scale.data);
-    const previous = previousPeriod(period);
     const demands = summarize(repo.listDemands());
-    const cycles = demands.flatMap((d) =>
-      d.category === 'ciclo' ? [{ id: d.id, label: d.label, status: d.status, startDate: d.startDate }] : [],
-    );
     res.json({
       period,
-      previous,
       split: categorySplit(repo.listActivities(period.start, period.end), demands, period),
       unplanned: unplannedTime(repo.listActivities(period.start, period.end), demands, period),
-      cycles: cycleYield(cycles, repo.listActivities(previous.start, period.end), timelineOf(), period, previous),
     });
   });
 }

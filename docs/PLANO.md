@@ -175,7 +175,7 @@ O esquema evolui por migrações numeradas em `server/src/db.ts` (`PRAGMA user_v
 | PUT | `/api/demands/:id/events/:eventId/flag`, `/blockers/:blockerId/flag` | marca ou desmarca a bandeira (`{ flagged }`); editar não a apaga |
 | GET | `/api/metrics?date=&scale=` | tarefas (concluídas no período da data, na fila, em andamento) e ciclos abertos (última atualização, horas). `scale` opcional: `week` (padrão, sexta → quinta) ou `month` (mês civil); outro valor → 400 |
 | GET | `/api/periods/:date?scale=` | resumo do período da data (v0.9): dias úteis com métricas e totais (meta do período, realizado, dias conformes `X/N`, % preenchido). A meta de cada dia é a do ciclo de apontamento a que ele pertence. `scale` como acima |
-| GET | `/api/yield?date=&scale=` | rendimento do período (v0.9): `{ period, previous, split, unplanned, cycles }` — tempo por categoria (reuniões, chamados, treinamentos, ciclos e sem demanda) e por família (Tarefas × Ciclos) por dia útil, o trabalho não planejado (v0.10, seção 13) e, por ciclo, horas por dia, total, variação sobre o período anterior e registros da linha do tempo |
+| GET | `/api/yield?date=&scale=` | rendimento do período (v0.9): `{ period, split, unplanned }` — tempo por categoria (reuniões, chamados, treinamentos, atividades, ciclos e sem demanda) e por família (Tarefas × Ciclos) por dia útil e o trabalho não planejado (v0.10, seção 13). Até a v0.14 trazia também `previous` e `cycles` (rendimento por ciclo; removidos na v0.15, decisão 0015) |
 
 ## 3. Telas
 
@@ -203,12 +203,10 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
    - *Distribuição:* rosca grande do dia escolhido (Sex–Qui) e legenda com nome, horas e %.
    - *Ciclos:* cada ciclo aberto com o selo de prazo, a última atualização, as horas apontadas
      (como número) e o **mapa da linha do tempo** em serpentina (v0.8, seção 11), no lugar da barra.
-   - *Rendimento (v0.9):* em semana e em mês, dois blocos num só cartão: **Tempo por categoria** (horas em
-     Tarefas e em Ciclos, quem predominou entre as duas famílias e barras empilhadas por dia útil com chamados, reuniões,
-     treinamentos e ciclos) e **Rendimento por ciclo** (uma linha
-     por ciclo: total no período, variação sobre o período anterior, registros da linha do tempo e um
-     mini-gráfico por dia útil com a média dos dias anteriores). Ver seção 12. Na faixa, o selo **Não planejado**
-     (v0.10): a fatia do tempo em ciclos intempestivos (seção 13).
+   - *Rendimento (v0.9):* em semana e em mês, um só bloco, **Tempo por categoria** (horas em
+     Tarefas e em Ciclos, quem predominou e barras empilhadas por dia útil com chamados, reuniões,
+     treinamentos, atividades e ciclos). O bloco **Rendimento por ciclo** saiu na v0.15 (decisão 0015). Ver seção 12. Na
+     faixa, o selo **Não planejado** (v0.10): a fatia do tempo em ciclos intempestivos (seção 13).
    - Ação principal: "Registrar apontamentos". Link "Detalhes" no gráfico.
 2. **Apontamentos (`/apontamentos`; `/atividades` redireciona)** — abas Sex/Seg/Ter/Qua/Qui
    (dia, horas e uma barrinha de progresso); mostra só o dia escolhido: resumo do dia em uma
@@ -258,6 +256,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 | 15 | v0.13: preset de meta 8h48 → 9h, Distribuição sem "Outros" e relatório diário sem "Na fila" (decisão 0011) | ✅ |
 | 16 | v0.14: reunião só pelo tipo (decisão 0012), chamado "Em espera" no lugar de "Iniciado" (0013), status pelo apontamento, ciclo reaberto no relatório e plano com ciclos futuros e atividades (migração 9) | ✅ |
 | 17 | v0.15: seletor de demanda com busca no apontamento (decisão 0014) | ✅ |
+| 18 | v0.15: Painel → Rendimento sem o bloco "Rendimento por ciclo" (decisão 0015) | ✅ |
 | — | Integração com o Azure | futuro |
 | — | Integração com o Google Agenda (reuniões do dia → sugestões de apontamento) | futuro |
 
@@ -675,7 +674,7 @@ Decisão de vocabulário em `docs/decisions/0005-periodo-no-lugar-de-ciclo-de-ap
 
 ### Rendimento (`/` → Rendimento)
 
-Princípio: mostrar para onde o tempo foi (reuniões, chamados, treinamentos ou ciclos) e se cada ciclo rendeu mais ou menos que antes.
+Princípio: mostrar para onde o tempo foi (reuniões, chamados, treinamentos, atividades ou ciclos).
 Só leitura dos apontamentos: nada é gravado. Regras em `shared/src/yield.ts`.
 
 1. **Tempo por categoria** (`categorySplit`). Um grupo por categoria de demanda: chamados, reuniões,
@@ -694,15 +693,8 @@ Só leitura dos apontamentos: nada é gravado. Regras em `shared/src/yield.ts`.
      cabe e tooltip com ícone, horas e % de cada parte. A cor é fixa por categoria (paleta `--series-*`).
    - API: `split` em `GET /api/yield` traz, por dia e no total, `chamado`, `reuniao`, `treinamento`,
      `ciclo`, `semDemanda` e `total`, além de `tarefas` e `ciclos` (as famílias) e `predominant`.
-2. **Rendimento por ciclo** (`cycleYield`). Entram os ciclos com apontamento ou registro no período e os
-   abertos já iniciados; do maior total para o menor.
-   - *Total no período* e *variação* sobre o período anterior equivalente, em minutos e %, com selo de
-     seta e texto escrito ("+2h10 vs. período anterior"). Sem apontamento no anterior, só os minutos.
-   - *Registros da linha do tempo no período:* eventos, mais o início e a resolução de cada impedimento.
-   - *Mini-gráfico:* barras com as horas de cada dia útil e uma linha tracejada com a **média dos dias
-     anteriores** do período em que o ciclo teve apontamento (o primeiro dia não tem média). Tooltip:
-     apontado, média anterior e diferença.
-   - Sem nenhum apontamento em ciclos no período: "Nenhum apontamento em ciclos neste período".
+O antigo item 2, **Rendimento por ciclo**, saiu na v0.15 (decisão `docs/decisions/0015`); o texto está em
+`docs/HISTORICO.md`.
 
 ## 13. Relatório do período e trabalho não planejado (v0.10)
 

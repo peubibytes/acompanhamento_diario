@@ -167,3 +167,17 @@ Como ficou (decisão em `docs/decisions/0001-demandas-viram-chamados.md`):
   Linha do tempo (entrada rápida: data, tipo e texto; os impedimentos ficam nela, v0.8) e Apontamentos.
 - **Formulário:** vínculos técnicos numa seção recolhível, aberta só se já houver algum preenchido.
 
+## 12. Rendimento por ciclo (v0.9; removido na v0.15, 2026-11-08)
+
+A gestão avaliou que o bloco não trouxe o efeito esperado no rendimento dos colaboradores (decisão `docs/decisions/0015`).
+Texto que valia até a v0.14 (seção 12, item 2 do PLANO):
+
+2. **Rendimento por ciclo** (`cycleYield`). Entram os ciclos com apontamento ou registro no período e os
+   abertos já iniciados; do maior total para o menor.
+   - *Total no período* e *variação* sobre o período anterior equivalente, em minutos e %, com selo de
+     seta e texto escrito ("+2h10 vs. período anterior"). Sem apontamento no anterior, só os minutos.
+   - *Registros da linha do tempo no período:* eventos, mais o início e a resolução de cada impedimento.
+   - *Mini-gráfico:* barras com as horas de cada dia útil e uma linha tracejada com a **média dos dias
+     anteriores** do período em que o ciclo teve apontamento (o primeiro dia não tem média). Tooltip:
+     apontado, média anterior e diferença.
+   - Sem nenhum apontamento em ciclos no período: "Nenhum apontamento em ciclos neste período".

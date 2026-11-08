@@ -105,7 +105,7 @@ function Unplanned({ unplanned }: { unplanned: UnplannedTime }) {
 }
 
 /**
- * Rendimento, bloco 1: o tempo do período por categoria (chamados, reuniões, treinamentos e ciclos).
+ * Rendimento: o tempo do período por categoria (chamados, reuniões, treinamentos, atividades e ciclos).
  * Faixa de indicadores (com Tarefas × Ciclos) e barras empilhadas por dia útil (mesmo padrão do gráfico
  * de horas por dia: tooltip no hover e no foco, valor em cima só quando cabe).
  */

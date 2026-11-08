@@ -117,7 +117,7 @@ export function useBackupStatus() {
   });
 }
 
-/** Rendimento do período: tempo por categoria (e Tarefas × Ciclos) e o rendimento de cada ciclo contra o período anterior. */
+/** Rendimento do período: tempo por categoria (e Tarefas × Ciclos) e trabalho não planejado. */
 export function useYield(date: ISODate, scale: PeriodScale) {
   return useQuery({
     queryKey: ['yield', scale, getPeriod(date, scale).start] as const,
