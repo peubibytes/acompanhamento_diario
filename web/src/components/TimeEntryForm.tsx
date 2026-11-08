@@ -238,7 +238,8 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone, onDirtyCh
                 id="demand-status"
                 value={effectiveStatus ?? ''}
                 onChange={(e) => setStatusChoice(e.target.value)}
-                className="field h-8 py-0 text-xs font-medium"
+                className="field font-medium"
+                style={{ width: "auto", minWidth: "9rem", padding: "0.35rem 0.6rem", fontSize: "var(--text-xs)" }}
               >
                 {chosenStatuses.map((s) => (
                   <option key={s} value={s}>
