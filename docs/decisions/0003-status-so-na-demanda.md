@@ -26,3 +26,9 @@ métrica usava o status do apontamento.
 
 - O conceito "Pendente de aprovação" do apontamento deixa de existir como campo.
 - As datas de conclusão de demandas anteriores ao histórico são aproximadas (`updated_at`).
+
+## Nota (v0.14)
+
+O status também se altera **pelo apontamento**: o formulário tem um seletor que grava na demanda (com a troca no
+histórico), na mesma transação do apontamento (`demandStatus` em `POST/PUT /api/activities`; `PUT /api/demands/:id/status`
+para a troca isolada). O dado continua só na demanda; o apontamento segue sem status.

@@ -63,19 +63,20 @@ describe('Painel', () => {
     expect(viewTabs().getByRole('tab', { name: 'Rendimento' })).toHaveAttribute('aria-selected', 'true');
   });
 
-  it('Rendimento sem apontamentos mostra o estado vazio dos ciclos', async () => {
+  it('Rendimento sem apontamentos mostra só o Tempo por categoria, sem o Rendimento por ciclo', async () => {
     renderPage(<Dashboard />, { url: '/?escala=mes' });
     await userEvent.click(viewTabs().getByRole('tab', { name: 'Rendimento' }));
-    expect(await screen.findByText('Nenhum apontamento em ciclos neste período')).toBeInTheDocument();
+    expect(await screen.findByText('Tempo por categoria')).toBeInTheDocument();
+    expect(screen.getAllByText('Sem apontamentos').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Rendimento por ciclo')).not.toBeInTheDocument();
+    expect(screen.queryByText('Nenhum apontamento em ciclos neste período')).not.toBeInTheDocument();
   });
 
   it('Rendimento mostra o tempo por categoria, com nome, horas e % de cada uma', async () => {
     const cycle = await api.call<DemandSummary>('POST', '/demands', { category: 'ciclo', title: 'Ciclo de exemplo', startDate: '2026-10-01' });
     const meeting = await api.call<DemandSummary>('POST', '/demands', {
       category: 'reuniao',
-      meetingType: 'Daily',
-      participants: 'Equipe Exemplo',
-      subject: 'Alinhamento fictício',
+      meetingType: 'Alinhamento fictício',
     });
     const log = (demandId: number, startMinute: number, endMinute: number) =>
       api.call('POST', '/activities', { date: '2026-10-27', startMinute, endMinute, demandId, description: '', notes: '' });
@@ -91,5 +92,67 @@ describe('Painel', () => {
     expect(item('Chamados')).toMatch(/0%$/);
     expect(item('Treinamentos')).toMatch(/0%$/);
     expect(legend.queryByText('Sem demanda')).not.toBeInTheDocument();
+    // O selo diz a categoria que predominou, não a família.
+    expect(screen.getByText('Mais em Ciclos · 75%')).toBeInTheDocument();
+  });
+
+  it('Predominou mostra a reunião quando ela tem mais tempo que o chamado e que o ciclo', async () => {
+    const [ticket, meeting, cycle] = await Promise.all([
+      api.call<DemandSummary>('POST', '/demands', { category: 'chamado', ticketNumber: 'TESTE-1', description: 'Fictício', status: 'em_andamento' }),
+      api.call<DemandSummary>('POST', '/demands', { category: 'reuniao', meetingType: 'Alinhamento fictício' }),
+      api.call<DemandSummary>('POST', '/demands', { category: 'ciclo', title: 'Ciclo de exemplo', startDate: '2026-10-01' }),
+    ]);
+    const log = (demandId: number, startMinute: number, endMinute: number) =>
+      api.call('POST', '/activities', { date: '2026-10-27', startMinute, endMinute, demandId, description: '', notes: '' });
+    await log(ticket.id, 480, 540);
+    await log(meeting.id, 540, 660);
+    await log(cycle.id, 660, 720);
+
+    renderPage(<Dashboard />);
+    await userEvent.click(viewTabs().getByRole('tab', { name: 'Rendimento' }));
+    // Chamado 1h + reunião 2h + ciclo 1h: antes, Tarefas (3h) venceria; agora a reunião (2h de 4h).
+    expect(await screen.findByText('Mais em Reuniões · 50%')).toBeInTheDocument();
+  });
+
+  it('Predominou mostra as categorias empatadas', async () => {
+    const [ticket, meeting] = await Promise.all([
+      api.call<DemandSummary>('POST', '/demands', { category: 'chamado', ticketNumber: 'TESTE-1', description: 'Fictício', status: 'em_andamento' }),
+      api.call<DemandSummary>('POST', '/demands', { category: 'reuniao', meetingType: 'Alinhamento fictício' }),
+    ]);
+    const log = (demandId: number, startMinute: number, endMinute: number) =>
+      api.call('POST', '/activities', { date: '2026-10-27', startMinute, endMinute, demandId, description: '', notes: '' });
+    await log(ticket.id, 480, 540);
+    await log(meeting.id, 540, 600);
+
+    renderPage(<Dashboard />);
+    await userEvent.click(viewTabs().getByRole('tab', { name: 'Rendimento' }));
+    expect(await screen.findByText('Chamados e Reuniões · 50% cada')).toBeInTheDocument();
+  });
+
+  it('Distribuição mostra todas as demandas na legenda, sem "Outros", e fatia pequena como <1%', async () => {
+    for (let i = 1; i <= 8; i++) {
+      const d = await api.call<DemandSummary>('POST', '/demands', {
+        category: 'chamado',
+        ticketNumber: `TESTE-${i}`,
+        description: 'Fictício',
+        status: 'em_andamento',
+      });
+      // O último dura 1 minuto; os demais, 1h.
+      const start = 420 + i * 60;
+      await api.call('POST', '/activities', {
+        date: TODAY,
+        startMinute: start,
+        endMinute: start + (i === 8 ? 1 : 60),
+        demandId: d.id,
+        description: '',
+        notes: '',
+      });
+    }
+    renderPage(<Dashboard />);
+    await userEvent.click(viewTabs().getByRole('tab', { name: 'Distribuição' }));
+    const panel = within(await screen.findByRole('tabpanel', { name: 'Distribuição' }));
+    for (let i = 1; i <= 8; i++) expect(await panel.findByText(`TESTE-${i}`)).toBeInTheDocument();
+    expect(panel.queryByText(/Outros/)).not.toBeInTheDocument();
+    expect(panel.getByText('<1%')).toBeInTheDocument();
   });
 });

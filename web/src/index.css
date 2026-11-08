@@ -85,6 +85,11 @@
   --series-3: #1baf7a;
   --series-4: #eda100;
   --series-5: #e87ba4;
+  --series-1b: #1b4f8f;
+  --series-2b: #a8441d;
+  --series-3b: #0f7a55;
+  --series-4b: #8a6200;
+  --series-5b: #a83a64;
   --series-other: #a8a79f;
 }
 
@@ -128,6 +133,11 @@
     --series-3: #199e70;
     --series-4: #c98500;
     --series-5: #d55181;
+    --series-1b: #7fb2f0;
+    --series-2b: #f08a5f;
+    --series-3b: #55cfa0;
+    --series-4b: #f0c050;
+    --series-5b: #f0a0c0;
     --series-other: #5f5e59;
   }
 }
@@ -164,6 +174,11 @@
   --series-3: #199e70;
   --series-4: #c98500;
   --series-5: #d55181;
+  --series-1b: #7fb2f0;
+  --series-2b: #f08a5f;
+  --series-3b: #55cfa0;
+  --series-4b: #f0c050;
+  --series-5b: #f0a0c0;
   --series-other: #5f5e59;
 }
 

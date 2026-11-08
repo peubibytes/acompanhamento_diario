@@ -30,8 +30,6 @@ describe('Apontamentos: quanto apontar', () => {
     const meeting = await api.call<DemandSummary>('POST', '/demands', {
       category: 'reuniao',
       meetingType: 'Daily',
-      participants: 'Equipe Exemplo',
-      subject: 'Status',
     });
     const log = (demandId: number, startMinute: number, endMinute: number) =>
       api.call('POST', '/activities', { date: TODAY, startMinute, endMinute, demandId, description: '', notes: '' });

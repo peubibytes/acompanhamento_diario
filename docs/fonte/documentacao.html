@@ -206,7 +206,7 @@
 
   <h3>2.2 Meta diária</h3>
   <ul>
-    <li>5h30, 8h48 ou outro valor em <code>hh:mm</code>. Meta semanal = meta diária × 5.</li>
+    <li>5h30, 9h ou outro valor em <code>hh:mm</code>. Meta semanal = meta diária × 5.</li>
     <li>Gravada por semana (<code>cycle_goals</code>): mudar a meta vale para a semana atual e as próximas; numa semana passada, só para ela.</li>
     <li>No mês, cada dia tem a meta da sua semana e a meta do período é a soma delas.</li>
   </ul>
@@ -236,7 +236,7 @@
   <h3>2.5 Rendimento (v0.9)</h3>
   <ul>
     <li><strong>Tarefas × Ciclos:</strong> o tempo do período por família, por dia útil. Dentro de uma família, sobreposições contam uma vez; entre famílias, o trecho comum é dividido igualmente. Apontamentos antigos sem demanda formam o grupo "Sem demanda".</li>
-    <li><strong>Por ciclo:</strong> total no período, variação sobre o período anterior equivalente (minutos e %), registros da linha do tempo no período e, por dia, a média dos dias anteriores com apontamento.</li>
+    <li><strong>Predominou:</strong> a categoria (chamado, reunião, treinamento, atividade ou ciclo) com mais tempo e a fatia dela no total do período; em empate, as categorias empatadas. Apontamentos sem demanda não concorrem.</li>
   </ul>
 
   <h3>2.6 Relatórios</h3>
@@ -298,7 +298,7 @@
       <tr><td><code>demands.ts</code></td><td>Categorias, status, prazo, espera, última atualização, ordenação e resumo das demandas.</td></tr>
       <tr><td><code>overview.ts</code></td><td>Métricas de acompanhamento: tarefas concluídas, na fila e em andamento; ciclos abertos e parados.</td></tr>
       <tr><td><code>breakdown.ts</code></td><td>Distribuição do tempo por demanda (rosca do Painel).</td></tr>
-      <tr><td><code>yield.ts</code></td><td>Rendimento: Tarefas × Ciclos, trabalho não planejado e rendimento por ciclo.</td></tr>
+      <tr><td><code>yield.ts</code></td><td>Rendimento: tempo por categoria, Tarefas × Ciclos e trabalho não planejado.</td></tr>
       <tr><td><code>timeline.ts</code></td><td>Linha do tempo unificada (eventos e impedimentos).</td></tr>
       <tr><td><code>layout.ts</code></td><td>Layout em serpentina do mapa da linha do tempo.</td></tr>
       <tr><td><code>reminders.ts</code></td><td>Lembretes do sino e agenda.</td></tr>
@@ -364,7 +364,7 @@ demand_status_changes(id, demand_id, from_status, to_status, changed_at, created
       <tr><td><span class="tag put">PUT</span></td><td><code>/cycles/:date/goal</code></td><td>Meta diária da semana (e padrão das próximas).</td></tr>
       <tr><td><span class="tag get">GET</span></td><td><code>/periods/:date?scale=</code></td><td>Resumo do período (<code>week</code> ou <code>month</code>).</td></tr>
       <tr><td><span class="tag get">GET</span></td><td><code>/metrics?date=&amp;scale=</code></td><td>Tarefas e ciclos abertos no período.</td></tr>
-      <tr><td><span class="tag get">GET</span></td><td><code>/yield?date=&amp;scale=</code></td><td>Rendimento: Tarefas × Ciclos, não planejado e por ciclo.</td></tr>
+      <tr><td><span class="tag get">GET</span></td><td><code>/yield?date=&amp;scale=</code></td><td>Rendimento: tempo por categoria, Tarefas × Ciclos e não planejado.</td></tr>
       <tr><td><span class="tag get">GET</span></td><td><code>/activities?date=</code> ou <code>?from=&amp;to=</code></td><td>Apontamentos de um dia ou de uma faixa (até 62 dias).</td></tr>
       <tr><td><span class="tag post">POST</span> <span class="tag put">PUT</span> <span class="tag del">DEL</span></td><td><code>/activities[/:id]</code></td><td>Aponta, edita e remove; sobreposição gera aviso, não erro.</td></tr>
       <tr><td><span class="tag get">GET</span></td><td><code>/demands?status=&amp;category=</code></td><td>Demandas com métricas e acompanhamento.</td></tr>

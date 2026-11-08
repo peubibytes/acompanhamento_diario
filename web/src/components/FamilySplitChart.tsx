@@ -17,7 +17,7 @@ import {
 } from '@acomp/shared';
 import { ChartTooltip, COLUMN_GAP, SIDE_GUTTER } from './ChartTooltip';
 import { categoryIcon } from './DemandVisuals';
-import { AlertIcon, DashIcon, ListIcon, PlusIcon, TargetIcon } from './icons';
+import { AlertIcon, DashIcon, PlusIcon } from './icons';
 import { SectionTitle } from './SectionTitle';
 
 const HINT = (
@@ -31,10 +31,9 @@ const HINT = (
       (uma reunião durante um ciclo, por exemplo) é dividido igualmente entre elas, para a soma bater com o total do dia.
     </span>
     <span className="mt-1.5 block">
-      <strong className="font-semibold text-ink">Predominou:</strong> entre{' '}
-      <strong className="font-semibold text-ink">Tarefas</strong> (chamados, reuniões, treinamentos e atividades) e{' '}
-      <strong className="font-semibold text-ink">Ciclos</strong>, a família com mais tempo e a fatia dela no total do
-      período. Em empate, equilibrado.
+      <strong className="font-semibold text-ink">Predominou:</strong> a categoria (chamados, reuniões, treinamentos,
+      atividades ou ciclos) com mais tempo e a fatia dela no total do período. Apontamentos sem demanda não concorrem.
+      Em empate, aparecem as categorias empatadas.
     </span>
     <span className="mt-1.5 block">
       <strong className="font-semibold text-ink">Não planejado:</strong> a fatia do tempo em ciclos do tipo Intempestiva.
@@ -65,22 +64,35 @@ const visibleParts = (m: SplitMinutes) => PARTS.filter((p) => p.key !== 'semDema
 
 const percent = (part: number, total: number) => (total > 0 ? Math.round((part * 100) / total) : 0);
 
-/** Selo de quem predominou: ícone, nome e fatia escritos. */
+/** Selo de quem predominou: ícone(s), nome(s) e fatia escritos. Pode quebrar linha (cabe em 320 px). */
 function Predominance({ split }: { split: CategorySplit }) {
   const p = split.predominant;
-  const badge = 'mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap';
+  const badge = 'mt-1.5 inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium';
   if (!p) {
     return (
-      <span className={`${badge} bg-neutral-soft text-ink-2`}>
+      <span className={`${badge} bg-neutral-soft text-ink-2 whitespace-nowrap`}>
         <DashIcon size={13} />
-        {split.total.total === 0 ? 'Sem apontamentos' : 'Equilibrado'}
+        {split.total.total === 0 ? 'Sem apontamentos' : 'Sem categoria'}
       </span>
     );
   }
+  const names = p.categories.map((c) => DEMAND_CATEGORY_PLURAL[c]);
+  const tie = p.categories.length > 1;
+  // Até duas empatadas, os nomes; acima disso, a contagem (os nomes vão no title e no texto acessível).
+  const text = !tie
+    ? `Mais em ${names[0]} · ${p.percent}%`
+    : p.categories.length === 2
+      ? `${names[0]} e ${names[1]} · ${p.percent}% cada`
+      : `Empate · ${p.percent}% cada`;
   return (
-    <span className={`${badge} bg-accent-soft text-accent`}>
-      {p.family === 'ciclos' ? <TargetIcon size={13} /> : <ListIcon size={13} />}
-      Mais em {p.family === 'ciclos' ? 'Ciclos' : 'Tarefas'} · {p.percent}%
+    <span className={`${badge} bg-accent-soft text-accent`} title={tie ? `Empate: ${names.join(', ')}` : undefined}>
+      <span className="flex shrink-0 items-center gap-0.5">
+        {p.categories.slice(0, 2).map((c) => (
+          <span key={c}>{categoryIcon[c](13)}</span>
+        ))}
+      </span>
+      <span className="min-w-0">{text}</span>
+      {p.categories.length > 2 && <span className="sr-only"> ({names.join(', ')})</span>}
     </span>
   );
 }
@@ -105,7 +117,7 @@ function Unplanned({ unplanned }: { unplanned: UnplannedTime }) {
 }
 
 /**
- * Rendimento, bloco 1: o tempo do período por categoria (chamados, reuniões, treinamentos e ciclos).
+ * Rendimento: o tempo do período por categoria (chamados, reuniões, treinamentos, atividades e ciclos).
  * Faixa de indicadores (com Tarefas × Ciclos) e barras empilhadas por dia útil (mesmo padrão do gráfico
  * de horas por dia: tooltip no hover e no foco, valor em cima só quando cabe).
  */

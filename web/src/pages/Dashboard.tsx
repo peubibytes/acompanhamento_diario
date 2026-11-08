@@ -55,8 +55,8 @@ const PAGE_HINT = (
       <strong className="font-semibold text-ink">Ciclos:</strong> horas apontadas, prazo e última atualização de cada ciclo aberto.
     </span>
     <span className="mt-1.5 block">
-      <strong className="font-semibold text-ink">Rendimento:</strong> quanto do tempo foi em Tarefas e em Ciclos e como
-      cada ciclo rendeu em relação ao período anterior.
+      <strong className="font-semibold text-ink">Rendimento:</strong> para onde o tempo foi (chamados, reuniões, treinamentos,
+      atividades e ciclos), quem predominou e quanto foi trabalho não planejado.
     </span>
   </>
 );

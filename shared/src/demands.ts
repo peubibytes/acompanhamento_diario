@@ -80,15 +80,36 @@ export const DEMAND_ENVIRONMENT_LABEL: Record<DemandEnvironment, string> = {
 
 // ── Tarefas (chamados e treinamentos têm status; reuniões, não) ─────────────
 
+/** Treinamentos e atividades. */
 export const TASK_STATUSES = ['nao_iniciado', 'iniciado', 'em_andamento', 'concluido'] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
-export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
+/** Chamados (v0.14, docs/decisions/0013): sem "Iniciado", com "Em espera". */
+export const TICKET_STATUSES = ['nao_iniciado', 'em_andamento', 'em_espera', 'concluido'] as const;
+export type TicketStatus = (typeof TICKET_STATUSES)[number];
+
+export const TASK_STATUS_LABEL: Record<TaskStatus | TicketStatus, string> = {
   nao_iniciado: 'Não iniciado',
   iniciado: 'Iniciado',
   em_andamento: 'Em andamento',
+  em_espera: 'Em espera',
   concluido: 'Concluído',
 };
+
+/** Os status que a categoria aceita; reunião não tem status. */
+export function statusesOf(category: DemandCategory): readonly string[] {
+  switch (category) {
+    case 'ciclo':
+      return CYCLE_STATUSES;
+    case 'chamado':
+      return TICKET_STATUSES;
+    case 'reuniao':
+      return [];
+    case 'treinamento':
+    case 'atividade':
+      return TASK_STATUSES;
+  }
+}
 
 /** Sugestões para o tipo de reunião; o usuário pode digitar outro. */
 export const MEETING_TYPE_SUGGESTIONS = ['Daily', 'Semanal', 'Planejamento', 'Treinamento'] as const;
@@ -119,16 +140,17 @@ export interface TicketDemand {
   ticketNumber: string;
   /** Qual o problema, quem solicitou e outras informações relevantes. */
   description: string;
-  status: TaskStatus;
+  status: TicketStatus;
 }
 
 export interface MeetingDemand {
   id: number;
   category: 'reuniao';
-  /** Ex.: Daily, Semanal, Planejamento, Treinamento. */
+  /** Ex.: Daily, Semanal, Planejamento, Repasses. */
   meetingType: string;
-  /** Com quem é a reunião (pessoas ou equipes). */
+  /** Só nas reuniões declaradas até a v0.13; nas novas fica vazio (com quem vai no apontamento). */
   participants: string;
+  /** Idem: o assunto da reunião antiga; nas novas, vazio (o assunto vai no apontamento). */
   subject: string;
 }
 
@@ -198,13 +220,13 @@ export function demandLabel(d: DemandInput): string {
     case 'chamado':
       return d.ticketNumber;
     case 'reuniao':
-      return `${d.meetingType} · ${d.subject}`;
+      return d.subject ? `${d.meetingType} · ${d.subject}` : d.meetingType;
   }
 }
 
 /** Complemento do nome: o começo da descrição ou, na reunião, com quem ela é. */
 export function demandSubtitle(d: DemandInput): string {
-  if (d.category === 'reuniao') return `com ${d.participants}`;
+  if (d.category === 'reuniao') return d.participants ? `com ${d.participants}` : '';
   return d.description.split('\n')[0].trim();
 }
 
@@ -214,7 +236,18 @@ export function isOpenDemand(d: DemandInput): boolean {
   return d.status !== 'concluido' && d.status !== 'cancelado';
 }
 
-export const DEMAND_STATUS_GROUPS = ['abertas', 'encerradas'] as const;
+/** Com quem e sobre o quê foi uma ocorrência da reunião: o do apontamento; na reunião antiga, o da demanda. */
+export function meetingOccurrence(
+  activity: Pick<Activity, 'participants' | 'subject'>,
+  demand: Pick<MeetingDemand, 'participants' | 'subject'>,
+): { participants: string; subject: string } {
+  return {
+    participants: activity.participants || demand.participants,
+    subject: activity.subject || demand.subject,
+  };
+}
+
+export const DEMAND_STATUS_GROUPS =['abertas', 'encerradas'] as const;
 export type DemandStatusGroup = (typeof DEMAND_STATUS_GROUPS)[number];
 
 export const matchesStatusGroup = (d: Demand, group: DemandStatusGroup) =>

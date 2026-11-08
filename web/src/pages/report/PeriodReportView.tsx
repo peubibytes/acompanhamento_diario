@@ -161,7 +161,11 @@ function DoneSection({ report }: { report: PeriodReport }) {
                     <li key={m.demandId} className="flex items-center gap-2">
                       <span className="shrink-0 text-ink-3">{categoryIcon.reuniao(15)}</span>
                       <span className="min-w-0 text-ink">
-                        {m.label} <span className="text-ink-3">com {m.participants}</span>
+                        {m.label}
+                        {m.subjects.length > 0 && (
+                          <span className="text-ink-3"> · {m.subjects.length === 1 ? 'assunto' : 'assuntos'}: {m.subjects.join(', ')}</span>
+                        )}
+                        {m.participants.length > 0 && <span className="text-ink-3"> · com {m.participants.join(', ')}</span>}
                       </span>
                       <span className="tabular ml-auto shrink-0 text-xs text-ink-3">{plural(m.occurrences, 'vez', 'vezes')}</span>
                     </li>

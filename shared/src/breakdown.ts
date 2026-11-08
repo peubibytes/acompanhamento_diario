@@ -6,7 +6,7 @@ export interface BreakdownSlice {
   key: string;
   label: string;
   /** Apontamentos de uma demanda, ou agrupados pelo projeto nos antigos, sem demanda. */
-  kind: 'demanda' | 'projeto' | 'outros';
+  kind: 'demanda' | 'projeto';
   demandId: number | null;
   minutes: number;
   activityCount: number;
@@ -122,23 +122,4 @@ export function loggableMinutes(activities: Pick<Activity, 'id' | 'date' | 'star
     for (const [id, m] of floors) result.set(id, m);
   }
   return result;
-}
-
-/** Mantém as maiores fatias e junta o restante em "Outros", para a pizza continuar legível. */
-export function foldSlices(slices: BreakdownSlice[], max = 6): BreakdownSlice[] {
-  if (slices.length <= max) return slices;
-  const kept = slices.slice(0, max - 1);
-  const rest = slices.slice(max - 1);
-  return [
-    ...kept,
-    {
-      key: 'outros',
-      label: `Outros (${rest.length})`,
-      kind: 'outros',
-      demandId: null,
-      minutes: rest.reduce((s, x) => s + x.minutes, 0),
-      activityCount: rest.reduce((s, x) => s + x.activityCount, 0),
-      share: rest.reduce((s, x) => s + x.share, 0),
-    },
-  ];
 }

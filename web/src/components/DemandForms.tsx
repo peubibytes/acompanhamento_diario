@@ -11,6 +11,7 @@ import {
   MEETING_TYPE_SUGGESTIONS,
   TASK_STATUS_LABEL,
   TASK_STATUSES,
+  TICKET_STATUSES,
   todayISO,
   type CycleDemand,
   type CycleStatus,
@@ -23,6 +24,7 @@ import {
   type MeetingDemand,
   type TaskStatus,
   type TicketDemand,
+  type TicketStatus,
   type GeneralDemand,
   type TrainingDemand,
 } from '@acomp/shared';
@@ -281,7 +283,7 @@ function CycleForm({ editing, onDone, onDirtyChange }: FormProps<CycleDemand>) {
 function TicketForm({ editing, onDone, onDirtyChange }: FormProps<TicketDemand>) {
   const [ticketNumber, setTicketNumber] = useState(editing?.ticketNumber ?? '');
   const [description, setDescription] = useState(editing?.description ?? '');
-  const [status, setStatus] = useState<TaskStatus>(editing?.status ?? 'nao_iniciado');
+  const [status, setStatus] = useState<TicketStatus>(editing?.status ?? 'nao_iniciado');
   const { submit, pending } = useSubmit(editing, onDone);
   useDirty({ ticketNumber, description, status }, onDirtyChange);
 
@@ -315,7 +317,7 @@ function TicketForm({ editing, onDone, onDirtyChange }: FormProps<TicketDemand>)
           className="field resize-y"
         />
       </Field>
-      <TaskStatusPicker value={status} onChange={setStatus} />
+      <TaskStatusPicker statuses={TICKET_STATUSES} value={status} onChange={setStatus} />
       <Actions editing={Boolean(editing)} pending={pending} onCancel={onDone} create="Declarar chamado" />
     </form>
   );
@@ -323,17 +325,16 @@ function TicketForm({ editing, onDone, onDirtyChange }: FormProps<TicketDemand>)
 
 function MeetingForm({ editing, onDone, onDirtyChange }: FormProps<MeetingDemand>) {
   const [meetingType, setMeetingType] = useState(editing?.meetingType ?? '');
-  const [participants, setParticipants] = useState(editing?.participants ?? '');
-  const [subject, setSubject] = useState(editing?.subject ?? '');
   const listId = useId();
   const { submit, pending } = useSubmit(editing, onDone);
-  useDirty({ meetingType, participants, subject }, onDirtyChange);
+  useDirty({ meetingType }, onDirtyChange);
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        submit({ category: 'reuniao', meetingType, participants, subject });
+        // Com quem e assunto vão em cada apontamento (v0.14); a API preserva o que a reunião antiga já tem.
+        submit({ category: 'reuniao', meetingType, participants: '', subject: '' });
       }}
       className="space-y-4"
     >
@@ -367,26 +368,23 @@ function MeetingForm({ editing, onDone, onDirtyChange }: FormProps<MeetingDemand
           </button>
         ))}
       </div>
-      <Field label="Com quem">
-        <input
-          required
-          value={participants}
-          onChange={(e) => setParticipants(e.target.value)}
-          placeholder="Ex.: Equipe de dados"
-          maxLength={200}
-          className="field"
-        />
-      </Field>
-      <Field label="Assunto">
-        <input
-          required
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-          placeholder="Ex.: Status do dia"
-          maxLength={200}
-          className="field"
-        />
-      </Field>
+            {editing && (editing.participants || editing.subject) && (
+        <dl className="space-y-1 rounded-xl bg-surface-2 px-3 py-2.5 text-sm text-ink-2">
+          {editing.participants && (
+            <div>
+              <dt className="inline font-semibold">Com quem: </dt>
+              <dd className="inline">{editing.participants}</dd>
+            </div>
+          )}
+          {editing.subject && (
+            <div>
+              <dt className="inline font-semibold">Assunto: </dt>
+              <dd className="inline">{editing.subject}</dd>
+            </div>
+          )}
+          <p className="text-xs text-ink-3">Reunião declarada antes da v0.14. Nas novas, com quem e assunto vão em cada apontamento.</p>
+        </dl>
+      )}
       <Actions editing={Boolean(editing)} pending={pending} onCancel={onDone} create="Declarar reunião" />
     </form>
   );
@@ -427,7 +425,7 @@ function TrainingForm({ editing, onDone, onDirtyChange }: FormProps<TrainingDema
           className="field resize-y"
         />
       </Field>
-      <TaskStatusPicker value={status} onChange={setStatus} />
+      <TaskStatusPicker statuses={TASK_STATUSES} value={status} onChange={setStatus} />
       <Actions editing={Boolean(editing)} pending={pending} onCancel={onDone} create="Declarar treinamento" />
     </form>
   );
@@ -469,18 +467,26 @@ function GeneralForm({ editing, onDone, onDirtyChange }: FormProps<GeneralDemand
           className="field resize-y"
         />
       </Field>
-      <TaskStatusPicker value={status} onChange={setStatus} />
+      <TaskStatusPicker statuses={TASK_STATUSES} value={status} onChange={setStatus} />
       <Actions editing={Boolean(editing)} pending={pending} onCancel={onDone} create="Declarar atividade" />
     </form>
   );
 }
 
-function TaskStatusPicker({ value, onChange }: { value: TaskStatus; onChange: (s: TaskStatus) => void }) {
+function TaskStatusPicker<S extends TaskStatus | TicketStatus>({
+  statuses,
+  value,
+  onChange,
+}: {
+  statuses: readonly S[];
+  value: S;
+  onChange: (s: S) => void;
+}) {
   return (
     <fieldset>
       <legend className="mb-1.5 text-xs font-semibold text-ink-2">Status</legend>
       <div className="grid grid-cols-2 gap-2">
-        {TASK_STATUSES.map((s) => {
+        {statuses.map((s) => {
           const active = value === s;
           return (
             <label

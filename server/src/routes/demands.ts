@@ -11,7 +11,11 @@ import {
   DEMAND_STATUS_GROUPS,
   matchesStatusGroup,
   normalizeTicketNumber,
+  statusesOf,
   TASK_STATUSES,
+  TICKET_STATUSES,
+  type Demand,
+  type DemandInput,
   type ISODate,
 } from '@acomp/shared';
 import { badRequest, idSchema, isoDate, type RouteContext } from '../http.ts';
@@ -19,6 +23,9 @@ import { badRequest, idSchema, isoDate, type RouteContext } from '../http.ts';
 /** Letras, números e - _ . # / (ex.: SCTASK0012345, RITM0001, INC-42). */
 const TICKET_NUMBER = /^[A-Z0-9][A-Z0-9_.#/-]{0,59}$/;
 const taskStatus = z.enum(TASK_STATUSES, 'Status inválido.').default('nao_iniciado');
+const ticketStatus = z
+  .enum(TICKET_STATUSES, 'Status inválido (chamado: não iniciado, em andamento, em espera ou concluído).')
+  .default('nao_iniciado');
 
 /**
  * Declaração de demanda, por categoria. Nenhuma tem campo de horas: o tempo é registrado
@@ -65,13 +72,11 @@ const demandSchema = (defaultStart: ISODate) =>
           .trim()
           .min(1, 'Descreva o chamado: qual o problema, quem solicitou e outras informações relevantes.')
           .max(4000),
-        status: taskStatus,
+        status: ticketStatus,
       }),
       z.object({
         category: z.literal('reuniao'),
         meetingType: z.string('Informe o tipo da reunião.').trim().min(1, 'Informe o tipo da reunião (ex.: Daily).').max(60),
-        participants: z.string('Informe com quem é a reunião.').trim().min(1, 'Informe com quem é a reunião.').max(200),
-        subject: z.string('Informe o assunto da reunião.').trim().min(1, 'Informe o assunto da reunião.').max(200),
       }),
       z.object({
         category: z.literal('treinamento'),
@@ -94,19 +99,35 @@ const demandFilterSchema = z.object({
   category: z.enum(DEMAND_CATEGORIES, 'Filtro de categoria inválido.').optional(),
 });
 
+type ParsedDemand = z.infer<ReturnType<typeof demandSchema>>;
+
+/** A reunião nova é só o tipo; com quem e assunto ficam vazios (ou, ao editar uma antiga, como estavam). */
+function withMeetingDefaults(d: ParsedDemand, current?: Demand): DemandInput {
+  if (d.category !== 'reuniao') return d as DemandInput;
+  const old = current?.category === 'reuniao' ? current : undefined;
+  return { category: 'reuniao', meetingType: d.meetingType, participants: old?.participants ?? '', subject: old?.subject ?? '' };
+}
+
 export function registerDemandRoutes(app: Express, { repo, today, summarize, timelineOf }: RouteContext) {
   /** Mesma declaração já existente: chamado com o mesmo número ou reunião idêntica. */
-  const duplicateOf = (d: z.infer<ReturnType<typeof demandSchema>>, ignoreId = 0): string | null => {
+  const duplicateOf = (d: DemandInput, ignoreId = 0): string | null => {
     if (d.category === 'chamado' && repo.findTicketNumber(d.ticketNumber, ignoreId)) {
       return `O chamado ${d.ticketNumber} já está declarado.`;
     }
     if (d.category === 'reuniao') {
-      const key = (m: { meetingType: string; participants: string; subject: string }) =>
-        [m.meetingType, m.participants, m.subject].map((x) => x.toLocaleLowerCase('pt-BR')).join('|');
+      // v0.14: a reunião é só o tipo. As antigas (com pessoas ou assunto) ficam fora desta checagem.
+      const type = d.meetingType.toLocaleLowerCase('pt-BR');
       const same = repo
         .listDemands()
-        .some((x) => x.category === 'reuniao' && x.id !== ignoreId && key(x) === key(d));
-      if (same) return 'Esta reunião já está declarada (mesmo tipo, participantes e assunto).';
+        .some(
+          (x) =>
+            x.category === 'reuniao' &&
+            x.id !== ignoreId &&
+            !x.participants &&
+            !x.subject &&
+            x.meetingType.toLocaleLowerCase('pt-BR') === type,
+        );
+      if (same) return `A reunião "${d.meetingType}" já está declarada.`;
     }
     return null;
   };
@@ -139,9 +160,10 @@ export function registerDemandRoutes(app: Express, { repo, today, summarize, tim
   app.post('/api/demands', (req, res) => {
     const body = demandSchema(today()).safeParse(req.body);
     if (!body.success) return badRequest(res, body.error);
-    const duplicate = duplicateOf(body.data);
+    const input = withMeetingDefaults(body.data);
+    const duplicate = duplicateOf(input);
     if (duplicate) return res.status(409).json({ error: duplicate });
-    res.status(201).json(summarize([repo.createDemand(body.data, today())])[0]);
+    res.status(201).json(summarize([repo.createDemand(input, today())])[0]);
   });
 
   app.put('/api/demands/:id', (req, res) => {
@@ -154,10 +176,26 @@ export function registerDemandRoutes(app: Express, { repo, today, summarize, tim
     if (body.data.category !== current.category) {
       return res.status(400).json({ error: 'O tipo de uma demanda não muda depois de declarado. Declare uma nova.' });
     }
-    const duplicate = duplicateOf(body.data, id.data);
+    // Reunião antiga: o que ela já tem (pessoas e assunto) é preservado ao editar.
+    const input = withMeetingDefaults(body.data, current);
+    const duplicate = duplicateOf(input, id.data);
     if (duplicate) return res.status(409).json({ error: duplicate });
 
-    res.json(summarize([repo.updateDemand(id.data, body.data, today())!])[0]);
+    res.json(summarize([repo.updateDemand(id.data, input, today())!])[0]);
+  });
+
+  // Troca só o status (v0.14), com a troca no histórico; o apontamento também usa isto.
+  app.put('/api/demands/:id/status', (req, res) => {
+    const id = idSchema.safeParse(req.params.id);
+    if (!id.success) return badRequest(res, id.error);
+    const current = repo.getDemand(id.data);
+    if (!current) return res.status(404).json({ error: 'Demanda não encontrada.' });
+    const status = z.object({ status: z.string() }).safeParse(req.body);
+    if (!status.success || !statusesOf(current.category).includes(status.data.status)) {
+      return res.status(400).json({ error: 'Status inválido para este tipo de demanda.' });
+    }
+    repo.transaction(() => repo.setDemandStatus(id.data, status.data.status, today()));
+    res.json(summarize([repo.getDemand(id.data)!])[0]);
   });
 
   app.delete('/api/demands/:id', (req, res) => {

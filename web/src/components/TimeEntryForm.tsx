@@ -1,19 +1,20 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useId, useState, type FormEvent } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import {
-  DEMAND_CATEGORIES,
   DEMAND_CATEGORY_LABEL,
-  DEMAND_CATEGORY_PLURAL,
   formatDuration,
   formatHM,
-  isOpenDemand,
   parseHM,
+  statusesOf,
+  statusLabel,
   type Activity,
   type DemandSummary,
   type ISODate,
 } from '@acomp/shared';
-import { useDemands, useSaveActivity } from '../api/client';
-import { CategoryAvatar, categoryIcon, CycleStatusBadge, LoggedSummary, TaskStatusBadge } from './DemandVisuals';
+import { useDemand, useDemands, useSaveActivity } from '../api/client';
+import { CategoryAvatar, LoggedSummary } from './DemandVisuals';
+import { DemandPicker } from './DemandPicker';
 import { Field } from './Field';
 import { AlertIcon, ArrowRight, ClockIcon } from './icons';
 import { useToast } from './Toast';
@@ -29,9 +30,6 @@ interface Props {
   /** Avisa o painel quando há algo digitado que se perderia ao fechar. */
   onDirtyChange?: (dirty: boolean) => void;
 }
-
-const MAX_RECENT = 5;
-const shorten = (text: string, max = 48) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 
 /** Texto de exemplo do "o que foi feito", conforme o tipo da demanda escolhida. */
 const DONE_PLACEHOLDER: Record<DemandSummary['category'], string> = {
@@ -49,25 +47,42 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone, onDirtyCh
   const demands = useDemands();
 
   const [demandId, setDemandId] = useState<number | null>(editing?.demandId ?? null);
-  const [showClosed, setShowClosed] = useState(false);
   const [start, setStart] = useState(editing ? formatHM(editing.startMinute) : suggestedStart);
   const [end, setEnd] = useState(editing ? formatHM(editing.endMinute) : '');
   const [description, setDescription] = useState(editing?.description ?? '');
   const [notes, setNotes] = useState(editing?.notes ?? '');
+  const [participants, setParticipants] = useState(editing?.participants ?? '');
+  const [subject, setSubject] = useState(editing?.subject ?? '');
+  // Status novo para a demanda (v0.14): nulo = não mexer. Gravado na demanda, junto com o apontamento.
+  const [statusChoice, setStatusChoice] = useState<string | null>(null);
+  const peopleListId = useId();
+
+  // O status mostrado precisa ser o de agora, mesmo que a lista de demandas esteja em cache.
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    void queryClient.invalidateQueries({ queryKey: ['demands'] });
+  }, [queryClient]);
+
+  const chooseDemand = (id: number | null) => {
+    setDemandId(id);
+    setStatusChoice(null);
+  };
 
   const all = demands.data ?? [];
   const chosen = all.find((d) => d.id === demandId);
-  // Abertas; as encerradas só a pedido (ou se já forem a escolhida).
-  const options = all.filter((d) => isOpenDemand(d) || showClosed || d.id === demandId);
-  const hasClosed = all.some((d) => !isOpenDemand(d));
-  const recent = all
-    .filter((d) => isOpenDemand(d) && d.metrics.lastActivityDate)
-    .sort(
-      (a, b) =>
-        b.metrics.lastActivityDate!.localeCompare(a.metrics.lastActivityDate!) || b.metrics.activityCount - a.metrics.activityCount,
-    )
-    .slice(0, MAX_RECENT);
-
+  const isMeeting = chosen?.category === 'reuniao';
+  const chosenStatuses = chosen ? statusesOf(chosen.category) : [];
+  const currentStatus = chosen && 'status' in chosen ? (chosen.status as string) : null;
+  const effectiveStatus = statusChoice ?? currentStatus;
+  // Sugestões de "com quem": as pessoas já informadas nesta reunião.
+  const meetingDetail = useDemand(chosen?.id ?? 0, isMeeting);
+  const knownPeople = [
+    ...new Set(
+      (meetingDetail.data?.activities ?? [])
+        .flatMap((a) => (a.participants ? [a.participants] : []))
+        .concat(chosen?.category === 'reuniao' && chosen.participants ? [chosen.participants] : []),
+    ),
+  ];
   const startMin = parseHM(start);
   const endMin = parseHM(end);
   const duration = startMin !== null && endMin !== null ? endMin - startMin : null;
@@ -79,8 +94,11 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone, onDirtyCh
       start !== formatHM(editing.startMinute) ||
       end !== formatHM(editing.endMinute) ||
       description !== editing.description ||
-      notes !== editing.notes
-    : demandId !== null || end !== '' || description !== '' || notes !== '';
+      notes !== editing.notes ||
+      participants !== editing.participants ||
+      subject !== editing.subject ||
+      statusChoice !== null
+    : demandId !== null || end !== '' || description !== '' || notes !== '' || participants !== '' || subject !== '';
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
 
   const persist = (keepOpen: boolean) => {
@@ -89,17 +107,31 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone, onDirtyCh
     if (invalidRange) return toast('O horário de fim deve ser depois do início.', 'error');
 
     save.mutate(
-      { id: editing?.id, input: { date, startMinute: startMin, endMinute: endMin, demandId, description, notes } },
+      {
+        id: editing?.id,
+        input: {
+          date,
+          startMinute: startMin,
+          endMinute: endMin,
+          demandId,
+          description,
+          notes,
+          ...(isMeeting ? { participants, subject } : {}),
+          ...(statusChoice !== null && statusChoice !== currentStatus ? { demandStatus: statusChoice } : {}),
+        },
+      },
       {
         onSuccess: ({ activity, warnings }) => {
           toast(editing ? 'Apontamento atualizado.' : 'Apontamento registrado.');
           warnings.forEach((w) => toast(w, 'warning'));
           if (!editing) {
-            setDemandId(null);
+            chooseDemand(null);
             setStart(end);
             setEnd('');
             setDescription('');
             setNotes('');
+            setParticipants('');
+            setSubject('');
           }
           onDone(activity, keepOpen);
         },
@@ -142,35 +174,9 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone, onDirtyCh
         </p>
       )}
 
-      <Field label="Demanda">
-        <select
-          required
-          value={demandId ?? ''}
-          onChange={(e) => setDemandId(e.target.value ? Number(e.target.value) : null)}
-          className="field"
-        >
-          <option value="">Escolha o que foi feito…</option>
-          {DEMAND_CATEGORIES.map((c) => {
-            const group = options.filter((d) => d.category === c);
-            return (
-              group.length > 0 && (
-                <optgroup key={c} label={DEMAND_CATEGORY_PLURAL[c]}>
-                  {group.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.label}
-                      {d.subtitle && d.category !== 'reuniao' ? ` — ${shorten(d.subtitle)}` : ''}
-                      {d.category === 'reuniao' ? ` (${d.subtitle})` : ''}
-                      {isOpenDemand(d) ? '' : ' · encerrada'}
-                    </option>
-                  ))}
-                </optgroup>
-              )
-            );
-          })}
-        </select>
-      </Field>
+      <DemandPicker demands={all} value={demandId} onChange={chooseDemand} />
 
-      {chosen ? (
+      {chosen && (
         <div className="-mt-1 flex items-start gap-2.5 rounded-xl bg-surface-2 px-3 py-2.5">
           <CategoryAvatar category={chosen.category} size={28} />
           <div className="min-w-0 flex-1">
@@ -182,11 +188,22 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone, onDirtyCh
           </div>
           {chosen.category !== 'reuniao' && (
             <div className="flex shrink-0 flex-col items-end gap-1">
-              {chosen.category === 'ciclo' ? (
-                <CycleStatusBadge status={chosen.status} />
-              ) : (
-                <TaskStatusBadge status={chosen.status} />
-              )}
+              <label className="sr-only" htmlFor="demand-status">
+                Status da demanda
+              </label>
+              <select
+                id="demand-status"
+                value={effectiveStatus ?? ''}
+                onChange={(e) => setStatusChoice(e.target.value)}
+                className="field font-medium"
+                style={{ width: "auto", minWidth: "9rem", padding: "0.35rem 0.6rem", fontSize: "var(--text-xs)" }}
+              >
+                {chosenStatuses.map((s) => (
+                  <option key={s} value={s}>
+                    {statusLabel(s)}
+                  </option>
+                ))}
+              </select>
               <Link
                 to={`/demandas#demanda-${chosen.id}`}
                 className="text-2xs font-medium text-ink-3 hover:text-ink hover:underline"
@@ -196,46 +213,7 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone, onDirtyCh
             </div>
           )}
         </div>
-      ) : (
-        recent.length > 0 && (
-          <div className="-mt-1">
-            <p className="mb-1.5 text-2xs font-semibold tracking-wider text-ink-3 uppercase">Recentes</p>
-            <div className="flex flex-wrap gap-1.5">
-              {recent.map((d) => (
-                <button
-                  key={d.id}
-                  type="button"
-                  onClick={() => setDemandId(d.id)}
-                  title={d.subtitle || d.label}
-                  className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-line px-3 py-1 text-xs font-medium text-ink-2 transition hover:border-accent hover:bg-accent-soft hover:text-accent"
-                >
-                  <span className="shrink-0">{categoryIcon[d.category](13)}</span>
-                  <span className="truncate">{shorten(d.label, 32)}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )
       )}
-
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-        {hasClosed ? (
-          <label className="inline-flex cursor-pointer items-center gap-2 text-ink-2">
-            <input
-              type="checkbox"
-              checked={showClosed}
-              onChange={(e) => setShowClosed(e.target.checked)}
-              className="size-3.5 accent-[var(--accent)]"
-            />
-            Mostrar encerradas
-          </label>
-        ) : (
-          <span />
-        )}
-        <Link to="/demandas" className="font-semibold text-accent hover:underline">
-          Declarar nova demanda
-        </Link>
-      </div>
 
       <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-3">
         <Field label="Início">
@@ -263,6 +241,35 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone, onDirtyCh
           {duration === null ? '—' : invalidRange ? 'inválido' : formatDuration(duration)}
         </div>
       </div>
+
+      {isMeeting && (
+        <>
+          <Field label="Com quem" optional>
+            <input
+              list={peopleListId}
+              value={participants}
+              onChange={(e) => setParticipants(e.target.value)}
+              placeholder="Ex.: Equipe de dados"
+              maxLength={200}
+              className="field"
+            />
+            <datalist id={peopleListId}>
+              {knownPeople.map((p) => (
+                <option key={p} value={p} />
+              ))}
+            </datalist>
+          </Field>
+          <Field label="Assunto" optional>
+            <input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Ex.: Status do dia"
+              maxLength={200}
+              className="field"
+            />
+          </Field>
+        </>
+      )}
 
       <Field label="O que foi feito" optional>
         <textarea

@@ -41,9 +41,10 @@ const idle: CycleDemand = { ...alpha, id: 3, title: 'Projeto parado', status: 'n
 const closedTicket: Demand = { id: 4, category: 'chamado', ticketNumber: 'TESTE-1', description: 'Erro fictício', status: 'concluido' };
 const openTicket: Demand = { id: 5, category: 'chamado', ticketNumber: 'TESTE-2', description: 'Lentidão fictícia', status: 'em_andamento' };
 const course: Demand = { id: 6, category: 'treinamento', title: 'Curso fictício', description: '', status: 'nao_iniciado' };
-const daily: Demand = { id: 7, category: 'reuniao', meetingType: 'Daily', participants: 'Equipe Exemplo', subject: 'Status' };
+// v0.14: a reunião é só o tipo; com quem e assunto vêm de cada apontamento.
+const daily: Demand = { id: 7, category: 'reuniao', meetingType: 'Daily', participants: '', subject: '' };
 
-const act = (demandId: number | null, date: string, start: string, end: string): Activity => ({
+const act = (demandId: number | null, date: string, start: string, end: string, participants = '', subject = ''): Activity => ({
   id: 0,
   date,
   startMinute: parseHM(start)!,
@@ -51,6 +52,8 @@ const act = (demandId: number | null, date: string, start: string, end: string):
   project: '',
   description: 'Feito',
   notes: '',
+  participants,
+  subject,
   demandId,
 });
 
@@ -59,9 +62,9 @@ const activities = [
   act(1, '2026-10-26', '09:00', '11:00'),
   act(2, '2026-10-27', '09:00', '10:00'), // intempestiva: 1h de 8h
   act(5, '2026-10-27', '10:00', '11:00'),
-  act(7, '2026-10-26', '08:45', '09:00'),
-  act(7, '2026-10-27', '08:45', '09:00'),
-  act(7, '2026-10-27', '17:00', '17:15'), // mesma Daily no mesmo dia: uma ocorrência
+  act(7, '2026-10-26', '08:45', '09:00', 'Equipe Exemplo', 'Status'),
+  act(7, '2026-10-27', '08:45', '09:00', 'Equipe Exemplo, Fulana', 'Prioridades'),
+  act(7, '2026-10-27', '17:00', '17:15', 'Equipe Exemplo', 'status'), // mesma Daily no mesmo dia: uma ocorrência
   act(1, '2026-10-21', '09:00', '17:00'), // semana anterior: fora
 ];
 const changes: DemandStatusChange[] = [
@@ -118,7 +121,10 @@ describe('relatório do período', () => {
   it('reuniões: cada uma uma vez, com os dias em que aconteceu', () => {
     const { meetings } = build().done;
     assert.equal(meetings.length, 1);
-    assert.deepEqual([meetings[0].demandId, meetings[0].participants, meetings[0].occurrences], [7, 'Equipe Exemplo', 2]);
+    assert.deepEqual(
+      [meetings[0].demandId, meetings[0].label, meetings[0].subjects, meetings[0].participants, meetings[0].occurrences],
+      [7, 'Daily', ['Status', 'Prioridades'], ['Equipe Exemplo', 'Fulana'], 2],
+    );
   });
 
   it('impedimentos: abertos no fim do período e resolvidos nele; a espera para em hoje', () => {
@@ -167,7 +173,7 @@ describe('relatório do período', () => {
     assert.match(md, /- \*\*Projeto Alfa\*\* — Em andamento → Em homologação · 2 dias de trabalho\n {2}- 23\/10 Decisão: Escopo fechado/);
     assert.match(md, /- \*\*Correção urgente\*\* \(intempestiva\) — Em andamento · 1 dia de trabalho/);
     assert.match(md, /\*\*Tarefas concluídas\*\*\n- \*\*TESTE-1\*\* \(Chamado\): Erro fictício — Em andamento → Concluído/);
-    assert.match(md, /\(com Equipe Exemplo\) — 2 vezes/);
+    assert.match(md, /- Daily — 2 vezes · assuntos: Status, Prioridades · com: Equipe Exemplo, Fulana/);
     assert.match(md, /aguardando Equipe B desde 22\/10 \(5 dias úteis\): Acesso/);
     assert.match(periodReportMarkdown(build(MONTH)), /^# Relatório mensal — Outubro de 2026/);
   });

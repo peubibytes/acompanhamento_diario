@@ -253,6 +253,64 @@ const MIGRATIONS = [
   ALTER TABLE demands_v8 RENAME TO demands;
   CREATE UNIQUE INDEX idx_demands_ticket ON demands(ticket_number) WHERE category = 'chamado';
   `,
+  // 9 — v0.14 (docs/decisions/0012 e 0013): (a) chamado sem "Iniciado" e com "Em espera"; (b) reunião declarada só
+  // pelo tipo, com quem e assunto no apontamento. A tabela é recriada (o CHECK muda). Os chamados "iniciado" viram
+  // "em_andamento", no histórico também (sem deixar a troca em_andamento → em_andamento). As reuniões já declaradas
+  // e os apontamentos antigos ficam como estão: nada é copiado nem juntado.
+  `
+  CREATE TABLE demands_v9 (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    category      TEXT    NOT NULL CHECK (category IN ('ciclo', 'chamado', 'reuniao', 'treinamento', 'atividade')),
+    title         TEXT    NOT NULL DEFAULT '', -- ciclo: nome do projeto · treinamento e atividade: nome · reunião antiga: assunto
+    description   TEXT    NOT NULL DEFAULT '',
+    ticket_number TEXT,                        -- chamado
+    meeting_type  TEXT,                        -- reunião
+    participants  TEXT,                        -- reunião antiga: com quem
+    kind          TEXT    CHECK (kind IS NULL OR kind IN ('planejada', 'intempestiva', 'preventiva')),
+    priority      TEXT    CHECK (priority IS NULL OR priority IN ('baixa', 'media', 'alta', 'urgente')),
+    status        TEXT,
+    start_date    TEXT,
+    due_date      TEXT,
+    branch        TEXT    NOT NULL DEFAULT '',
+    pr_url        TEXT    NOT NULL DEFAULT '',
+    environment   TEXT    CHECK (environment IS NULL OR environment IN ('desenvolvimento', 'staging', 'producao')),
+    created_at    TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CHECK (due_date IS NULL OR start_date IS NULL OR due_date >= start_date),
+    CHECK (category <> 'ciclo' OR (
+      title <> '' AND kind IS NOT NULL AND priority IS NOT NULL AND start_date IS NOT NULL AND status IN
+      ('novo', 'em_andamento', 'aguardando_terceiro', 'em_homologacao', 'concluido', 'cancelado'))),
+    CHECK (category <> 'chamado' OR (
+      ticket_number IS NOT NULL AND status IN ('nao_iniciado', 'em_andamento', 'em_espera', 'concluido'))),
+    CHECK (category <> 'reuniao' OR meeting_type IS NOT NULL),
+    CHECK (category NOT IN ('treinamento', 'atividade') OR (
+      title <> '' AND status IN ('nao_iniciado', 'iniciado', 'em_andamento', 'concluido')))
+  );
+
+  INSERT INTO demands_v9 (id, category, title, description, ticket_number, meeting_type, participants, kind,
+                          priority, status, start_date, due_date, branch, pr_url, environment, created_at, updated_at)
+  SELECT id, category, title, description, ticket_number, meeting_type, participants, kind,
+         priority,
+         CASE WHEN category = 'chamado' AND status = 'iniciado' THEN 'em_andamento' ELSE status END,
+         start_date, due_date, branch, pr_url, environment, created_at, updated_at
+  FROM demands;
+
+  DROP TABLE demands;
+  ALTER TABLE demands_v9 RENAME TO demands;
+  CREATE UNIQUE INDEX idx_demands_ticket ON demands(ticket_number) WHERE category = 'chamado';
+
+  UPDATE demand_status_changes
+  SET from_status = CASE WHEN from_status = 'iniciado' THEN 'em_andamento' ELSE from_status END,
+      to_status   = CASE WHEN to_status = 'iniciado' THEN 'em_andamento' ELSE to_status END
+  WHERE demand_id IN (SELECT id FROM demands WHERE category = 'chamado');
+
+  DELETE FROM demand_status_changes
+  WHERE from_status IS NOT NULL AND from_status = to_status
+    AND demand_id IN (SELECT id FROM demands WHERE category = 'chamado');
+
+  ALTER TABLE activities ADD COLUMN participants TEXT NOT NULL DEFAULT '';
+  ALTER TABLE activities ADD COLUMN subject TEXT NOT NULL DEFAULT '';
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

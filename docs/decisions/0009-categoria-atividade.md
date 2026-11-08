@@ -20,12 +20,17 @@ ele ficava sem apontamento ou era encaixado numa categoria errada, o que distorc
 3. **Seção própria no relatório:** "Outras atividades", dentro de "O que foi feito", no diário (tela e
    Markdown), no semanal e no mensal. Traz o nome, a situação e o que foi feito; sem contagens nem horas.
    Fica fora das frases de resumo, detalhamento e planejamento.
-4. **Fora de "O que será feito":** atividades costumam ser reativas; não entram no plano nem na fila.
+4. **Fora de "O que será feito":** atividades costumam ser reativas; não entram no plano.
 5. **O tempo apontado entra no total e em Tarefas** (Rendimento, com cor e ícone próprios). Não conta como
    trabalho não planejado: esse indicador segue só com ciclos intempestivos (decisão 0007).
 6. **Migração 8** recria `demands` para aceitar a categoria no CHECK (mesmo padrão da migração 4); nenhuma linha
    muda. Exportações de esquema 7 não importam mais (a importação exige a mesma versão do esquema): exporte de
    novo depois de atualizar.
+
+## Nota (v0.14)
+
+As atividades **abertas** passam a aparecer no plano do dia, numa lista à parte, "Outras atividades" (com a caixa para
+tirar antes de copiar), fora da frase de planejamento e dos números.
 
 ## Consequências
 
