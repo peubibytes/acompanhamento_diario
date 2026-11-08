@@ -48,8 +48,8 @@ type Api = Awaited<ReturnType<typeof start>>['api'];
 /** Dados fictícios que passam por todas as tabelas. */
 async function seed(api: Api) {
   const cycle = (await api('POST', '/demands', { category: 'ciclo', title: 'Projeto fictício', startDate: '2026-10-01', dueDate: '2026-11-20' })).data;
-  const meeting = (await api('POST', '/demands', { category: 'reuniao', meetingType: 'Daily', participants: 'Equipe Exemplo', subject: 'Status' })).data;
-  await api('POST', '/demands', { category: 'chamado', ticketNumber: 'INC0000007', description: 'Chamado fictício', status: 'iniciado' });
+  const meeting = (await api('POST', '/demands', { category: 'reuniao', meetingType: 'Daily' })).data;
+  await api('POST', '/demands', { category: 'chamado', ticketNumber: 'INC0000007', description: 'Chamado fictício', status: 'em_espera' });
   await api('PUT', `/demands/${cycle.id}`, { ...cycle, status: 'em_andamento' });
   const event = (await api('POST', `/demands/${cycle.id}/events`, { date: '2026-10-20', kind: 'decisao', text: 'Escopo definido' })).data;
   await api('PUT', `/demands/${cycle.id}/events/${event.id}/flag`, { flagged: true });

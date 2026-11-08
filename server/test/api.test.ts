@@ -41,8 +41,6 @@ before(async () => {
   const meeting = await api('POST', '/demands', {
     category: 'reuniao',
     meetingType: 'Daily',
-    participants: 'Equipe Exemplo',
-    subject: 'Status do dia',
   });
   sample.demandId = meeting.data.id;
 });
@@ -60,7 +58,7 @@ describe('API de apontamentos e ciclos', () => {
     assert.deepEqual(created.data.warnings, []);
     const id = created.data.activity.id;
     // O "projeto" da planilha passa a ser o nome da demanda.
-    assert.equal(created.data.activity.project, 'Daily · Status do dia');
+    assert.equal(created.data.activity.project, 'Daily');
 
     const list = await api('GET', '/activities?date=2026-10-26');
     assert.equal(list.data.length, 1);
@@ -105,7 +103,7 @@ describe('API de apontamentos e ciclos', () => {
     const second = await api('POST', '/activities', { ...sample, date: '2026-10-28', startMinute: 570, endMinute: 630 });
     assert.equal(second.status, 201);
     assert.equal(second.data.warnings.length, 1);
-    assert.match(second.data.warnings[0], /Daily · Status do dia" \(09:00–10:00\)/);
+    assert.match(second.data.warnings[0], /"Daily" \(09:00–10:00\)/);
 
     // Encostar no fim da anterior não é sobreposição.
     const third = await api('POST', '/activities', { ...sample, date: '2026-10-28', startMinute: 630, endMinute: 660 });
@@ -204,8 +202,8 @@ describe('API de demandas: declaração', () => {
     assert.equal(training.label, 'Curso de SQL');
 
     const meeting = (await api('GET', `/demands/${sample.demandId}`)).data as DemandSummary;
-    assert.equal(meeting.label, 'Daily · Status do dia');
-    assert.equal(meeting.subtitle, 'com Equipe Exemplo');
+    assert.equal(meeting.label, 'Daily');
+    assert.equal(meeting.subtitle, '');
 
     for (const d of [cycle, ticket, training]) await api('DELETE', `/demands/${d.id}`);
   });
@@ -242,9 +240,8 @@ describe('API de demandas: declaração', () => {
       [{ ...ticketBody, ticketNumber: 'com espaço' }, /Número do chamado inválido/],
       [{ category: 'chamado', ticketNumber: 'INC1' }, /Descreva o chamado/],
       [{ ...ticketBody, status: 'cancelado' }, /Status inválido/],
-      [{ category: 'reuniao', meetingType: 'Daily', subject: 'Status' }, /com quem/],
       [{ category: 'reuniao', participants: 'Equipe', subject: 'Status' }, /tipo da reunião/],
-      [{ category: 'reuniao', meetingType: 'Daily', participants: 'Equipe' }, /assunto/],
+      [{ ...ticketBody, status: 'iniciado' }, /Status inválido/],
       [{ category: 'treinamento' }, /nome do treinamento/],
       [{ category: 'atividade' }, /nome da atividade/],
       [{ category: 'atividade', title: 'x', status: 'cancelado' }, /Status inválido/],
@@ -268,14 +265,10 @@ describe('API de demandas: declaração', () => {
     const clash = await api('PUT', `/demands/${other.id}`, ticketBody);
     assert.equal(clash.status, 409);
     // Editar o próprio chamado mantendo o número não é duplicidade.
-    assert.equal((await api('PUT', `/demands/${ticket.id}`, { ...ticketBody, status: 'iniciado' })).status, 200);
+    assert.equal((await api('PUT', `/demands/${ticket.id}`, { ...ticketBody, status: 'em_espera' })).status, 200);
 
-    const meeting = await api('POST', '/demands', {
-      category: 'reuniao',
-      meetingType: 'daily',
-      participants: 'equipe exemplo',
-      subject: 'STATUS DO DIA',
-    });
+    // A reunião é só o tipo: o mesmo tipo (sem diferenciar maiúsculas) não é declarado duas vezes.
+    const meeting = await api('POST', '/demands', { category: 'reuniao', meetingType: 'daily' });
     assert.equal(meeting.status, 409);
 
     for (const d of [ticket, other]) await api('DELETE', `/demands/${d.id}`);
@@ -320,7 +313,7 @@ describe('API de demandas: declaração', () => {
 
     const labels = async (query: string) =>
       ((await api('GET', `/demands${query}`)).data as DemandSummary[]).map((d) => d.label);
-    assert.deepEqual(await labels(''), ['Migração de relatórios', 'SCTASK0000001', 'INC9', 'Daily · Status do dia']);
+    assert.deepEqual(await labels(''), ['Migração de relatórios', 'SCTASK0000001', 'INC9', 'Daily']);
     assert.deepEqual(await labels('?category=chamado&status=abertas'), ['SCTASK0000001']);
     assert.deepEqual(await labels('?status=encerradas'), ['INC9']);
     assert.equal((await api('GET', '/demands?status=ativa')).status, 400);
@@ -455,7 +448,7 @@ describe('API de tarefas: histórico de status e métricas', () => {
     );
 
     // Reabrir apaga a data de conclusão, mas o histórico fica.
-    const reopened = (await api('PUT', `/demands/${created.id}`, { ...ticketBody, status: 'iniciado' })).data;
+    const reopened = (await api('PUT', `/demands/${created.id}`, { ...ticketBody, status: 'em_andamento' })).data;
     assert.equal(reopened.completedAt, null);
 
     await api('DELETE', `/demands/${created.id}`);
@@ -466,8 +459,6 @@ describe('API de tarefas: histórico de status e métricas', () => {
     const m = (await api('POST', '/demands', {
       category: 'reuniao',
       meetingType: 'Semanal',
-      participants: 'Equipe Exemplo',
-      subject: 'Histórico',
     })).data as DemandSummary;
     const { data: detail } = await api('GET', `/demands/${m.id}`);
     assert.deepEqual(detail.statusChanges, []);
@@ -536,7 +527,7 @@ describe('API do relatório diário', () => {
     assert.deepEqual(item.progress, [`${sample.description} – ${sample.notes}`, 'Decisão: escopo fechado']);
     assert.deepEqual(
       r.done.meetings.map((m: { label: string }) => m.label),
-      ['Daily · Status do dia'],
+      ['Daily'],
     );
     assert.equal(r.blockers.open, 1);
     assert.equal(r.blockers.items[0].waitingWorkdays, 2); // ter 27 e qua 28
@@ -706,7 +697,7 @@ describe('API de períodos e rendimento', () => {
   it('rendimento: tempo por categoria, Tarefas × Ciclos e o rendimento de cada ciclo contra o período anterior', async () => {
     today = '2026-11-12';
     const c = await ciclo('Ciclo do rendimento');
-    const t = ((await api('POST', '/demands', { category: 'reuniao', meetingType: 'Daily', participants: 'Equipe Exemplo', subject: 'Rendimento' })).data as DemandSummary).id;
+    const t = ((await api('POST', '/demands', { category: 'reuniao', meetingType: 'Rendimento' })).data as DemandSummary).id;
     await log(c, '2026-10-06', 480, 540); // outubro: 60
     const nov = [await log(c, '2026-11-03', 480, 600), await log(t, '2026-11-03', 600, 630)]; // novembro: 120 + 30
 
@@ -946,5 +937,133 @@ describe('migração do banco', () => {
     );
     assert.equal(plain.category === 'ciclo' && plain.description, '');
     assert.equal(repo.listDemandEvents(1).length, 1);
+  });
+});
+
+describe('v0.14: status pelo apontamento, reuniões e chamados em espera', () => {
+  const ticket = { category: 'chamado', ticketNumber: 'V14-0001', description: 'Chamado fictício' };
+
+  it('chamado aceita "em espera" e recusa "iniciado"; treinamento segue com "iniciado"', async () => {
+    const created = (await api('POST', '/demands', ticket)).data as DemandSummary;
+    assert.equal((await api('PUT', `/demands/${created.id}/status`, { status: 'em_espera' })).status, 200);
+    assert.equal((await api('PUT', `/demands/${created.id}/status`, { status: 'iniciado' })).status, 400);
+
+    const training = (await api('POST', '/demands', { category: 'treinamento', title: 'Curso v14', status: 'iniciado' })).data;
+    assert.equal(training.status, 'iniciado');
+    assert.equal((await api('PUT', `/demands/${training.id}/status`, { status: 'em_espera' })).status, 400);
+
+    await api('DELETE', `/demands/${created.id}`);
+    await api('DELETE', `/demands/${training.id}`);
+  });
+
+  it('PUT /demands/:id/status grava a troca no histórico, com a data de hoje; reunião não tem status', async () => {
+    today = '2026-10-27';
+    const created = (await api('POST', '/demands', ticket)).data as DemandSummary;
+    today = '2026-10-28';
+    const res = await api('PUT', `/demands/${created.id}/status`, { status: 'em_andamento' });
+    assert.equal(res.status, 200);
+    assert.equal(res.data.status, 'em_andamento');
+    // Repetir o mesmo status não cria troca.
+    await api('PUT', `/demands/${created.id}/status`, { status: 'em_andamento' });
+    const { data: detail } = await api('GET', `/demands/${created.id}`);
+    assert.deepEqual(
+      detail.statusChanges.map((c: { from: string | null; to: string; date: string }) => [c.from, c.to, c.date]),
+      [
+        ['nao_iniciado', 'em_andamento', '2026-10-28'],
+        [null, 'nao_iniciado', '2026-10-27'],
+      ],
+    );
+    assert.equal((await api('PUT', `/demands/${sample.demandId}/status`, { status: 'concluido' })).status, 400);
+    assert.equal((await api('PUT', '/demands/9999/status', { status: 'concluido' })).status, 404);
+    await api('DELETE', `/demands/${created.id}`);
+  });
+
+  it('o apontamento pode trocar o status da demanda, tudo ou nada', async () => {
+    const created = (await api('POST', '/demands', ticket)).data as DemandSummary;
+    const bad = await api('POST', '/activities', { ...sample, date: '2026-11-03', demandId: created.id, demandStatus: 'iniciado' });
+    assert.equal(bad.status, 400);
+    assert.equal(((await api('GET', '/activities?date=2026-11-03')).data as Activity[]).length, 0);
+
+    const ok = await api('POST', '/activities', { ...sample, date: '2026-11-03', demandId: created.id, demandStatus: 'concluido' });
+    assert.equal(ok.status, 201);
+    const after = (await api('GET', `/demands/${created.id}`)).data as DemandSummary;
+    assert.equal(after.category === 'chamado' && after.status, 'concluido');
+    assert.equal(after.completedAt, today);
+
+    const edit = await api('PUT', `/activities/${ok.data.activity.id}`, { ...sample, date: '2026-11-03', demandId: created.id, demandStatus: 'em_espera' });
+    assert.equal(edit.status, 200);
+    assert.equal(((await api('GET', `/demands/${created.id}`)).data as DemandSummary & { status: string }).status, 'em_espera');
+
+    await api('DELETE', `/activities/${ok.data.activity.id}`);
+    await api('DELETE', `/demands/${created.id}`);
+  });
+
+  it('reunião nova é só o tipo (pessoas e assunto enviados são ignorados); o apontamento guarda os da ocorrência', async () => {
+    const meeting = await api('POST', '/demands', { category: 'reuniao', meetingType: 'Repasses', participants: 'Ignorado', subject: 'Ignorado' });
+    assert.equal(meeting.status, 201);
+    assert.equal(meeting.data.label, 'Repasses');
+    assert.equal(meeting.data.participants, '');
+    assert.equal((await api('POST', '/demands', { category: 'reuniao', meetingType: 'repasses' })).status, 409);
+
+    const act = await api('POST', '/activities', { ...sample, date: '2026-11-04', demandId: meeting.data.id, participants: 'Equipe X', subject: 'Contexto' });
+    assert.equal(act.data.activity.participants, 'Equipe X');
+    assert.equal(act.data.activity.subject, 'Contexto');
+    // Em outra demanda, com quem e assunto não são guardados.
+    const t = (await api('POST', '/demands', { category: 'treinamento', title: 'Curso v14b' })).data;
+    const other = await api('POST', '/activities', { ...sample, date: '2026-11-04', startMinute: 700, endMinute: 730, demandId: t.id, participants: 'Equipe X', subject: 'Contexto' });
+    assert.equal(other.data.activity.participants, '');
+    assert.equal(other.data.activity.subject, '');
+
+    await api('DELETE', `/activities/${act.data.activity.id}`);
+    await api('DELETE', `/activities/${other.data.activity.id}`);
+    await api('DELETE', `/demands/${meeting.data.id}`);
+    await api('DELETE', `/demands/${t.id}`);
+  });
+});
+
+describe('migração 9 (v0.14)', () => {
+  it('chamado "iniciado" vira "em andamento" (também no histórico); treinamento e reuniões antigas não mudam', () => {
+    const db = new DatabaseSync(':memory:');
+    migrate(db, 8);
+    db.exec(`
+      INSERT INTO demands (category, ticket_number, description, status)
+        VALUES ('chamado', 'MIG0000001', 'Fictício', 'iniciado');
+      INSERT INTO demands (category, title, status) VALUES ('treinamento', 'Curso fictício', 'iniciado');
+      INSERT INTO demands (category, title, meeting_type, participants)
+        VALUES ('reuniao', 'Assunto antigo', 'Daily', 'Equipe Exemplo');
+      INSERT INTO demand_status_changes (demand_id, from_status, to_status, changed_at) VALUES
+        (1, NULL, 'nao_iniciado', '2026-10-01'),
+        (1, 'nao_iniciado', 'iniciado', '2026-10-02'),
+        (1, 'iniciado', 'em_andamento', '2026-10-03'),
+        (1, 'em_andamento', 'iniciado', '2026-10-04'),
+        (2, NULL, 'iniciado', '2026-10-01');
+      INSERT INTO activities (date, start_minute, end_minute, project, demand_id) VALUES ('2026-10-02', 480, 540, 'Daily · Assunto antigo', 3);
+    `);
+
+    migrate(db);
+
+    const repo = createRepo(db);
+    const [ticket, training, meeting] = repo.listDemands();
+    assert.equal(ticket.category === 'chamado' && ticket.status, 'em_andamento');
+    assert.equal(training.category === 'treinamento' && training.status, 'iniciado');
+    assert.deepEqual(meeting, { id: 3, category: 'reuniao', meetingType: 'Daily', participants: 'Equipe Exemplo', subject: 'Assunto antigo' });
+
+    // As trocas iniciado ↔ em_andamento viram em_andamento → em_andamento e somem; a declaração e as reais ficam.
+    assert.deepEqual(
+      repo.listDemandStatusChanges(1).map((c) => [c.from, c.to, c.date]),
+      [
+        ['nao_iniciado', 'em_andamento', '2026-10-02'],
+        [null, 'nao_iniciado', '2026-10-01'],
+      ],
+    );
+    assert.deepEqual(repo.listDemandStatusChanges(2).map((c) => [c.from, c.to]), [[null, 'iniciado']]);
+
+    // O apontamento antigo fica com os campos novos vazios.
+    const [old] = repo.listDemandActivities(3);
+    assert.deepEqual([old.participants, old.subject], ['', '']);
+    // A reunião nova (só o tipo) é aceita pelo banco; o chamado "iniciado" não, o "em espera" sim.
+    db.exec(`INSERT INTO demands (category, meeting_type) VALUES ('reuniao', 'Repasses')`);
+    assert.throws(() => db.exec(`INSERT INTO demands (category, ticket_number, description, status) VALUES ('chamado', 'X1', 'x', 'iniciado')`));
+    db.exec(`INSERT INTO demands (category, ticket_number, description, status) VALUES ('chamado', 'X2', 'x', 'em_espera')`);
   });
 });

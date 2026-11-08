@@ -16,12 +16,20 @@ export interface Activity {
   project: string;
   description: string;
   notes: string;
+  /** Reunião (v0.14): com quem foi esta ocorrência; vazio nas demais demandas e nos apontamentos antigos. */
+  participants: string;
+  /** Reunião (v0.14): assunto desta ocorrência. */
+  subject: string;
   /** Demanda apontada; nula só nos apontamentos anteriores à v0.5. */
   demandId: number | null;
 }
 
 /** O que se informa ao apontar: a demanda é obrigatória e o "projeto" vem dela. */
-export type ActivityInput = Omit<Activity, 'id' | 'project' | 'demandId'> & { demandId: number };
+export type ActivityInput = Omit<Activity, 'id' | 'project' | 'demandId' | 'participants' | 'subject'> & {
+  demandId: number;
+  participants?: string;
+  subject?: string;
+};
 
 export const GOAL_PRESETS = [
   { label: '5h30', minutes: 330 },

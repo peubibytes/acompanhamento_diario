@@ -12,6 +12,7 @@ import {
   DEADLINE_LABEL,
   DEMAND_EVENT_LABEL,
   isOpenDemand,
+  meetingOccurrence,
   statusChangeText,
   TASK_STATUS_LABEL,
   waitingWorkdays,
@@ -63,8 +64,12 @@ export interface ReportWorkItem {
 
 export interface ReportMeeting {
   demandId: number;
+  /** O tipo da reunião (ex.: Repasses). */
   label: string;
-  participants: string;
+  /** Assuntos das ocorrências do dia, sem repetir (v0.14: vêm dos apontamentos). */
+  subjects: string[];
+  /** Com quem foram as ocorrências do dia, sem repetir. */
+  participants: string[];
 }
 
 export interface ReportBlockerItem {
@@ -82,9 +87,11 @@ export interface ReportBlockerItem {
 export interface ReportNextItem {
   demandId: number;
   label: string;
-  category: 'ciclo' | 'chamado' | 'treinamento';
-  /** Chamados e treinamentos: a descrição curta. Ciclos: status, prazo e impedimento. */
+  category: 'ciclo' | 'chamado' | 'treinamento' | 'atividade';
+  /** Chamados, treinamentos e atividades: a descrição curta. Ciclos: status, prazo e impedimento. */
   detail: string;
+  /** Ciclo que só começa depois do dia do plano (v0.14): a data de início; nulo nos demais. */
+  startsOn: ISODate | null;
   /** Chamado declarado no dia do relatório ou depois (ainda não iniciado). */
   isNew: boolean;
 }
@@ -115,6 +122,8 @@ export interface DailyReport {
     tickets: ReportNextItem[];
     trainings: ReportNextItem[];
     cycles: ReportNextItem[];
+    /** Atividades abertas (v0.14): lista à parte, fora da frase de planejamento e dos números. */
+    otherWork: ReportNextItem[];
   };
 }
 
@@ -175,7 +184,7 @@ const sameTextKey = (text: string) =>
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .trim();
 
-function uniqueTexts(texts: string[]): string[] {
+export function uniqueTexts(texts: string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const text of texts) {
@@ -188,7 +197,7 @@ function uniqueTexts(texts: string[]): string[] {
 }
 
 /** "Equipe A, Fulano e Beltrano" → cada pessoa ou equipe, para juntar as reuniões sem repetir. */
-function splitPeople(participants: string): string[] {
+export function splitPeople(participants: string): string[] {
   return participants
     .split(/\s*(?:,|;|\/|\s+e\s+)\s*/)
     .map(tidyText)
@@ -202,6 +211,16 @@ function currentStatus(d: DemandSummary): string {
   if (d.category === 'ciclo') return CYCLE_STATUS_LABEL[d.status];
   if (d.category === 'reuniao') return '';
   return TASK_STATUS_LABEL[d.status];
+}
+
+/**
+ * A troca do dia ("Em andamento → Concluído"). Se hoje a demanda já está em outro status (foi reaberta depois),
+ * o texto diz: "Em andamento → Concluído (reaberto, agora Em andamento)".
+ */
+function changedStatusText(d: DemandSummary, from: string, to: string): string {
+  const text = statusChangeText({ from, to });
+  if (d.category === 'reuniao' || d.status === to) return text;
+  return `${text} (${to === 'concluido' ? 'reaberto, ' : ''}agora ${currentStatus(d)})`;
 }
 
 const isTask = (d: DemandSummary) => d.category === 'chamado' || d.category === 'treinamento';
@@ -256,7 +275,7 @@ export function buildDailyReport(input: DailyReportInput): DailyReport {
       label: d.label,
       category: d.category,
       subtitle: d.category === 'ciclo' ? '' : capitalize(shorten(tidyText(d.subtitle))),
-      status: changed ? statusChangeText({ from: from!, to }) : currentStatus(d),
+      status: changed ? changedStatusText(d, from!, to) : currentStatus(d),
       changed,
       completed: isTask(d) && d.completedAt === date,
       minutes: unionMinutes(own),
@@ -273,14 +292,21 @@ export function buildDailyReport(input: DailyReportInput): DailyReport {
   const trainings = worked.filter((d) => d.category === 'treinamento').sort(byDone).map((d) => work(d)!);
   const otherWork = worked.filter((d) => d.category === 'atividade').sort(byDone).map((d) => work(d)!);
 
+  // Reuniões (v0.14): com quem e o assunto vêm de cada apontamento; na reunião antiga, da demanda.
   const meetings: ReportMeeting[] = [];
   for (const a of ofDay) {
     const d = byId.get(a.demandId!);
-    if (d?.category === 'reuniao' && !meetings.some((m) => m.demandId === d.id)) {
-      meetings.push({ demandId: d.id, label: d.label, participants: tidyText(d.participants) });
+    if (d?.category !== 'reuniao') continue;
+    const occurrence = meetingOccurrence(a, d);
+    let meeting = meetings.find((m) => m.demandId === d.id);
+    if (!meeting) {
+      meeting = { demandId: d.id, label: d.meetingType, subjects: [], participants: [] };
+      meetings.push(meeting);
     }
+    meeting.subjects = uniqueTexts([...meeting.subjects, tidyText(occurrence.subject)]);
+    meeting.participants = uniqueTexts([...meeting.participants, ...splitPeople(occurrence.participants)]);
   }
-  const people = uniqueTexts(meetings.flatMap((m) => splitPeople(m.participants)));
+  const people = uniqueTexts(meetings.flatMap((m) => m.participants));
   const cycleMinutes = unionMinutes(ofDay.filter((a) => byId.get(a.demandId!)?.category === 'ciclo'));
   const completedTasks = [...tickets, ...trainings].filter((t) => t.completed).length;
 
@@ -304,36 +330,47 @@ export function buildDailyReport(input: DailyReportInput): DailyReport {
   for (const c of input.statusChanges) if (c.from === null) declaredAt.set(c.demandId, c.date);
   const isRecent = (d: DemandSummary) => (declaredAt.get(d.id) ?? '') >= date;
   const open = demands.filter((d) => d.category !== 'reuniao' && isOpenDemand(d)).sort(compareDemands);
-  const nextItem = (d: DemandSummary, detail: string, isNew = false): ReportNextItem => ({
+  const nextItem = (d: DemandSummary, detail: string, isNew = false, startsOn: ISODate | null = null): ReportNextItem => ({
     demandId: d.id,
     label: d.label,
     category: d.category as ReportNextItem['category'],
     detail,
     isNew,
+    startsOn,
   });
 
   const nextTickets: ReportNextItem[] = [];
   const nextTrainings: ReportNextItem[] = [];
   const nextCycles: ReportNextItem[] = [];
+  const futureCycles: ReportNextItem[] = [];
+  const nextOtherWork: ReportNextItem[] = [];
   // Chamados: os que ficaram de ontem (já iniciados) antes dos que acabaram de chegar.
   const startedFirst = [...open].sort((a, b) => Number(!isTaskStarted(a)) - Number(!isTaskStarted(b)));
   for (const d of startedFirst) {
     if (d.category === 'ciclo') {
-      // Os ciclos que já começaram até o dia do plano.
-      if (d.startDate > nextDate) continue;
       const parts: string[] = [CYCLE_STATUS_LABEL[d.status]];
       if (d.dueDate) parts.push(`prazo ${formatDayMonth(d.dueDate)} (${DEADLINE_LABEL[d.metrics.deadline].toLowerCase()})`);
       if (d.tracking.openBlockers > 0) parts.push('impedimento aberto');
-      nextCycles.push(nextItem(d, parts.join(' · ')));
+      // Os que já começaram até o dia do plano; os que só começam depois vêm em seguida, com a data (v0.14).
+      if (d.startDate > nextDate) {
+        parts.push(`começa em ${formatDayMonth(d.startDate)}`);
+        futureCycles.push(nextItem(d, parts.join(' · '), false, d.startDate));
+      } else nextCycles.push(nextItem(d, parts.join(' · ')));
     } else if (d.category === 'chamado' || d.category === 'treinamento') {
-      const detail = capitalize(shorten(tidyText(d.subtitle)));
+      let detail = capitalize(shorten(tidyText(d.subtitle)));
       const started = d.status !== 'nao_iniciado';
       // Todo chamado e treinamento aberto entra no plano; "novo" só no chamado ainda não iniciado e recém-declarado
       // (declarado no dia do relatório ou depois).
-      if (d.category === 'chamado') nextTickets.push(nextItem(d, detail, !started && isRecent(d)));
-      else nextTrainings.push(nextItem(d, detail));
+      if (d.category === 'chamado') {
+        if (d.status === 'em_espera') detail = `${detail}${detail ? ' ' : ''}(em espera)`;
+        nextTickets.push(nextItem(d, detail, !started && isRecent(d)));
+      } else nextTrainings.push(nextItem(d, detail));
+    } else if (d.category === 'atividade') {
+      // Atividades: lista à parte, fora da frase de planejamento (decisão 0009).
+      nextOtherWork.push(nextItem(d, capitalize(shorten(tidyText(d.subtitle)))));
     }
   }
+  nextCycles.push(...futureCycles);
 
   return {
     date,
@@ -343,7 +380,7 @@ export function buildDailyReport(input: DailyReportInput): DailyReport {
       resolved: blockerItems.filter((b) => b.resolvedAt === date).length,
       items: blockerItems,
     },
-    next: { date: nextDate, tickets: nextTickets, trainings: nextTrainings, cycles: nextCycles },
+    next: { date: nextDate, tickets: nextTickets, trainings: nextTrainings, cycles: nextCycles, otherWork: nextOtherWork },
   };
 }
 
@@ -399,6 +436,10 @@ const ticketText = (i: { label: string; subtitle?: string; detail?: string }, ex
   return `${i.label}${description ? ` – ${description}` : ''}${extra}`;
 };
 
+/** "Repasses (assunto X)", "Repasses (assuntos X e Y)" ou só o tipo, sem assunto. */
+export const meetingText = (m: ReportMeeting) =>
+  m.subjects.length ? `${m.label} (${m.subjects.length === 1 ? 'assunto' : 'assuntos'} ${joinList(m.subjects)})` : m.label;
+
 const cycleText = (i: ReportWorkItem) =>
   i.progress.length ? `${i.label} (${i.progress.map(lowerFirst).join('; ')})` : i.label;
 
@@ -426,7 +467,13 @@ export function doneDetail(done: DailyReport['done']): string {
   if (done.meetings.length) {
     const n = done.meetings.length;
     const who = done.people.length ? ` com ${joinList(done.people)}` : '';
-    clauses.push(inline(n) ? `entrei em reunião${who}` : `entrei em ${n} reuniões${who} (lista abaixo)`);
+    // Tipo e assunto de cada reunião: "reunião de Repasses (assunto X) e Daily".
+    const kinds = done.meetings.map(meetingText);
+    clauses.push(
+      inline(n)
+        ? `entrei em reunião de ${joinList(kinds, '; ')}${who}`
+        : `entrei em ${n} reuniões${who} (lista abaixo)`,
+    );
   }
   const tr = done.trainings;
   if (tr.length) {
@@ -457,6 +504,7 @@ export function selectedNext(next: DailyReport['next'], skip: SkipNext = new Set
     tickets: next.tickets.filter(keep),
     trainings: next.trainings.filter(keep),
     cycles: next.cycles.filter(keep),
+    otherWork: next.otherWork.filter(keep),
   };
 }
 
@@ -489,7 +537,7 @@ export function planSentence(next: DailyReport['next'], today: ISODate, skip?: S
     clauses.push(
       !inline(n)
         ? `atuarei nas ${n} demandas de ciclo da tabela abaixo`
-        : `atuarei ${n === 1 ? 'na demanda' : 'nas demandas'} ${joinList(s.cycles.map((i) => i.label))}`,
+        : `atuarei ${n === 1 ? 'na demanda' : 'nas demandas'} ${joinList(s.cycles.map((i) => (i.startsOn ? `${i.label} (começa em ${formatDayMonth(i.startsOn)})` : i.label)))}`,
     );
   }
   if (!clauses.length) return `${lead}, não há demandas em aberto.`;
@@ -541,7 +589,10 @@ export function dailyReportMarkdown(report: DailyReport, options: MarkdownOption
       lines.push('', ...table(['Chamado', 'Descrição', 'Situação'], d.tickets.map((i) => [i.label, i.subtitle, i.status])));
     }
     if (!inline(d.meetings.length)) {
-      lines.push('', ...d.meetings.map((m) => `- ${m.label} (com ${m.participants})`));
+      lines.push(
+        '',
+        ...d.meetings.map((m) => `- ${meetingText(m)}${m.participants.length ? ` (com ${joinList(m.participants)})` : ''}`),
+      );
     }
     if (!inline(d.trainings.length)) {
       lines.push('', ...d.trainings.map((i) => `- ${i.label} — ${i.status}`));
@@ -567,6 +618,7 @@ export function dailyReportMarkdown(report: DailyReport, options: MarkdownOption
   }
   if (!inline(s.trainings.length)) lines.push('', ...s.trainings.map((i) => `- ${i.label}`));
   if (!inline(s.cycles.length)) lines.push('', ...table(['Ciclo', 'Situação'], s.cycles.map((i) => [i.label, i.detail])));
+  if (s.otherWork.length) lines.push('', '**Outras atividades**', ...s.otherWork.map((i) => `- ${ticketText(i)}`));
   const open = report.blockers.items.filter((b) => b.resolvedAt === null);
   const notes = [
     ...open.map((b) => `- **${b.label}** — impedimento ${blockerText(b)}`),

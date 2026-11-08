@@ -10,6 +10,7 @@ import {
   DEMAND_CATEGORY_LABEL,
   DEMAND_EVENT_LABEL,
   DEMAND_KIND_LABEL,
+  meetingOccurrence,
   statusChangeText,
   TASK_STATUS_LABEL,
   waitingWorkdays,
@@ -19,7 +20,7 @@ import {
   type DemandSummary,
 } from './demands.ts';
 import { formatPeriodLabel, type PeriodWindow } from './period.ts';
-import type { ReportBlockerItem } from './report.ts';
+import { splitPeople, tidyText, uniqueTexts, type ReportBlockerItem } from './report.ts';
 import { formatDuration } from './time.ts';
 import type { Activity } from './types.ts';
 import { unplannedTime, type UnplannedTime } from './yield.ts';
@@ -50,8 +51,12 @@ export interface PeriodTaskItem {
 
 export interface PeriodMeeting {
   demandId: number;
+  /** O tipo da reunião. */
   label: string;
-  participants: string;
+  /** Assuntos das ocorrências do período, sem repetir. */
+  subjects: string[];
+  /** Com quem foram, sem repetir. */
+  participants: string[];
   /** Dias do período em que a reunião foi apontada. */
   occurrences: number;
 }
@@ -155,7 +160,22 @@ export function buildPeriodReport(input: PeriodReportInput): PeriodReport {
   const meetings: PeriodMeeting[] = [];
   for (const id of new Set(logged.map((a) => a.demandId!))) {
     const d = byId.get(id);
-    if (d?.category === 'reuniao') meetings.push({ demandId: d.id, label: d.label, participants: d.participants, occurrences: daysWith(d.id) });
+    if (d?.category !== 'reuniao') continue;
+    // v0.14: assunto e pessoas vêm dos apontamentos; na reunião antiga, da demanda.
+    const subjects: string[] = [];
+    const participants: string[] = [];
+    for (const a of logged.filter((x) => x.demandId === id)) {
+      const o = meetingOccurrence(a, d);
+      subjects.push(o.subject);
+      participants.push(...splitPeople(o.participants));
+    }
+    meetings.push({
+      demandId: d.id,
+      label: d.meetingType,
+      subjects: uniqueTexts(subjects.map(tidyText)),
+      participants: uniqueTexts(participants),
+      occurrences: daysWith(d.id),
+    });
   }
   meetings.sort((a, b) => b.occurrences - a.occurrences || a.label.localeCompare(b.label, 'pt-BR'));
 
@@ -224,6 +244,14 @@ export function unplannedText(u: UnplannedTime): string {
   return `${u.percent}% do tempo (${formatDuration(u.minutes)} de ${formatDuration(u.total)}) em ciclos intempestivos.`;
 }
 
+/** "Repasses — 3 vezes · assuntos: A, B · com: X, Y". */
+export function periodMeetingText(m: PeriodMeeting): string {
+  const parts = [count(m.occurrences, 'vez', 'vezes')];
+  if (m.subjects.length) parts.push(`${m.subjects.length === 1 ? 'assunto' : 'assuntos'}: ${m.subjects.join(', ')}`);
+  if (m.participants.length) parts.push(`com: ${m.participants.join(', ')}`);
+  return `${m.label} — ${parts.join(' · ')}`;
+}
+
 const taskLine = (i: PeriodTaskItem) =>
   `- **${i.label}** (${DEMAND_CATEGORY_LABEL[i.category]})${i.subtitle ? `: ${i.subtitle}` : ''} — ${i.status}`;
 
@@ -252,7 +280,7 @@ export function periodReportMarkdown(report: PeriodReport): string {
       lines.push(
         '',
         '**Reuniões**',
-        ...d.meetings.map((m) => `- ${m.label} (com ${m.participants}) — ${count(m.occurrences, 'vez', 'vezes')}`),
+        ...d.meetings.map((m) => `- ${periodMeetingText(m)}`),
       );
     }
   }

@@ -18,7 +18,7 @@ import {
 const TODAY = '2026-10-29'; // quinta
 const PERIOD = { start: '2026-10-23', end: '2026-10-29' };
 
-const ticket = (id: number, status: 'nao_iniciado' | 'iniciado' | 'em_andamento' | 'concluido'): Demand => ({
+const ticket = (id: number, status: 'nao_iniciado' | 'em_andamento' | 'em_espera' | 'concluido'): Demand => ({
   id,
   category: 'chamado',
   ticketNumber: `TESTE${id}`,
@@ -118,7 +118,7 @@ describe('tarefas: concluídas, fila e em andamento', () => {
   const demands: Demand[] = [
     ticket(1, 'nao_iniciado'),
     ticket(2, 'nao_iniciado'),
-    ticket(3, 'iniciado'),
+    ticket(3, 'em_espera'),
     ticket(4, 'em_andamento'),
     ticket(5, 'concluido'), // no período
     ticket(6, 'concluido'), // antes do período

@@ -27,6 +27,11 @@ ele ficava sem apontamento ou era encaixado numa categoria errada, o que distorc
    muda. Exportações de esquema 7 não importam mais (a importação exige a mesma versão do esquema): exporte de
    novo depois de atualizar.
 
+## Nota (v0.14)
+
+As atividades **abertas** passam a aparecer no plano do dia, numa lista à parte, "Outras atividades" (com a caixa para
+tirar antes de copiar), fora da frase de planejamento e dos números.
+
 ## Consequências
 
 - O relatório fica fiel ao que foi feito sem inflar os números; em troca, atividades não aparecem no plano do dia.

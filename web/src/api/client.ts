@@ -189,7 +189,7 @@ function useInvalidate() {
 export function useSaveActivity() {
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: ({ id, input }: { id?: number; input: ActivityInput }) =>
+    mutationFn: ({ id, input }: { id?: number; input: ActivityInput & { demandStatus?: string } }) =>
       id ? request<SaveResult>('PUT', `/activities/${id}`, input) : request<SaveResult>('POST', '/activities', input),
     onSuccess: invalidate,
   });
@@ -219,6 +219,16 @@ export function useSaveDemand() {
       id
         ? request<DemandSummary>('PUT', `/demands/${id}`, input)
         : request<DemandSummary>('POST', '/demands', input),
+    onSuccess: invalidate,
+  });
+}
+
+/** Troca só o status de uma demanda (a troca entra no histórico). */
+export function useSetDemandStatus() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) =>
+      request<DemandSummary>('PUT', `/demands/${id}/status`, { status }),
     onSuccess: invalidate,
   });
 }

@@ -73,9 +73,7 @@ describe('Painel', () => {
     const cycle = await api.call<DemandSummary>('POST', '/demands', { category: 'ciclo', title: 'Ciclo de exemplo', startDate: '2026-10-01' });
     const meeting = await api.call<DemandSummary>('POST', '/demands', {
       category: 'reuniao',
-      meetingType: 'Daily',
-      participants: 'Equipe Exemplo',
-      subject: 'Alinhamento fictício',
+      meetingType: 'Alinhamento fictício',
     });
     const log = (demandId: number, startMinute: number, endMinute: number) =>
       api.call('POST', '/activities', { date: '2026-10-27', startMinute, endMinute, demandId, description: '', notes: '' });

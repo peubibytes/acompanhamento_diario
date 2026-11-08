@@ -24,6 +24,8 @@ const log = (demandId: number | null, date: string, startMinute: number, endMinu
   project: 'Projeto fictício',
   description: '',
   notes: '',
+  participants: '',
+  subject: '',
   demandId,
 });
 

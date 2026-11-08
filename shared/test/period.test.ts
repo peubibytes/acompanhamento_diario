@@ -19,6 +19,8 @@ const activity = (id: number, date: string, startMinute: number, endMinute: numb
   project: 'Projeto fictício',
   description: '',
   notes: '',
+  participants: '',
+  subject: '',
   demandId: 1,
 });
 

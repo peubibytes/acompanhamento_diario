@@ -26,6 +26,33 @@ async function fillTicket() {
   await userEvent.type(screen.getByLabelText('Descrição'), 'Erro de exemplo');
 }
 
+describe('Declarar reunião (v0.14)', () => {
+  it('pede só o tipo: com quem e assunto ficam para o apontamento', async () => {
+    const onDone = vi.fn();
+    renderPage(<DemandForm category="reuniao" onDone={onDone} />);
+    expect(screen.queryByLabelText('Com quem')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Assunto')).not.toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText('Tipo de reunião'), 'Repasses');
+    await userEvent.click(screen.getByRole('button', { name: 'Declarar reunião' }));
+    expect(await screen.findByText('Reunião declarada.')).toBeInTheDocument();
+    expect(await api.call<DemandSummary[]>('GET', '/demands')).toMatchObject([{ category: 'reuniao', label: 'Repasses' }]);
+  });
+});
+
+describe('Status do chamado (v0.14)', () => {
+  it('o chamado oferece "Em espera" e não "Iniciado"; o treinamento mantém "Iniciado"', async () => {
+    const { unmount } = renderPage(<DemandForm category="chamado" onDone={() => {}} />);
+    expect(screen.getByRole('radio', { name: /Em espera/ })).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: /^Iniciado/ })).not.toBeInTheDocument();
+    unmount();
+
+    renderPage(<DemandForm category="treinamento" onDone={() => {}} />);
+    expect(screen.getByRole('radio', { name: /^Iniciado/ })).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: /Em espera/ })).not.toBeInTheDocument();
+  });
+});
+
 describe('Declarar chamado', () => {
   it('normaliza o número em maiúsculas, grava e fecha o painel', async () => {
     const onDone = vi.fn();

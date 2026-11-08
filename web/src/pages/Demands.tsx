@@ -12,7 +12,7 @@ import {
   isOpenDemand,
   TASK_CATEGORIES,
   TASK_STATUS_LABEL,
-  TASK_STATUSES,
+  statusesOf,
   WEEKDAY_SHORT,
   weekdayOf,
   type CycleStatus,
@@ -20,8 +20,9 @@ import {
   type DemandSummary,
   type TaskCategory,
   type TaskStatus,
+  type TicketStatus,
 } from '@acomp/shared';
-import { useDeleteDemand, useDemands, useSaveDemand } from '../api/client';
+import { useDeleteDemand, useDemands, useSaveDemand, useSetDemandStatus } from '../api/client';
 import { ActivityHistory, CycleTracking, IconButton } from '../components/DemandHistory';
 import { DemandForm } from '../components/DemandForms';
 import { categoryIcon, CycleStatusBadge, DeadlineBadge, taskStatusStyle } from '../components/DemandVisuals';
@@ -261,7 +262,7 @@ function DemandRow(row: RowProps) {
   const { demand: d, expanded, highlighted, onToggle } = row;
   const detailId = useId();
   const open = isOpenDemand(d);
-  const preview = d.category === 'reuniao' ? `com ${d.participants}` : d.description;
+  const preview = d.category === 'reuniao' ? (d.participants ? `com ${d.participants}` : '') : d.description;
 
   return (
     <li id={`demanda-${d.id}`} className={`group scroll-mt-24 ${highlighted ? 'bg-surface-2/70' : ''}`}>
@@ -357,15 +358,13 @@ function Logged({ demand: d }: { demand: DemandSummary }) {
 }
 
 /** Troca rápida do status de chamados, treinamentos e atividades, direto na linha. */
-function TaskStatusSelect({ demand, status }: { demand: DemandSummary; status: TaskStatus }) {
-  const save = useSaveDemand();
+function TaskStatusSelect({ demand, status }: { demand: DemandSummary; status: TaskStatus | TicketStatus }) {
+  const save = useSetDemandStatus();
   const toast = useToast();
   const style = taskStatusStyle[status];
-  const change = (next: TaskStatus) => {
-    const input = demandInputOf(demand);
-    if (input.category !== 'chamado' && input.category !== 'treinamento' && input.category !== 'atividade') return;
+  const change = (next: TaskStatus | TicketStatus) => {
     save.mutate(
-      { id: demand.id, input: { ...input, status: next } },
+      { id: demand.id, status: next },
       {
         onSuccess: () => toast(`Status: ${TASK_STATUS_LABEL[next]}.`),
         onError: (err) => toast(err.message, 'error'),
@@ -381,10 +380,10 @@ function TaskStatusSelect({ demand, status }: { demand: DemandSummary; status: T
       <select
         value={status}
         disabled={save.isPending}
-        onChange={(e) => change(e.target.value as TaskStatus)}
+        onChange={(e) => change(e.target.value as TaskStatus | TicketStatus)}
         className="cursor-pointer appearance-none bg-transparent pr-5 font-medium outline-none [&>option]:bg-surface [&>option]:text-ink"
       >
-        {TASK_STATUSES.map((s) => (
+        {(statusesOf(demand.category) as (TaskStatus | TicketStatus)[]).map((s) => (
           <option key={s} value={s}>
             {TASK_STATUS_LABEL[s]}
           </option>
@@ -432,8 +431,8 @@ function Details({ demand: d }: { demand: DemandSummary }) {
       {d.category === 'reuniao' && (
         <dl className="flex flex-wrap gap-x-8 gap-y-3">
           <Field label="Tipo">{d.meetingType}</Field>
-          <Field label="Com quem">{d.participants}</Field>
-          <Field label="Assunto">{d.subject}</Field>
+          {d.participants && <Field label="Com quem">{d.participants}</Field>}
+          {d.subject && <Field label="Assunto">{d.subject}</Field>}
         </dl>
       )}
       {d.category !== 'reuniao' && d.description && (

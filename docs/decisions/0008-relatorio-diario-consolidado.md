@@ -34,6 +34,11 @@ outra caixa, espaços e pontuação sobrando).
 7. **Saída sem introdução:** o Markdown começa no título "# Daily — dd/mm" e segue os dois tópicos, pronto para
    colar ou integrar. Regras em `shared/src/report.ts`; o relatório do período (seção 13) não muda.
 
+## Nota (v0.14)
+
+O plano passa a incluir os ciclos que só começam depois ("começa em dd/mm") e a situação do dia diz quando a demanda já foi
+reaberta ("Em andamento → Concluído (reaberto, agora Em andamento)").
+
 ## Consequências
 
 - A API `GET /api/reports/daily` muda de forma: `done.tasks` vira `done.tickets` e `done.trainings`, com

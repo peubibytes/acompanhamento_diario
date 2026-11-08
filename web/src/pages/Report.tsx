@@ -3,6 +3,8 @@ import { Link, useSearchParams } from 'react-router';
 import {
   dailyReportMarkdown,
   doneDetail,
+  joinList,
+  meetingText,
   doneHeadline,
   doneTitle,
   formatDayMonth,
@@ -323,7 +325,8 @@ function DoneSection({ report, today }: { report: DailyReport; today: ISODate })
                   <li key={m.demandId} className="flex items-center gap-2">
                     <span className="shrink-0 text-ink-3">{categoryIcon.reuniao(15)}</span>
                     <span className="min-w-0 text-ink">
-                      {m.label} <span className="text-ink-3">com {m.participants}</span>
+                      {meetingText(m)}
+                      {m.participants.length > 0 && <span className="text-ink-3"> com {joinList(m.participants)}</span>}
                     </span>
                   </li>
                 ))}
@@ -396,6 +399,7 @@ function NextSection({
   const chosen = selectedNext(next, skip);
   const openBlockers = report.blockers.items.filter((b) => b.resolvedAt === null);
   const hasItems = next.tickets.length + next.trainings.length + next.cycles.length > 0;
+  const hasOtherWork = next.otherWork.length > 0;
 
   const row = (key: SkipKey, content: ReactNode) => (
     <li key={String(key)}>
@@ -438,6 +442,13 @@ function NextSection({
             {next.trainings.map(item)}
             {next.cycles.map(item)}
           </ul>
+        </div>
+      )}
+      {/* Atividades abertas: lista à parte, fora da frase de planejamento (decisão 0009). */}
+      {hasOtherWork && (
+        <div className="mt-5 border-t border-line pt-5">
+          <h3 className={GROUP}>Outras atividades</h3>
+          <ul className="space-y-2.5">{next.otherWork.map(item)}</ul>
         </div>
       )}
       <div className="hidden print:block">

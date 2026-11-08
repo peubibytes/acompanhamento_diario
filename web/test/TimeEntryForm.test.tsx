@@ -59,6 +59,53 @@ describe('Formulário de apontamento', () => {
     expect(await api.call<Activity[]>('GET', `/activities?date=${TODAY}`)).toEqual([]);
   });
 
+  it('com uma reunião escolhida pedem-se "Com quem" e "Assunto"; nas outras demandas, não', async () => {
+    const meeting = await api.call<DemandSummary>('POST', '/demands', { category: 'reuniao', meetingType: 'Repasses' });
+    const training = await declareTraining();
+    renderPage(<TimeEntryForm date={TODAY} suggestedStart='09:00' onDone={() => {}} />);
+
+    await chooseDemand(training);
+    expect(screen.queryByLabelText(/Com quem/)).not.toBeInTheDocument();
+    await chooseDemand(meeting);
+    await userEvent.type(screen.getByLabelText(/Com quem/), 'Equipe Exemplo');
+    await userEvent.type(screen.getByLabelText(/Assunto/), 'Contexto do projeto');
+    setTime('Fim', '09:30');
+    await userEvent.click(screen.getByRole('button', { name: 'Adicionar apontamento' }));
+
+    expect(await screen.findByText('Apontamento registrado.')).toBeInTheDocument();
+    const saved = await api.call<Activity[]>('GET', `/activities?date=${TODAY}`);
+    expect(saved).toMatchObject([{ demandId: meeting.id, participants: 'Equipe Exemplo', subject: 'Contexto do projeto' }]);
+  });
+
+  it('troca o status da demanda pelo apontamento e Demandas passa a mostrar o novo', async () => {
+    const ticket = await api.call<DemandSummary>('POST', '/demands', { category: 'chamado', ticketNumber: 'TESTE-5', description: 'Fictício' });
+    renderPage(<TimeEntryForm date={TODAY} suggestedStart='09:00' onDone={() => {}} />);
+
+    await chooseDemand(ticket);
+    const status = screen.getByLabelText('Status da demanda');
+    // Chamado: sem "Iniciado", com "Em espera".
+    expect(Array.from((status as HTMLSelectElement).options).map((o) => o.textContent)).toEqual([
+      'Não iniciado',
+      'Em andamento',
+      'Em espera',
+      'Concluído',
+    ]);
+    await userEvent.selectOptions(status, 'em_espera');
+    setTime('Fim', '09:30');
+    await userEvent.click(screen.getByRole('button', { name: 'Adicionar apontamento' }));
+
+    expect(await screen.findByText('Apontamento registrado.')).toBeInTheDocument();
+    const demands = await api.call<DemandSummary[]>('GET', '/demands');
+    expect(demands).toMatchObject([{ id: ticket.id, status: 'em_espera' }]);
+  });
+
+  it('o status mostrado é o de agora, mesmo depois de uma troca feita em outro lugar', async () => {
+    const ticket = await api.call<DemandSummary>('POST', '/demands', { category: 'chamado', ticketNumber: 'TESTE-6', description: 'Fictício' });
+    renderPage(<TimeEntryForm date={TODAY} suggestedStart='09:00' onDone={() => {}} />);
+    await chooseDemand(ticket);
+    expect(screen.getByLabelText('Status da demanda')).toHaveValue('nao_iniciado');
+  });
+
   it('grava o apontamento na demanda escolhida, com a duração ao vivo', async () => {
     const demand = await declareTraining();
     const onDone = vi.fn();

@@ -2,7 +2,7 @@
 
 import type { Express } from 'express';
 import { z } from 'zod';
-import { daysBetween, demandLabel, formatHM, isWorkday, type ISODate } from '@acomp/shared';
+import { daysBetween, demandLabel, formatHM, isWorkday, statusesOf, type DemandCategory, type ISODate } from '@acomp/shared';
 import { badRequest, idSchema, isoDate, type RouteContext } from '../http.ts';
 import type { Repo } from '../repo.ts';
 
@@ -15,6 +15,11 @@ const activitySchema = z
     demandId: z.int('Escolha a demanda apontada.').positive('Escolha a demanda apontada.'),
     description: z.string().trim().max(2000).default(''),
     notes: z.string().trim().max(2000).default(''),
+    // Reunião (v0.14): com quem e assunto desta ocorrência. Ignorados nas demais demandas.
+    participants: z.string().trim().max(200).default(''),
+    subject: z.string().trim().max(200).default(''),
+    // Status novo para a demanda, gravado junto (v0.14): tudo ou nada.
+    demandStatus: z.string().optional(),
   })
   .refine((a) => a.endMinute > a.startMinute, {
     message: 'O horário de fim deve ser depois do início.',
@@ -26,6 +31,21 @@ const rangeSchema = z
   .refine((r) => r.to >= r.from, { message: 'O fim não pode ser anterior ao início.', path: ['to'] })
   .refine((r) => daysBetween(r.from, r.to) <= 61, { message: 'Intervalo muito longo (máximo 62 dias).', path: ['to'] });
 
+/** Status pedido junto ao apontamento: nulo se não veio; Error se a categoria não o aceita. */
+function checkStatus(category: DemandCategory, status: string | undefined): string | null | Error {
+  if (status === undefined) return null;
+  return statusesOf(category).includes(status) ? status : new Error('Status inválido para este tipo de demanda.');
+}
+
+/** Com quem e assunto só valem em reunião; nas outras demandas ficam vazios. */
+function occurrenceFields<T extends { participants: string; subject: string; demandStatus?: string }>(
+  data: T,
+  category: string,
+): Omit<T, 'demandStatus'> {
+  const { demandStatus: _ignored, ...rest } = data;
+  return category === 'reuniao' ? rest : { ...rest, participants: '', subject: '' };
+}
+
 function overlapWarnings(repo: Repo, a: { date: ISODate; startMinute: number; endMinute: number }, id?: number) {
   return repo
     .findOverlaps(a, id)
@@ -35,7 +55,7 @@ function overlapWarnings(repo: Repo, a: { date: ISODate; startMinute: number; en
     );
 }
 
-export function registerActivityRoutes(app: Express, { repo }: RouteContext) {
+export function registerActivityRoutes(app: Express, { repo, today }: RouteContext) {
   app.get('/api/activities', (req, res) => {
     // Faixa de datas (Painel, distribuição do mês): `from` e `to`, no máximo 62 dias.
     if (req.query.from !== undefined || req.query.to !== undefined) {
@@ -54,8 +74,16 @@ export function registerActivityRoutes(app: Express, { repo }: RouteContext) {
     const demand = repo.getDemand(body.data.demandId);
     if (!demand) return res.status(400).json({ error: 'Demanda não encontrada.' });
 
+    const status = checkStatus(demand.category, body.data.demandStatus);
+    if (status instanceof Error) return res.status(400).json({ error: status.message });
+
     const warnings = overlapWarnings(repo, body.data);
-    res.status(201).json({ activity: repo.createActivity({ ...body.data, project: demandLabel(demand) }), warnings });
+    const activity = repo.transaction(() => {
+      const created = repo.createActivity({ ...occurrenceFields(body.data, demand.category), project: demandLabel(demand) });
+      if (status) repo.setDemandStatus(demand.id, status, today());
+      return created;
+    });
+    res.status(201).json({ activity, warnings });
   });
 
   app.put('/api/activities/:id', (req, res) => {
@@ -66,7 +94,14 @@ export function registerActivityRoutes(app: Express, { repo }: RouteContext) {
     const demand = repo.getDemand(body.data.demandId);
     if (!demand) return res.status(400).json({ error: 'Demanda não encontrada.' });
 
-    const activity = repo.updateActivity(id.data, { ...body.data, project: demandLabel(demand) });
+    const status = checkStatus(demand.category, body.data.demandStatus);
+    if (status instanceof Error) return res.status(400).json({ error: status.message });
+
+    const activity = repo.transaction(() => {
+      const updated = repo.updateActivity(id.data, { ...occurrenceFields(body.data, demand.category), project: demandLabel(demand) });
+      if (updated && status) repo.setDemandStatus(demand.id, status, today());
+      return updated;
+    });
     if (!activity) return res.status(404).json({ error: 'Atividade não encontrada.' });
     res.json({ activity, warnings: overlapWarnings(repo, body.data, id.data) });
   });

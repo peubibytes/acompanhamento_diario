@@ -25,6 +25,8 @@ interface ActivityRow {
   project: string;
   description: string;
   notes: string;
+  participants: string;
+  subject: string;
   demand_id: number | null;
 }
 
@@ -74,6 +76,8 @@ const toActivity = (r: ActivityRow): Activity => ({
   project: r.project,
   description: r.description,
   notes: r.notes,
+  participants: r.participants,
+  subject: r.subject,
   demandId: r.demand_id,
 });
 
@@ -104,7 +108,7 @@ function toDemand(r: DemandRow): Demand {
         status: r.status as Extract<Demand, { category: 'chamado' }>['status'],
       };
     case 'reuniao':
-      return { id: r.id, category: 'reuniao', meetingType: r.meeting_type!, participants: r.participants!, subject: r.title };
+      return { id: r.id, category: 'reuniao', meetingType: r.meeting_type!, participants: r.participants ?? '', subject: r.title };
     case 'treinamento':
       return {
         id: r.id,
@@ -214,11 +218,12 @@ export function createRepo(db: DatabaseSync) {
     ),
     byId: db.prepare('SELECT * FROM activities WHERE id = ?'),
     insert: db.prepare(`
-      INSERT INTO activities (date, start_minute, end_minute, project, description, notes, demand_id)
-      VALUES (:date, :startMinute, :endMinute, :project, :description, :notes, :demandId)`),
+      INSERT INTO activities (date, start_minute, end_minute, project, description, notes, participants, subject, demand_id)
+      VALUES (:date, :startMinute, :endMinute, :project, :description, :notes, :participants, :subject, :demandId)`),
     update: db.prepare(`
       UPDATE activities SET date = :date, start_minute = :startMinute, end_minute = :endMinute,
         project = :project, description = :description, notes = :notes,
+        participants = :participants, subject = :subject,
         demand_id = :demandId, updated_at = CURRENT_TIMESTAMP
       WHERE id = :id`),
     remove: db.prepare('DELETE FROM activities WHERE id = ?'),
@@ -254,6 +259,7 @@ export function createRepo(db: DatabaseSync) {
         status = :status, start_date = :startDate, due_date = :dueDate, branch = :branch, pr_url = :prUrl,
         environment = :environment, updated_at = CURRENT_TIMESTAMP
       WHERE id = :id AND category = :category`),
+    setStatus: db.prepare('UPDATE demands SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'),
     ticketByNumber: db.prepare(
       "SELECT id FROM demands WHERE category = 'chamado' AND ticket_number = ? AND id <> ?",
     ),
@@ -307,6 +313,28 @@ export function createRepo(db: DatabaseSync) {
   };
 
   return {
+    /** Roda `fn` numa transação (tudo ou nada). Não aninha. */
+    transaction<T>(fn: () => T): T {
+      db.exec('BEGIN');
+      try {
+        const result = fn();
+        db.exec('COMMIT');
+        return result;
+      } catch (err) {
+        db.exec('ROLLBACK');
+        throw err;
+      }
+    },
+
+    /** Troca o status da demanda, com a troca no histórico (data de `today`). Nada se não mudou. Fora de transação própria. */
+    setDemandStatus(id: number, status: string, today: ISODate): void {
+      const before = this.getDemand(id);
+      const from = before ? statusOf(before) : null;
+      if (!before || !from || from === status) return;
+      q.setStatus.run(status, id);
+      q.insertStatusChange.run({ demandId: id, from, to: status, date: today });
+    },
+
     /** Todas as tabelas num arquivo só (ver transfer.ts). */
     exportData(now = new Date()) {
       return exportDatabase(db, now);
@@ -343,12 +371,12 @@ export function createRepo(db: DatabaseSync) {
 
     /** Grava o apontamento; `project` é o nome da demanda, mantido como na planilha. */
     createActivity(input: ActivityInput & { project: string }): Activity {
-      const { lastInsertRowid } = q.insert.run({ ...input });
+      const { lastInsertRowid } = q.insert.run({ participants: '', subject: '', ...input });
       return this.getActivity(Number(lastInsertRowid))!;
     },
 
     updateActivity(id: number, input: ActivityInput & { project: string }): Activity | undefined {
-      const { changes } = q.update.run({ ...input, id });
+      const { changes } = q.update.run({ participants: '', subject: '', ...input, id });
       return changes ? this.getActivity(id) : undefined;
     },
 

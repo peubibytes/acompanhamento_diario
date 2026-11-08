@@ -71,14 +71,21 @@ describe('Relatório', () => {
     });
     const meeting = await api.call<DemandSummary>('POST', '/demands', {
       category: 'reuniao',
-      meetingType: 'Daily',
-      participants: 'Equipe Exemplo',
-      subject: 'Status',
+      meetingType: 'Repasses',
     });
     const cycle = await api.call<DemandSummary>('POST', '/demands', { category: 'ciclo', title: 'Ciclo de exemplo', startDate: '2026-10-01' });
     const log = (demandId: number, startMinute: number, endMinute: number, description: string) =>
       api.call('POST', '/activities', { date: '2026-10-27', startMinute, endMinute, demandId, description, notes: '' });
-    await log(meeting.id, 540, 555, '');
+    await api.call('POST', '/activities', {
+      date: '2026-10-27',
+      startMinute: 540,
+      endMinute: 555,
+      demandId: meeting.id,
+      description: '',
+      notes: '',
+      participants: 'Equipe Exemplo',
+      subject: 'Status',
+    });
     await log(ticket.id, 555, 600, 'Análise');
     await log(cycle.id, 600, 750, 'ajuste das consultas');
 
@@ -90,7 +97,7 @@ describe('Relatório', () => {
     ).toBeInTheDocument();
     expect(
       done.getByText(
-        'Atendi ao chamado TESTE-1 – Erro fictício na tela, entrei em reunião com Equipe Exemplo e fiz minhas ' +
+        'Atendi ao chamado TESTE-1 – Erro fictício na tela, entrei em reunião de Repasses (assunto Status) com Equipe Exemplo e fiz minhas ' +
           'demandas de ciclo: Ciclo de exemplo (ajuste das consultas).',
       ),
     ).toBeInTheDocument();

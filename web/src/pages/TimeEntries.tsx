@@ -329,7 +329,10 @@ function EntryRow({ grouped = false, ...row }: RowProps & { grouped?: boolean })
               <span className="shrink-0 text-ink-3">
                 {demand ? categoryIcon[demand.category](15) : <AlertIcon size={15} className="text-warning-text" />}
               </span>
-              <span className="truncate text-sm font-semibold text-ink">{demand?.label ?? a.project}</span>
+              <span className="truncate text-sm font-semibold text-ink">
+                {demand?.label ?? a.project}
+                {a.subject && <span className="ml-1.5 font-normal text-ink-3">· {a.subject}</span>}
+              </span>
             </span>
           )}
           <span className="tabular shrink-0 text-right">
@@ -357,6 +360,7 @@ function EntryRow({ grouped = false, ...row }: RowProps & { grouped?: boolean })
               Apontamento antigo, sem demanda. Edite para escolher a demanda declarada.
             </p>
           )}
+          {a.participants && <p className="text-xs text-ink-3">Com {a.participants}</p>}
           {a.description && <p className="text-sm whitespace-pre-line text-ink-2">{a.description}</p>}
           {a.notes && <p className="text-sm text-ink-3">↳ {a.notes}</p>}
           <div className="flex flex-wrap items-center justify-between gap-2">

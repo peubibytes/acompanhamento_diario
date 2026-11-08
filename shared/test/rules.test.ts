@@ -25,6 +25,8 @@ function act(date: string, start: string, end: string, demandId: number | null =
     project: 'Projeto',
     description: '',
     notes: '',
+    participants: '',
+    subject: '',
     demandId,
   };
 }
