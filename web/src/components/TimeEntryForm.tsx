@@ -2,12 +2,9 @@ import { useEffect, useId, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import {
-  DEMAND_CATEGORIES,
   DEMAND_CATEGORY_LABEL,
-  DEMAND_CATEGORY_PLURAL,
   formatDuration,
   formatHM,
-  isOpenDemand,
   parseHM,
   statusesOf,
   statusLabel,
@@ -16,7 +13,8 @@ import {
   type ISODate,
 } from '@acomp/shared';
 import { useDemand, useDemands, useSaveActivity } from '../api/client';
-import { CategoryAvatar, categoryIcon, LoggedSummary } from './DemandVisuals';
+import { CategoryAvatar, LoggedSummary } from './DemandVisuals';
+import { DemandPicker } from './DemandPicker';
 import { Field } from './Field';
 import { AlertIcon, ArrowRight, ClockIcon } from './icons';
 import { useToast } from './Toast';
@@ -32,9 +30,6 @@ interface Props {
   /** Avisa o painel quando há algo digitado que se perderia ao fechar. */
   onDirtyChange?: (dirty: boolean) => void;
 }
-
-const MAX_RECENT = 5;
-const shorten = (text: string, max = 48) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 
 /** Texto de exemplo do "o que foi feito", conforme o tipo da demanda escolhida. */
 const DONE_PLACEHOLDER: Record<DemandSummary['category'], string> = {
@@ -52,7 +47,6 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone, onDirtyCh
   const demands = useDemands();
 
   const [demandId, setDemandId] = useState<number | null>(editing?.demandId ?? null);
-  const [showClosed, setShowClosed] = useState(false);
   const [start, setStart] = useState(editing ? formatHM(editing.startMinute) : suggestedStart);
   const [end, setEnd] = useState(editing ? formatHM(editing.endMinute) : '');
   const [description, setDescription] = useState(editing?.description ?? '');
@@ -89,17 +83,6 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone, onDirtyCh
         .concat(chosen?.category === 'reuniao' && chosen.participants ? [chosen.participants] : []),
     ),
   ];
-  // Abertas; as encerradas só a pedido (ou se já forem a escolhida).
-  const options = all.filter((d) => isOpenDemand(d) || showClosed || d.id === demandId);
-  const hasClosed = all.some((d) => !isOpenDemand(d));
-  const recent = all
-    .filter((d) => isOpenDemand(d) && d.metrics.lastActivityDate)
-    .sort(
-      (a, b) =>
-        b.metrics.lastActivityDate!.localeCompare(a.metrics.lastActivityDate!) || b.metrics.activityCount - a.metrics.activityCount,
-    )
-    .slice(0, MAX_RECENT);
-
   const startMin = parseHM(start);
   const endMin = parseHM(end);
   const duration = startMin !== null && endMin !== null ? endMin - startMin : null;
@@ -191,35 +174,9 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone, onDirtyCh
         </p>
       )}
 
-      <Field label="Demanda">
-        <select
-          required
-          value={demandId ?? ''}
-          onChange={(e) => chooseDemand(e.target.value ? Number(e.target.value) : null)}
-          className="field"
-        >
-          <option value="">Escolha o que foi feito…</option>
-          {DEMAND_CATEGORIES.map((c) => {
-            const group = options.filter((d) => d.category === c);
-            return (
-              group.length > 0 && (
-                <optgroup key={c} label={DEMAND_CATEGORY_PLURAL[c]}>
-                  {group.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.label}
-                      {d.subtitle && d.category !== 'reuniao' ? ` — ${shorten(d.subtitle)}` : ''}
-                      {d.category === 'reuniao' && d.subtitle ? ` (${d.subtitle})` : ''}
-                      {isOpenDemand(d) ? '' : ' · encerrada'}
-                    </option>
-                  ))}
-                </optgroup>
-              )
-            );
-          })}
-        </select>
-      </Field>
+      <DemandPicker demands={all} value={demandId} onChange={chooseDemand} />
 
-      {chosen ? (
+      {chosen && (
         <div className="-mt-1 flex items-start gap-2.5 rounded-xl bg-surface-2 px-3 py-2.5">
           <CategoryAvatar category={chosen.category} size={28} />
           <div className="min-w-0 flex-1">
@@ -256,46 +213,7 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone, onDirtyCh
             </div>
           )}
         </div>
-      ) : (
-        recent.length > 0 && (
-          <div className="-mt-1">
-            <p className="mb-1.5 text-2xs font-semibold tracking-wider text-ink-3 uppercase">Recentes</p>
-            <div className="flex flex-wrap gap-1.5">
-              {recent.map((d) => (
-                <button
-                  key={d.id}
-                  type="button"
-                  onClick={() => chooseDemand(d.id)}
-                  title={d.subtitle || d.label}
-                  className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-line px-3 py-1 text-xs font-medium text-ink-2 transition hover:border-accent hover:bg-accent-soft hover:text-accent"
-                >
-                  <span className="shrink-0">{categoryIcon[d.category](13)}</span>
-                  <span className="truncate">{shorten(d.label, 32)}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )
       )}
-
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-        {hasClosed ? (
-          <label className="inline-flex cursor-pointer items-center gap-2 text-ink-2">
-            <input
-              type="checkbox"
-              checked={showClosed}
-              onChange={(e) => setShowClosed(e.target.checked)}
-              className="size-3.5 accent-[var(--accent)]"
-            />
-            Mostrar encerradas
-          </label>
-        ) : (
-          <span />
-        )}
-        <Link to="/demandas" className="font-semibold text-accent hover:underline">
-          Declarar nova demanda
-        </Link>
-      </div>
 
       <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-3">
         <Field label="Início">

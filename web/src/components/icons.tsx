@@ -132,6 +132,12 @@ export const ChevronDown = (p: IconProps) => (
     <path d="M6 9l6 6 6-6" />
   </Icon>
 );
+export const SearchIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="11" cy="11" r="7" />
+    <path d="M20 20l-3.5-3.5" />
+  </Icon>
+);
 export const PlusIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M12 5v14M5 12h14" />

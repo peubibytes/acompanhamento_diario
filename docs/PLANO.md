@@ -213,7 +213,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 2. **Apontamentos (`/apontamentos`; `/atividades` redireciona)** — abas Sex/Seg/Ter/Qua/Qui
    (dia, horas e uma barrinha de progresso); mostra só o dia escolhido: resumo do dia em uma
    linha, e a lista (por horário ou por demanda) ocupando a tela. O formulário (demanda, início,
-   fim, duração ao vivo, o que foi feito, observações, status) abre num painel deslizante pelo
+   fim, duração ao vivo, o que foi feito, observações, status; a demanda se escolhe num seletor com busca) abre num painel deslizante pelo
    botão "Novo apontamento" ou ao editar. Ver seção 9.
 3. **Demandas (`/demandas`)** — uma barra só: abas **Tarefas | Ciclo** (com a contagem dos
    abertos), o tipo da tarefa (chamado, reunião ou treinamento) num menu, e o status (em
@@ -257,6 +257,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 | 14 | v0.12: relatório só com o que houve (sem "0 reuniões"), campo "Apontar" para horários sobrepostos (decisão 0010) e categoria Atividade (decisão 0009; migração 8) | ✅ |
 | 15 | v0.13: preset de meta 8h48 → 9h, Distribuição sem "Outros" e relatório diário sem "Na fila" (decisão 0011) | ✅ |
 | 16 | v0.14: reunião só pelo tipo (decisão 0012), chamado "Em espera" no lugar de "Iniciado" (0013), status pelo apontamento, ciclo reaberto no relatório e plano com ciclos futuros e atividades (migração 9) | ✅ |
+| 17 | v0.15: seletor de demanda com busca no apontamento (decisão 0014) | ✅ |
 | — | Integração com o Azure | futuro |
 | — | Integração com o Google Agenda (reuniões do dia → sugestões de apontamento) | futuro |
 
@@ -482,9 +483,13 @@ cada dia, um chamado retomado à tarde) aparece reunida.
   em outra demanda. O tipo de uma demanda não muda depois de declarado.
 
 ### Apontamentos (`/apontamentos`)
-- O formulário começa pela **demanda** (obrigatória), agrupada por tipo; mostra as encerradas só
-  a pedido e oferece atalhos para as usadas recentemente. Depois: início, fim, o que foi feito,
-  e observações. O status da demanda aparece só para leitura (ele se altera em Demandas).
+- O formulário começa pela **demanda** (obrigatória), escolhida num **seletor com busca** (v0.15, `docs/decisions/0014`):
+  aberto, traz a busca (nome, número, descrição e, nas reuniões, tipo, assunto e pessoas; sem diferenciar maiúsculas nem
+  acentos; vários termos = todos), pílulas de tipo com contagem, as 5 abertas apontadas mais recentemente em "Recentes" e
+  grupos por tipo (a mais recente primeiro; com busca, por relevância). Cada opção mostra o ícone, o nome, o status, o
+  começo da descrição e "última vez" (ciclos com prazo próximo ou vencido levam o selo de prazo). As encerradas ficam
+  fora até "Mostrar N encerradas" (ou aparecem sozinhas se forem o único resultado). Teclado: ↑/↓, Enter, Esc; no celular
+  ocupa a tela. Depois: início, fim, o que foi feito e observações. O status da demanda se altera num seletor (v0.14).
 - A lista do dia pode ser vista **por horário** ou **por demanda** (cada demanda com o total do dia
   e os horários em que aconteceu). A escolha fica salva no navegador.
 - **Apontar (v0.12, `docs/decisions/0010`):** cada apontamento mostra "Apontar X", o que lançar no Azure. O trecho em

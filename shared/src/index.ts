@@ -1,5 +1,6 @@
 export * from './breakdown.ts';
 export * from './cycle.ts';
+export * from './demandSearch.ts';
 export * from './demands.ts';
 export * from './layout.ts';
 export * from './metrics.ts';
