@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import {
   DEMAND_CATEGORIES,
+  DEMAND_CATEGORY_LABEL,
   DEMAND_CATEGORY_PLURAL,
   DEMAND_ENVIRONMENT_LABEL,
   DEMAND_KIND_LABEL,
@@ -24,7 +25,7 @@ import {
 import { useDeleteDemand, useDemands, useSaveDemand, useSetDemandStatus } from '../api/client';
 import { ActivityHistory, CycleTracking, IconButton } from '../components/DemandHistory';
 import { DemandForm } from '../components/DemandForms';
-import { categoryIcon, CycleStatusBadge, DeadlineBadge, taskStatusStyle } from '../components/DemandVisuals';
+import { categoryIcon, categoryInk, CycleStatusBadge, DeadlineBadge, taskStatusStyle } from '../components/DemandVisuals';
 import { CategoryFilter } from '../components/CategoryFilter';
 import { CheckIcon, ChevronDown, HourglassIcon, PencilIcon, PlusIcon, TrashIcon, UndoIcon } from '../components/icons';
 import { PageHeader } from '../components/PageHeader';
@@ -262,16 +263,22 @@ function DemandRow(row: RowProps) {
           aria-expanded={expanded}
           aria-controls={detailId}
           onClick={onToggle}
-          className="group/title relative flex min-w-0 flex-1 basis-56 items-center gap-3 rounded-xl px-3 py-3 text-left outline-none transition hover:bg-surface-2/60 focus-visible:ring-2 focus-visible:ring-accent"
+          className="group/title relative flex min-w-0 flex-1 basis-56 items-center gap-3 rounded-control px-3 py-2.5 text-left outline-none transition hover:bg-surface-2/60 focus-visible:ring-2 focus-visible:ring-accent"
         >
           <ChevronDown size={15} className={`shrink-0 text-ink-3 transition ${expanded ? '' : '-rotate-90'}`} />
-          <span className="shrink-0 text-ink-3">{categoryIcon[d.category](16)}</span>
-          <span
-            className={`min-w-0 truncate text-sm font-semibold text-ink ${d.category === 'chamado' ? 'tabular tracking-wide' : ''} ${
-              open ? '' : 'line-through decoration-ink-3'
-            }`}
-          >
-            {d.label}
+          <span className="shrink-0" style={{ color: categoryInk[d.category] }} title={DEMAND_CATEGORY_LABEL[d.category]}>
+            {categoryIcon[d.category](16)}
+          </span>
+          {/* O nome e, embaixo, o começo da descrição: cinco chamados deixam de ser cinco números iguais. */}
+          <span className="flex min-w-0 flex-col">
+            <span
+              className={`min-w-0 truncate text-sm font-semibold text-ink ${d.category === 'chamado' ? 'num' : ''} ${
+                open ? '' : 'line-through decoration-ink-3'
+              }`}
+            >
+              {d.label}
+            </span>
+            {preview && !expanded && <span className="min-w-0 truncate text-xs text-ink-3">{preview.split('\n')[0]}</span>}
           </span>
           {preview && !expanded && (
             <span
@@ -340,7 +347,7 @@ function Logged({ demand: d }: { demand: DemandSummary }) {
   const m = d.metrics;
   const text = m.activityCount === 0 ? 'Nenhum apontamento' : `${m.activityCount} ${m.activityCount === 1 ? 'apontamento' : 'apontamentos'}`;
   return (
-    <span className="tabular w-14 shrink-0 text-right text-sm font-semibold text-ink" title={text}>
+    <span className="num w-14 shrink-0 text-right text-sm font-medium text-ink" title={text}>
       {m.activityCount === 0 ? <span className="font-normal text-ink-3">—</span> : formatDuration(m.logged)}
       <span className="sr-only"> ({text})</span>
     </span>
@@ -363,7 +370,7 @@ function TaskStatusSelect({ demand, status }: { demand: DemandSummary; status: T
   };
   return (
     <label
-      className={`relative inline-flex shrink-0 items-center gap-1.5 rounded-full py-1 pr-1 pl-2.5 text-xs font-medium has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent ${style.badge}`}
+      className={`relative inline-flex shrink-0 items-center gap-1.5 rounded-badge py-0.5 pr-1 pl-1.5 text-xs font-medium has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent ${style.badge}`}
     >
       {style.icon(13)}
       <span className="sr-only">Status</span>
@@ -387,7 +394,7 @@ function TaskStatusSelect({ demand, status }: { demand: DemandSummary; status: T
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <dt className="text-2xs font-semibold tracking-wider text-ink-3 uppercase">{label}</dt>
+      <dt className="text-xs font-medium text-ink-3">{label}</dt>
       <dd className="mt-0.5 text-sm text-ink">{children}</dd>
     </div>
   );
@@ -469,27 +476,17 @@ function DemandActions({ demand: d, onEdit, onDeleted, className }: RowProps & {
             <span className="mr-1 max-w-56 text-xs text-ink-2">
               Tem {count === 1 ? '1 apontamento' : `${count} apontamentos`}. Exclua-os ou aponte em outra demanda antes.
             </span>
-            <button
-              onClick={() => setConfirming(false)}
-              className="rounded-full px-3 py-1 text-xs font-semibold text-ink-2 hover:bg-surface-2"
-            >
+            <button onClick={() => setConfirming(false)} className="btn-ghost btn-sm">
               Entendi
             </button>
           </>
         ) : (
           <>
             <span className="mr-1 text-xs text-ink-2">Excluir?</span>
-            <button
-              onClick={doRemove}
-              disabled={remove.isPending}
-              className="rounded-full bg-critical px-3 py-1 text-xs font-semibold text-white hover:brightness-110"
-            >
+            <button onClick={doRemove} disabled={remove.isPending} className="btn-danger btn-sm">
               Sim
             </button>
-            <button
-              onClick={() => setConfirming(false)}
-              className="rounded-full px-3 py-1 text-xs font-semibold text-ink-2 hover:bg-surface-2"
-            >
+            <button onClick={() => setConfirming(false)} className="btn-ghost btn-sm">
               Não
             </button>
           </>
@@ -502,7 +499,7 @@ function DemandActions({ demand: d, onEdit, onDeleted, className }: RowProps & {
                 isOpenDemand(d) ? setCycleStatus('concluido', 'Ciclo concluído.') : setCycleStatus('em_andamento', 'Ciclo reaberto.')
               }
               disabled={save.isPending}
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+              className={`inline-flex items-center gap-1.5 rounded-control px-2.5 py-1 text-xs font-medium transition ${
                 isOpenDemand(d) ? 'bg-good-soft text-good-text hover:brightness-95' : 'text-ink-2 hover:bg-surface-2'
               }`}
             >
@@ -525,10 +522,16 @@ function DemandActions({ demand: d, onEdit, onDeleted, className }: RowProps & {
 function EmptyList({ category, filtered }: { category: DemandCategory; filtered: boolean }) {
   return (
     <div className="card flex flex-col items-center px-6 py-14 text-center">
-      <span className="grid size-10 place-items-center rounded-full bg-surface-2 text-ink-2">
+      <span
+        className="grid size-10 place-items-center rounded-control bg-surface-2 text-ink-2"
+        style={filtered ? undefined : { color: categoryInk[category] }}
+      >
         {filtered ? <PlusIcon size={20} /> : categoryIcon[category](20)}
       </span>
       <p className="mt-3 text-sm font-semibold text-ink">{filtered ? 'Nada com este filtro' : EMPTY[category]}</p>
+      <p className="mt-1 text-xs text-ink-3">
+        {filtered ? 'Troque o filtro de status para ver as outras.' : 'Declare a primeira pelo botão no topo.'}
+      </p>
     </div>
   );
 }
