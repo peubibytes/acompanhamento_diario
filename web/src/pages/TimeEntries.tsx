@@ -227,13 +227,13 @@ function DayTabs({ days, selected, onSelect }: { days: DayMetrics[]; selected: I
 }
 
 /**
- * Progresso do dia até a meta. Abaixo da meta, a parte feita em neutro (ou verde, quando bate a meta). Acima, a meta
- * inteira em neutro e só o excesso em vermelho: o alerta fica no que passou, não no dia todo.
+ * Progresso do dia até a meta. Abaixo da meta, a parte feita em azul-escuro (ou verde, quando bate a meta). Acima, a meta
+ * inteira em azul-escuro e só o excesso em vermelho: o alerta fica no que passou, não no dia todo.
  */
 function DayProgress({ day: d }: { day: DayMetrics }) {
   const over = d.minutes > d.goal;
   const done = over ? d.goal / d.minutes : Math.min(1, d.minutes / d.goal);
-  const fill = d.conformity === 'conforme' ? 'bg-good' : 'bg-ink-3';
+  const fill = d.conformity === 'conforme' ? 'bg-good' : 'bg-bar';
   return (
     <span className="mt-2 flex h-1 gap-px overflow-hidden rounded-full bg-grid" aria-hidden="true">
       {d.minutes > 0 && <span className={`grow-x h-full ${fill}`} style={{ width: `${done * 100}%` }} />}
