@@ -23,7 +23,8 @@
  * Componentes prontos (fim deste arquivo): .tabular · .num · .kpi-label/.kpi-value · .hatch-critical · .card · .field · .btn-primary · .btn-secondary · .btn-ghost ·
  *   .btn-danger · .btn-icon (e .btn-sm) · .badge · .chip
  * Cores (por tema), em :root e nos dois blocos escuros:
- *   neutros levemente frios (na direção do íris); uma única cor de destaque (--accent), usada na ação principal,
+ *   neutros levemente frios (na direção do íris); --bar (azul-escuro) preenche as barras de dados sem categoria;
+ *   uma única cor de destaque (--accent), usada na ação principal,
  *   no foco e no item escolhido; o resto é neutro. Cores de status (good/warning/critical) nunca carregam
  *   significado sozinhas: sempre com ícone ou rótulo. --series-* é a paleta categórica dos gráficos.
  *   Contraste conferido (WCAG AA): texto ≥ 4,5:1; bordas de campos, foco e barras ≥ 3:1.
@@ -96,6 +97,8 @@
   --on-accent: #ffffff;
   --grid: #ebebef;
   --baseline: #c4c4cc;
+  /* Preenchimento das barras de dados que não têm categoria (horas do dia, progresso): azul-escuro, não cinza. */
+  --bar: #24336b;
   --shadow-card: none;
   --shadow-pop: 0 12px 32px -12px rgb(24 24 40 / 0.22), 0 2px 6px rgb(24 24 40 / 0.06);
 
@@ -173,6 +176,7 @@
     --on-accent: #0f0f1a;
     --grid: #26262b;
     --baseline: #3a3a42;
+    --bar: #4b62b0;
     --shadow-card: none;
     --shadow-pop: 0 12px 32px -12px rgb(0 0 0 / 0.75), 0 2px 6px rgb(0 0 0 / 0.35);
     --good: #3fb950;
@@ -216,6 +220,7 @@
   --on-accent: #0f0f1a;
   --grid: #26262b;
   --baseline: #3a3a42;
+  --bar: #4b62b0;
   --shadow-card: none;
   --shadow-pop: 0 12px 32px -12px rgb(0 0 0 / 0.75), 0 2px 6px rgb(0 0 0 / 0.35);
   --good: #3fb950;
@@ -257,6 +262,7 @@
   --color-on-accent: var(--on-accent);
   --color-grid: var(--grid);
   --color-baseline: var(--baseline);
+  --color-bar: var(--bar);
   --color-good: var(--good);
   --color-good-text: var(--good-text);
   --color-good-soft: var(--good-soft);
