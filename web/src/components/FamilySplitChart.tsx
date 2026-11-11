@@ -16,7 +16,7 @@ import {
   type UnplannedTime,
 } from '@acomp/shared';
 import { ChartTooltip, COLUMN_GAP, SIDE_GUTTER } from './ChartTooltip';
-import { categoryColor, categoryIcon } from './DemandVisuals';
+import { categoryColor, categoryIcon, categoryInk } from './DemandVisuals';
 import { AlertIcon, DashIcon, PlusIcon } from './icons';
 import { SectionTitle } from './SectionTitle';
 
@@ -47,6 +47,8 @@ const NUMBER = 'kpi-value';
 
 /** Folga acima da barra mais alta para o total do dia caber dentro do gráfico. */
 const HEADROOM = 1.14;
+/** A parte precisa ocupar ao menos esta fração da altura do gráfico para o ícone caber dentro dela. */
+const ICON_MIN_SHARE = 0.12;
 
 // Do chão para cima: as Tarefas juntas e o Ciclo por cima. A cor é fixa por categoria e acompanha o ícone
 // e o nome escritos na legenda e no tooltip: nunca é a única pista.
@@ -61,6 +63,10 @@ const PARTS: { key: SplitGroup; label: string; color: string; icon: (s: number) 
 
 /** As partes que aparecem: as quatro categorias sempre; "Sem demanda" só se houver. */
 const visibleParts = (m: SplitMinutes) => PARTS.filter((p) => p.key !== 'semDemanda' || m.semDemanda > 0);
+
+/** A parte com mais tempo no dia (a primeira, em empate); nenhuma se o dia não tem apontamento. */
+const largestOf = (m: SplitMinutes): SplitGroup | null =>
+  m.total > 0 ? PARTS.reduce((best, p) => (m[p.key] > m[best.key] ? p : best)).key : null;
 
 const percent = (part: number, total: number) => (total > 0 ? Math.round((part * 100) / total) : 0);
 
@@ -187,7 +193,7 @@ function Legend({ total }: { total: SplitMinutes }) {
       {visibleParts(total).map((p) => (
         <li key={p.key} className="flex items-center gap-2 text-sm">
           <span className="size-3 shrink-0 rounded-sm" style={{ background: p.color }} />
-          <span className="shrink-0 text-ink-3">{p.icon(14)}</span>
+          <span className="shrink-0" style={{ color: p.key === 'semDemanda' ? 'var(--text-3)' : categoryInk[p.key] }}>{p.icon(14)}</span>
           <span className="text-ink">{p.label}</span>
           <span className="num font-medium text-ink">{formatDuration(total[p.key])}</span>
           <span className="num text-xs text-ink-3">{percent(total[p.key], total.total)}%</span>
@@ -245,9 +251,27 @@ function Columns({ days, scale }: { days: SplitDay[]; scale: PeriodScale }) {
                     ...({ '--i': i, '--grow-step': month ? '14ms' : '45ms' } as CSSProperties),
                   }}
                 >
-                  {PARTS.map((p) => (
-                    <span key={p.key} style={{ height: `${(d[p.key] / (d.total || 1)) * 100}%`, background: p.color }} />
-                  ))}
+                  {PARTS.map((p) => {
+                    // A maior parte do dia leva o ícone da categoria, quando cabe (pela altura no gráfico).
+                    const showIcon = p.key === largestOf(d) && d[p.key] / max >= ICON_MIN_SHARE;
+                    return (
+                      <span
+                        key={p.key}
+                        className={showIcon ? 'grid place-items-center' : undefined}
+                        style={{ height: `${(d[p.key] / (d.total || 1)) * 100}%`, background: p.color }}
+                      >
+                        {showIcon && (
+                          <span
+                            aria-hidden="true"
+                            className={`size-5 place-items-center rounded-badge bg-surface/90 shadow-sm ${month ? 'hidden @[58rem]:grid' : 'grid'}`}
+                            style={{ color: p.key === 'semDemanda' ? 'var(--text-3)' : categoryInk[p.key] }}
+                          >
+                            {p.icon(13)}
+                          </span>
+                        )}
+                      </span>
+                    );
+                  })}
                 </span>
               </button>
             );
@@ -290,7 +314,7 @@ function SplitTooltip({ day, center }: { day: SplitDay; center: number }) {
         {visibleParts(day).map((p) => (
           <span key={p.key} className="contents">
             <span className="size-2.5 rounded-sm" style={{ background: p.color }} />
-            <span className="text-ink-3">{p.icon(12)}</span>
+            <span style={{ color: p.key === 'semDemanda' ? 'var(--text-3)' : categoryInk[p.key] }}>{p.icon(12)}</span>
             <span className="text-ink-3">{p.label}</span>
             <span className="tabular text-right font-medium text-ink">
               {formatDuration(day[p.key])} · {percent(day[p.key], day.total)}%
