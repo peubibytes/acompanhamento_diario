@@ -149,7 +149,7 @@ export function TimeEntries() {
         ) : view === 'demanda' && list.length > 1 ? (
           <ByDemand activities={list} demands={byId} rowProps={rowProps} />
         ) : (
-          <ul className="card divide-y divide-line">
+          <ul key={day} className="stagger card divide-y divide-line">
             {list.map((a) => (
               <EntryRow key={a.id} {...rowProps(a)} />
             ))}
@@ -220,7 +220,7 @@ function DayTabs({ days, selected, onSelect }: { days: DayMetrics[]; selected: I
             </span>
             <span className="mt-2 block h-1 overflow-hidden rounded-full bg-grid">
               <span
-                className="block h-full rounded-full"
+                className="grow-x block h-full rounded-full transition-[width] duration-500 ease-out"
                 style={{ width: `${Math.min(100, (d.minutes / d.goal) * 100)}%`, background: style.bar }}
               />
             </span>

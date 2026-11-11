@@ -1,7 +1,7 @@
 import { AlertIcon } from './icons';
 
 export function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`animate-pulse rounded-2xl bg-surface-2 ${className}`} />;
+  return <div className={`skeleton rounded-2xl ${className}`} />;
 }
 
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {

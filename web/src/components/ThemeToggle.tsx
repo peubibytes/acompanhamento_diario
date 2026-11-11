@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { flushSync } from 'react-dom';
+import { motionOK } from '../motion';
 import { MoonIcon, SunIcon } from './icons';
 
 type Theme = 'light' | 'dark';
@@ -25,7 +27,7 @@ export function ThemeToggle() {
     return () => darkQuery.removeEventListener('change', onChange);
   }, []);
 
-  const toggle = () => {
+  const apply = () => {
     const next: Theme = theme === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = next;
     try {
@@ -36,6 +38,12 @@ export function ThemeToggle() {
     setTheme(next);
   };
 
+  /** Os dois temas se cruzam (View Transitions), onde o navegador sabe fazer; senão, troca direto. */
+  const toggle = () => {
+    if (motionOK() && typeof document.startViewTransition === 'function') document.startViewTransition(() => flushSync(apply));
+    else apply();
+  };
+
   const label = theme === 'dark' ? 'Mudar para o tema claro' : 'Mudar para o tema escuro';
 
   return (
@@ -43,9 +51,11 @@ export function ThemeToggle() {
       onClick={toggle}
       aria-label={label}
       title={label}
-      className="grid size-9 shrink-0 place-items-center rounded-full text-ink-2 outline-none transition hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-accent"
+      className="press grid size-9 shrink-0 place-items-center rounded-full text-ink-2 outline-none hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-accent"
     >
-      {theme === 'dark' ? <SunIcon size={18} /> : <MoonIcon size={18} />}
+      <span key={theme} className="pop grid">
+        {theme === 'dark' ? <SunIcon size={18} /> : <MoonIcon size={18} />}
+      </span>
     </button>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router';
 import { formatDayMonth, formatDuration, todayISO, type DayMetrics, type DemandCategory, type PeriodScale } from '@acomp/shared';
 import { useDayActivities, useDemands } from '../api/client';
@@ -62,8 +62,10 @@ export function DailyChart({ days, goal, scale = 'week' }: { days: DayMetrics[];
                   </span>
                 )}
                 <span
-                  className={`w-full rounded-t-md transition-[height] duration-700 ease-out ${month ? 'max-w-10' : 'max-w-16'}`}
+                  className={`grow-y w-full rounded-t-md transition-[height] duration-700 ease-out ${month ? 'max-w-10' : 'max-w-16'}`}
                   style={{
+                    // As barras crescem da linha de base, uma depois da outra (mais rápido no mês, com ~22 colunas).
+                    ...({ '--i': i, '--grow-step': month ? '14ms' : '45ms' } as CSSProperties),
                     height: `${(d.minutes / max) * 100}%`,
                     minHeight: d.minutes > 0 ? 3 : 0,
                     background: style.bar,

@@ -17,6 +17,11 @@
  *   Cores de status (good/warning/critical) nunca carregam significado sozinhas: sempre com
  *   ícone ou rótulo. --series-* é a paleta categórica dos gráficos.
  *   Contraste conferido (WCAG AA): texto ≥ 4,5:1; bordas de campos, foco e barras ≥ 3:1.
+ * Movimento (v0.16, docs/decisions/0018), em :root, mais abaixo:
+ *   durações    --dur-1 (resposta a um toque) · --dur-2 (entra e sai) · --dur-3 (troca de tela) · --dur-4 (gráficos)
+ *   curvas      --ease-out (entradas) · --ease-in (saídas) · --ease-spring (um leve "pulo", só em selos e ícones)
+ *   Nada de duração ou curva solta no código: use as classes do fim deste arquivo. Com "reduzir movimento"
+ *   ligado no sistema, nenhuma animação roda (bloco final) e o JavaScript confere o mesmo (motion.ts).
  */
 @theme static {
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
@@ -49,6 +54,15 @@
   /* Margem lateral da página e espaço entre blocos crescem juntos a partir de 640px. */
   --gutter: 1rem;
   --section: 1.5rem;
+
+  /* Movimento: poucas durações e curvas, as mesmas em todo o aplicativo. */
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 320ms;
+  --dur-4: 650ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-spring: cubic-bezier(0.34, 1.45, 0.64, 1);
 
   color-scheme: light;
   --bg: #f6f6f4;
@@ -254,7 +268,9 @@ body {
   padding: 0.6rem 0.8rem;
   font-size: var(--text-sm);
   color: var(--text);
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color var(--dur-1),
+    box-shadow var(--dur-2) var(--ease-out);
 }
 .field::placeholder {
   color: var(--text-3);
@@ -266,23 +282,60 @@ body {
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
+/*
+ * Movimento
+ * ─────────
+ * Entradas curtas (o conteúdo chega, não desfila), saídas mais rápidas que as entradas e nada que
+ * atrase um clique. Cada classe diz o que anima; a duração e a curva vêm dos tokens.
+ */
+
+/* Dicas ⓘ, tooltips e menus: surgem perto de onde foram pedidos. */
 @keyframes hint-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px) scale(0.98);
+  }
+}
+.hint-in {
+  animation: hint-in var(--dur-1) var(--ease-out) both;
+}
+
+/* Fundo escurecido do painel deslizante. */
+@keyframes fade-in {
   from {
     opacity: 0;
   }
 }
-.hint-in {
-  animation: hint-in 0.15s ease-out both;
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+.fade-in {
+  animation: fade-in var(--dur-2) ease-out both;
+}
+.fade-out {
+  animation: fade-out var(--dur-2) var(--ease-in) both;
 }
 
+/* Painel deslizante: entra da direita e sai por onde entrou. */
 @keyframes slide-in {
   from {
     opacity: 0;
     transform: translateX(2rem);
   }
 }
+@keyframes slide-out {
+  to {
+    opacity: 0;
+    transform: translateX(2rem);
+  }
+}
 .slide-in {
-  animation: slide-in 0.2s ease-out both;
+  animation: slide-in var(--dur-3) var(--ease-out) both;
+}
+.slide-out {
+  animation: slide-out var(--dur-2) var(--ease-in) both;
 }
 
 /* Ação principal da tela: o único elemento preenchido com a cor de destaque. */
@@ -299,10 +352,17 @@ body {
   line-height: var(--text-sm--line-height);
   font-weight: 600;
   box-shadow: var(--shadow-sm);
-  transition: background-color 0.15s;
+  transition:
+    background-color var(--dur-1),
+    box-shadow var(--dur-2) var(--ease-out),
+    scale var(--dur-1) var(--ease-out);
 }
 .btn-primary:hover {
   background: var(--accent-hover);
+  box-shadow: 0 6px 16px -8px var(--accent);
+}
+.btn-primary:active {
+  scale: 0.97;
 }
 .btn-primary:focus-visible {
   outline: 2px solid var(--accent);
@@ -312,6 +372,17 @@ body {
   opacity: 0.6;
 }
 
+/* Resposta ao toque em botões pequenos (ícones, abas, setas): afundam um pouco ao pressionar. */
+.press {
+  transition-property: color, background-color, opacity, scale, filter;
+  transition-duration: var(--dur-1);
+  transition-timing-function: var(--ease-out);
+}
+.press:active {
+  scale: 0.94;
+}
+
+/* Blocos e cartões que chegam à tela. */
 @keyframes rise {
   from {
     opacity: 0;
@@ -319,7 +390,135 @@ body {
   }
 }
 .rise {
-  animation: rise 0.35s ease-out both;
+  animation: rise var(--dur-3) var(--ease-out) both;
+}
+
+/* Troca de tela: o conteúdo da nova tela chega de leve, de baixo. */
+.page-in {
+  animation: rise var(--dur-3) var(--ease-out) both;
+}
+
+/* Avisos (toasts): chegam de baixo e saem encolhendo. */
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateY(4px) scale(0.97);
+  }
+}
+.toast-out {
+  animation: toast-out var(--dur-2) var(--ease-in) both;
+}
+
+/*
+ * Listas: os itens chegam um depois do outro. O atraso para no décimo item, para uma lista longa não
+ * ficar esperando; quem troca só os dados (sem remontar a lista) não repete a entrada.
+ */
+.stagger > * {
+  animation: rise var(--dur-3) var(--ease-out) both;
+}
+.stagger > :nth-child(2) {
+  animation-delay: 30ms;
+}
+.stagger > :nth-child(3) {
+  animation-delay: 60ms;
+}
+.stagger > :nth-child(4) {
+  animation-delay: 90ms;
+}
+.stagger > :nth-child(5) {
+  animation-delay: 120ms;
+}
+.stagger > :nth-child(6) {
+  animation-delay: 150ms;
+}
+.stagger > :nth-child(7) {
+  animation-delay: 180ms;
+}
+.stagger > :nth-child(8) {
+  animation-delay: 210ms;
+}
+.stagger > :nth-child(9) {
+  animation-delay: 240ms;
+}
+.stagger > :nth-child(n + 10) {
+  animation-delay: 270ms;
+}
+
+/* Barras dos gráficos: crescem a partir da linha de base (--i é a posição da coluna). */
+@keyframes grow-y {
+  from {
+    transform: scaleY(0);
+  }
+}
+.grow-y {
+  transform-origin: bottom;
+  animation: grow-y var(--dur-4) var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * var(--grow-step, 45ms));
+}
+
+/* Barrinhas de progresso horizontais: crescem da esquerda. */
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+.grow-x {
+  transform-origin: left;
+  animation: grow-x var(--dur-4) var(--ease-out) both;
+}
+
+/* Rosca da distribuição: gira e aparece ao montar. */
+@keyframes donut-in {
+  from {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.92);
+  }
+}
+.donut-in {
+  transform-origin: center;
+  animation: donut-in var(--dur-4) var(--ease-out) both;
+}
+
+/* Selos e ícones que mudam de valor (contador do sino, ícone do tema): um leve "pulo". */
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+.pop {
+  animation: pop var(--dur-3) var(--ease-spring) both;
+}
+
+/* Texto que troca no lugar (o nome do período ao navegar). */
+.swap-in {
+  animation: fade-in var(--dur-2) ease-out both;
+}
+
+/* Carregando: um brilho que atravessa o bloco, no lugar de piscar. */
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--border) 50%, var(--surface-2) 75%) 0 0 / 200% 100%;
+  background-color: var(--surface-2);
+  animation: shimmer 1.4s linear infinite;
+}
+
+/* Troca de tema: o claro e o escuro se cruzam, em vez de piscar (ThemeToggle.tsx). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--dur-3);
+  animation-timing-function: ease-out;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Links para uma âncora da página (#seus-dados, #demanda-ID) rolam até ela. */
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -328,5 +527,10 @@ body {
   *::after {
     animation: none !important;
     transition: none !important;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 }

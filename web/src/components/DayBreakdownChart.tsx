@@ -169,7 +169,7 @@ export function DayBreakdownChart({ days, period }: { days: DayMetrics[]; period
           <div className="relative w-full max-w-[17.5rem] shrink-0 md:max-w-80">
             <svg
               viewBox={`0 0 ${SIZE} ${SIZE}`}
-              className="h-auto w-full -rotate-90 overflow-visible"
+              className="donut-in h-auto w-full -rotate-90 overflow-visible"
               role="img"
               aria-label={`${formatDuration(breakdown.total)} em ${month ? formatPeriodLabel(period) : selected.weekdayLong}: ${legend
                 .map((s) => `${s.label} ${formatDuration(s.minutes)} (${percentText(s.share)})`)

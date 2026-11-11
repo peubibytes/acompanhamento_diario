@@ -16,7 +16,7 @@ export function PeriodNav({
   const isCurrent = period.start === current;
   const tag = isCurrent ? 'Período atual' : period.start < current ? 'Período anterior' : 'Próximo período';
 
-  const navButton = 'grid size-9 place-items-center rounded-full text-ink-2 transition hover:bg-surface-2 hover:text-ink';
+  const navButton = 'press grid size-9 place-items-center rounded-full text-ink-2 hover:bg-surface-2 hover:text-ink';
 
   return (
     <div className="flex flex-wrap items-center gap-1">
@@ -25,7 +25,8 @@ export function PeriodNav({
       </button>
       <div className="min-w-0 px-1 text-center sm:text-left">
         <p className="text-2xs font-semibold tracking-wider text-ink-3 uppercase">{tag}</p>
-        <p className="tabular text-base font-semibold whitespace-nowrap text-ink">
+        {/* A chave refaz a entrada do texto a cada período. */}
+        <p key={period.start} className="swap-in tabular text-base font-semibold whitespace-nowrap text-ink">
           {scale === 'week' ? (
             <>
               Sex {formatDayMonth(period.start)} <span className="text-ink-3">→</span> Qui {formatDayMonth(period.end)}

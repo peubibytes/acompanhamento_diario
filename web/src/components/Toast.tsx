@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
+import { EXIT_MS, motionOK } from '../motion';
 import { AlertIcon, CheckIcon, XIcon } from './icons';
 
 type Tone = 'success' | 'warning' | 'error';
@@ -6,6 +7,8 @@ interface ToastItem {
   id: number;
   tone: Tone;
   message: string;
+  /** De saída: fica na tela só até a animação acabar. */
+  leaving?: boolean;
 }
 
 const ToastContext = createContext<(message: string, tone?: Tone) => void>(() => {});
@@ -23,7 +26,12 @@ let nextId = 1;
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
 
-  const dismiss = useCallback((id: number) => setItems((all) => all.filter((t) => t.id !== id)), []);
+  const dismiss = useCallback((id: number) => {
+    const remove = () => setItems((all) => all.filter((t) => t.id !== id));
+    if (!motionOK()) return remove();
+    setItems((all) => all.map((t) => (t.id === id ? { ...t, leaving: true } : t)));
+    setTimeout(remove, EXIT_MS);
+  }, []);
 
   const push = useCallback(
     (message: string, tone: Tone = 'success') => {
@@ -45,7 +53,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {items.map((t) => (
           <div
             key={t.id}
-            className="card rise pointer-events-auto flex max-w-md items-start gap-3 px-4 py-3 text-sm"
+            className={`card ${t.leaving ? 'toast-out' : 'rise'} pointer-events-auto flex max-w-md items-start gap-3 px-4 py-3 text-sm`}
           >
             <span className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-full ${toneStyle[t.tone]}`}>
               {t.tone === 'success' ? <CheckIcon size={14} /> : <AlertIcon size={14} />}

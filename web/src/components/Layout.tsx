@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { NavLink, Outlet } from 'react-router';
+import { NavLink, Outlet, useLocation } from 'react-router';
 import { usePeriodScale, useRefDate, withDate } from '../hooks';
 import { ClockIcon, GridIcon, KanbanIcon, ListIcon, StopwatchIcon, TableIcon, TargetIcon } from './icons';
 import { NotificationBell } from './NotificationBell';
@@ -18,6 +18,7 @@ const links: { to: string; label: string; short?: string; icon: ReactNode }[] = 
 export function Layout() {
   const [date] = useRefDate();
   const [scale] = usePeriodScale();
+  const { pathname } = useLocation();
 
   return (
     <div className="min-h-dvh">
@@ -59,7 +60,10 @@ export function Layout() {
       </header>
 
       <main className="mx-auto max-w-page px-gutter pt-section pb-28 sm:pb-section">
-        <Outlet />
+        {/* A chave é só o caminho: trocar de tela refaz a entrada; mudar a data ou um filtro (a query), não. */}
+        <div key={pathname} className="page-in">
+          <Outlet />
+        </div>
       </main>
 
       {/* Celular: barra de navegação inferior, ao alcance do polegar */}

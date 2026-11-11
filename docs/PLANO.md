@@ -398,6 +398,14 @@ reestilização, auditorias e comparativos) está em `docs/HISTORICO.md`.
 - **Listas compactas:** o essencial na linha; detalhes ao expandir; editar e excluir no hover (no celular,
   dentro da linha expandida).
 - **Gráficos:** rótulos diretos, detalhes no hover ou foco; tooltips fechados saem do layout.
+- **Movimento (v0.16, `docs/decisions/0018`):** animações curtas que explicam o que aconteceu, com tokens em
+  `index.css` (durações `--dur-1` a `--dur-4`; curvas `--ease-out`, `--ease-in`, `--ease-spring`) e classes prontas
+  (`rise`, `page-in`, `stagger`, `grow-y`, `grow-x`, `pop`, `press`, `slide-in`/`slide-out`…); nenhuma duração solta
+  no código. A tela nova chega de leve; o fundo das abas desliza até a escolhida; o painel deslizante e os avisos
+  saem animados; as barras dos gráficos crescem da base e o anel de % se desenha contando; as listas chegam em
+  sequência. Entradas de até 320 ms e saídas de 200 ms: nada atrasa um clique (ao fechar o painel, foco e rolagem
+  voltam na hora). Com **"reduzir movimento"** ligado no sistema, nada anima (CSS e `motionOK()` em
+  `web/src/motion.ts`).
 - **Acessibilidade:** a cor nunca é a única pista (ícone ou rótulo junto); contraste AA (texto ≥ 4,5:1,
   grande ≥ 3:1) nos dois temas; foco visível em todo controle; sem rolagem horizontal em 390, 360 e 320 px.
 

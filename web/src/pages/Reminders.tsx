@@ -149,7 +149,7 @@ function ReminderGroup({ title, items }: { title: string; items: AppNotification
       <p className="px-3 pt-2 pb-1 text-2xs font-semibold tracking-wider text-ink-3 uppercase">
         {title} <span className="tabular">· {items.length}</span>
       </p>
-      <ul>
+      <ul className="stagger">
         {items.map((n) => (
           <li key={n.id}>
             <ReminderRow item={n} />
@@ -241,7 +241,7 @@ function AgendaDay({
         {heading}
         {date && <span className="tabular text-xs font-normal text-ink-3">{date}</span>}
       </h3>
-      <ul>
+      <ul className="stagger">
         {items.map((i) => {
           const status = i.deadline ? deadlineStyle[i.deadline] : null;
           return (

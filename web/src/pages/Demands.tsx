@@ -209,7 +209,7 @@ export function Demands() {
         ) : list.length === 0 ? (
           <EmptyList category={category} filtered={ofCategory.length > 0} />
         ) : (
-          <ul className="card divide-y divide-line">
+          <ul key={category} className="stagger card divide-y divide-line">
             {list.map((d) => (
               <DemandRow
                 key={d.id}
@@ -306,7 +306,7 @@ function DemandRow(row: RowProps) {
       </div>
 
       {expanded && (
-        <div id={detailId} className="space-y-4 px-3 pb-5 sm:pl-12">
+        <div id={detailId} className="rise space-y-4 px-3 pb-5 sm:pl-12">
           <Details demand={d} />
           <DemandActions {...row} className="flex sm:hidden" />
           {d.category === 'ciclo' ? <CycleTracking id={d.id} /> : <ActivityHistory id={d.id} />}

@@ -216,7 +216,7 @@ export function IconButton({ label, onClick, children }: { label: string; onClic
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="grid size-8 place-items-center rounded-full text-ink-3 transition hover:bg-surface-2 hover:text-ink"
+      className="press grid size-8 place-items-center rounded-full text-ink-3 hover:bg-surface-2 hover:text-ink"
     >
       {children}
     </button>
