@@ -117,6 +117,13 @@
   }
 }
 
+/* Notebook (tela larga e baixa): menos espaço entre blocos, para o Painel caber sem rolagem (ver .fit-viewport). */
+@media (min-width: 64rem) and (max-height: 50rem) {
+  :root {
+    --section: 1.25rem;
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
@@ -227,6 +234,19 @@
   --color-neutral-soft: var(--neutral-soft);
   --spacing-gutter: var(--gutter);
   --spacing-section: var(--section);
+}
+
+/*
+ * Tela que cabe na janela (a partir de lg): a altura útil abaixo do header (56 px + 1 px de borda), sem as margens
+ * de cima e de baixo do <main>. Os filhos em coluna com min-h-0 encolhem (o gráfico até o mínimo dele), em vez de
+ * empurrar a página e criar rolagem num conteúdo que não continua para baixo.
+ */
+@utility fit-viewport {
+  @media (min-width: 64rem) {
+    display: flex;
+    flex-direction: column;
+    height: calc(100dvh - 3.5rem - 1px - 2 * var(--section));
+  }
 }
 
 /* Reserva o espaço da barra de rolagem: o conteúdo não "pula" entre telas curtas e longas. */

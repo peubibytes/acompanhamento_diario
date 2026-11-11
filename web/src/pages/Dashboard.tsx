@@ -81,8 +81,12 @@ export function Dashboard() {
     }
   };
 
+  // Dia útil e Rendimento são um cartão só, sem nada abaixo: cabem na janela (o gráfico encolhe) em vez de rolar.
+  // Ciclos e Distribuição crescem com o conteúdo e seguem rolando.
+  const fit = view === 'semana' || view === 'rendimento';
+
   return (
-    <div className="space-y-section">
+    <div className={`space-y-section ${fit ? 'fit-viewport' : ''}`}>
       <PageHeader
         title="Painel"
         hint={PAGE_HINT}
@@ -101,13 +105,18 @@ export function Dashboard() {
         <PeriodNav date={date} scale={scale} onChange={setDate} />
       </div>
 
-      <div id="painel-visao" role="tabpanel" aria-label={VIEWS.find((v) => v.value === view)!.label} className="min-w-0">
+      <div
+        id="painel-visao"
+        role="tabpanel"
+        aria-label={VIEWS.find((v) => v.value === view)!.label}
+        className={`min-w-0 ${fit ? 'lg:flex lg:min-h-0 lg:flex-1 lg:flex-col' : ''}`}
+      >
         {view === 'demandas' ? (
           <CyclesView date={date} scale={scale} />
         ) : view === 'rendimento' ? (
           <YieldView date={date} scale={scale} />
         ) : summary.isPending || goalCycle.isPending ? (
-          <Skeleton className="h-[34rem]" />
+          <Skeleton className="h-[34rem] lg:max-h-full" />
         ) : summary.isError || goalCycle.isError ? (
           <ErrorState
             message={(summary.error ?? goalCycle.error)!.message}

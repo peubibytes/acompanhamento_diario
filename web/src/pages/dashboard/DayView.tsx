@@ -51,8 +51,9 @@ export function DayView({
   const status = weekStatus(week);
 
   return (
-    <section className="card rise p-5 sm:p-6">
-      <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-8">
+    // Em lg, o cartão encolhe até a altura que o Painel lhe dá (fit-viewport); quem cede é o gráfico.
+    <section className="card rise p-5 sm:p-6 lg:flex lg:min-h-0 lg:flex-col">
+      <div className="relative flex shrink-0 flex-col gap-5 sm:flex-row sm:items-center sm:gap-8">
         <div className="flex items-center gap-4">
           <ProgressRing percent={week.fillPercent} exceeded={week.diff > 0} size={72} />
           <div className="min-w-0">
@@ -85,7 +86,7 @@ export function DayView({
         </span>
       </div>
 
-      <div className="mt-6 border-t border-line pt-5">
+      <div className="mt-6 border-t border-line pt-5 lg:mt-5 lg:flex lg:min-h-0 lg:flex-col lg:pt-4">
         {/* Título à esquerda, dias conformes no meio e o link à direita (no celular, o do meio desce). */}
         <div className="grid grid-cols-2 items-center gap-x-4 gap-y-3 sm:grid-cols-[1fr_auto_1fr]">
           <div className="flex items-center gap-1.5">
@@ -107,7 +108,7 @@ export function DayView({
             Detalhes <ArrowRight size={14} />
           </Link>
         </div>
-        <div className="mt-8">
+        <div className="mt-8 lg:mt-5 lg:flex lg:min-h-0 lg:flex-col">
           <DailyChart days={days} goal={commonGoal(days)} scale={scale} />
         </div>
       </div>

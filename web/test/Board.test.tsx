@@ -19,6 +19,8 @@ beforeEach(async () => {
 afterEach(async () => {
   await api.close();
   restoreClock();
+  // Os cartões recolhidos ficam no navegador; cada teste começa com um banco novo (e os mesmos ids).
+  localStorage.clear();
 });
 
 const ticket = (ticketNumber: string, status = 'nao_iniciado') =>
@@ -123,5 +125,46 @@ describe('Kanban', () => {
 
     expect(await column('A fazer').findByText(A)).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('recolhe e expande o cartão: só o nome fica, a escolha é lembrada e o foco acompanha o botão', async () => {
+    await ticket(A);
+    await api.call('POST', '/demands', {
+      category: 'ciclo',
+      title: 'Projeto de exemplo',
+      kind: 'planejada',
+      status: 'em_andamento',
+      priority: 'media',
+      startDate: '2026-10-01',
+      dueDate: '2026-10-20',
+      description: 'Descrição de exemplo',
+    });
+    const view = renderPage(<Board />, { url: '/kanban' });
+    await ready();
+    await column('A fazer').findByText(A);
+
+    // Há dois "Recolher" por cartão (toque e mouse; o CSS mostra um só, e o jsdom não aplica CSS): vale o primeiro.
+    const collapse = (label: string) => screen.getAllByRole('button', { name: `Recolher ${label}` });
+    expect(collapse(A)).toHaveLength(2);
+    await userEvent.click(collapse(A)[0]);
+    expect(screen.queryByRole('combobox', { name: `Status de ${A}` })).not.toBeInTheDocument();
+    expect(column('A fazer').queryByText('Exemplo')).not.toBeInTheDocument();
+    const expand = screen.getByRole('button', { name: `Expandir ${A}` });
+    expect(expand).toHaveAttribute('aria-expanded', 'false');
+    expect(expand).toHaveFocus();
+    expect(cardsOf('A fazer')).toEqual([A]);
+
+    // Recolhido, o prazo vencido continua à vista, num alerta só.
+    await userEvent.click(collapse('Projeto de exemplo')[0]);
+    expect(column('Em andamento').getByText('Prazo vencido')).toBeInTheDocument();
+
+    // Lembrado ao voltar à tela.
+    view.unmount();
+    renderPage(<Board />, { url: '/kanban' });
+    await ready();
+    await userEvent.click(await screen.findByRole('button', { name: `Expandir ${A}` }));
+    expect(screen.getByRole('combobox', { name: `Status de ${A}` })).toBeInTheDocument();
+    expect(collapse(A)[0]).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Expandir Projeto de exemplo' })).toBeInTheDocument();
   });
 });

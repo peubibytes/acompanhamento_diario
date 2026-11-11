@@ -132,8 +132,9 @@ export function FamilySplitChart({
 }) {
   const { total, days } = split;
 
+  // Em lg, o bloco encolhe com o cartão (Painel em fit-viewport): só as colunas cedem altura.
   return (
-    <div>
+    <div className="lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
       <SectionTitle title="Tempo por categoria" hint={HINT} />
 
       <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -204,8 +205,8 @@ function Columns({ days, scale }: { days: SplitDay[]; scale: PeriodScale }) {
   const [open, setOpen] = useState<number | null>(null);
 
   return (
-    <div className="@container mt-6">
-      <div className="relative h-60 sm:h-72">
+    <div className="@container mt-6 lg:mt-5 lg:flex lg:min-h-0 lg:flex-col">
+      <div className="relative h-60 sm:h-72 lg:min-h-36">
         <div className="pointer-events-none absolute inset-x-0 bottom-0 border-t border-baseline" />
         <div className={`absolute inset-0 flex items-end ${COLUMN_GAP[scale]} ${month ? SIDE_GUTTER.inset : ''}`}>
           {days.map((d, i) => {
@@ -255,7 +256,7 @@ function Columns({ days, scale }: { days: SplitDay[]; scale: PeriodScale }) {
         {open !== null && <SplitTooltip day={days[open]} center={((open + 0.5) / days.length) * 100} />}
       </div>
 
-      <div className={`mt-3 flex ${COLUMN_GAP[scale]} ${month ? SIDE_GUTTER.pad : ''}`}>
+      <div className={`mt-3 flex shrink-0 ${COLUMN_GAP[scale]} ${month ? SIDE_GUTTER.pad : ''}`}>
         {days.map((d, i) => (
           <div key={d.date} className="flex min-w-0 flex-1 flex-col items-center text-center">
             {month ? (

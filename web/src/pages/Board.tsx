@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router';
 import {
@@ -64,6 +64,19 @@ const PAGE_HINT = (
 
 const sameOrder = (a: readonly number[], b: readonly number[]) => a.length === b.length && a.every((id, i) => id === b[i]);
 
+// Os cartões recolhidos são uma preferência local: lembrados entre visitas, sem ir ao servidor.
+const COLLAPSED_KEY = 'kanban:recolhidos';
+
+function storedCollapsed(): Set<number> {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? '[]');
+    if (Array.isArray(saved)) return new Set(saved.filter((id): id is number => Number.isInteger(id)));
+  } catch {
+    // Armazenamento indisponível ou valor estranho: todos os cartões começam abertos.
+  }
+  return new Set();
+}
+
 export function Board() {
   const demands = useDemands();
   const move = useMoveCard();
@@ -76,6 +89,7 @@ export function Board() {
   const [mobileColumn, setMobileColumn] = useState<BoardColumn>('em_andamento');
   const [panel, setPanel] = useState<Panel | null>(null);
   const [dirty, setDirty] = useState(false);
+  const [collapsed, setCollapsed] = useState(storedCollapsed);
   // Os cartões deslizam até o lugar novo ao reordenar ou trocar de coluna.
   const boardRef = useRef<HTMLDivElement>(null);
   const flipFrom = useFlip(boardRef);
@@ -146,6 +160,24 @@ export function Board() {
     setPanel(next);
   };
   const closePanel = () => setPanel(null);
+
+  /** Recolhe ou expande um cartão. */
+  const toggleCollapsed = (id: number) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  // Grava só os ids que ainda existem (com a lista carregada), para não crescer sem fim com demandas excluídas.
+  useEffect(() => {
+    if (!demands.data) return;
+    const known = new Set(demands.data.map((d) => d.id));
+    try {
+      localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...collapsed].filter((id) => known.has(id))));
+    } catch {
+      // Sem armazenamento, vale só nesta sessão.
+    }
+  }, [collapsed, demands.data]);
 
   const total = BOARD_COLUMNS.reduce((sum, c) => sum + visible(c).length, 0);
   const countOf = (category: BoardCategory) => BOARD_COLUMNS.reduce((sum, c) => sum + board[c].filter((d) => d.category === category).length, 0);
@@ -236,6 +268,8 @@ export function Board() {
                   demand={d}
                   rank={sortable ? i + 1 : undefined}
                   dragging={drag?.id === d.id}
+                  collapsed={collapsed.has(d.id)}
+                  onToggleCollapse={() => toggleCollapsed(d.id)}
                   onPointerDown={onPointerDown(d.id)}
                   onStatus={(status) => setStatus(d, status)}
                   onUp={sortable && i > 0 ? () => place(d, column, i - 1) : undefined}
@@ -289,7 +323,7 @@ export function Board() {
         createPortal(
           <div ref={ghostRef} aria-hidden="true" className="pointer-events-none fixed top-0 left-0 z-50" style={{ width: drag.width }}>
             <div className="card rotate-2 p-3 shadow-[var(--shadow-pop)]">
-              <CardFace demand={dragged} link={false} />
+              <CardFace demand={dragged} link={false} collapsed={collapsed.has(dragged.id)} />
             </div>
           </div>,
           document.body,
