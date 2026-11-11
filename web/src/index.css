@@ -128,20 +128,27 @@
   --series-5b: #a83a64;
   --series-other: #a8a8b0;
 
-  /* Cor fixa de cada tipo de demanda (v0.17): a mesma no gráfico e no seletor de categoria.
+  /* Cor fixa de cada tipo de demanda: a mesma no gráfico, no seletor de categoria e no Kanban.
+   * Desde a v0.18 a cor vem do significado (teoria das cores), sobre os mesmos 5 tons validados para daltonismo:
+   *   treinamento  azul     conhecimento, foco, aprendizado
+   *   chamado      laranja  ação e resposta rápida (energia, sem o alarme do vermelho)
+   *   ciclo        verde    crescimento: trabalho que se constrói ao longo do tempo
+   *   reunião      amarelo  comunicação e troca
+   *   atividade    rosa     cuidado e apoio às pessoas (repasses, ajuda a colegas)
+   * Verde e amarelo também são cores de status (good/warning), mas status sempre vem com ícone e rótulo próprios.
    * --cat-* preenche (barras, fundo suave); --cat-*-ink desenha (ícone, anel): a variante "b" da paleta,
    * escura no tema claro e clara no escuro, com contraste ≥ 3:1 sobre surface e surface-2.
    * Os temas só trocam as --series-*; estas seguem por referência. */
-  --cat-chamado: var(--series-1);
-  --cat-ciclo: var(--series-2);
-  --cat-reuniao: var(--series-3);
-  --cat-atividade: var(--series-4);
-  --cat-treinamento: var(--series-5);
-  --cat-chamado-ink: var(--series-1b);
-  --cat-ciclo-ink: var(--series-2b);
-  --cat-reuniao-ink: var(--series-3b);
-  --cat-atividade-ink: var(--series-4b);
-  --cat-treinamento-ink: var(--series-5b);
+  --cat-treinamento: var(--series-1);
+  --cat-chamado: var(--series-2);
+  --cat-ciclo: var(--series-3);
+  --cat-reuniao: var(--series-4);
+  --cat-atividade: var(--series-5);
+  --cat-treinamento-ink: var(--series-1b);
+  --cat-chamado-ink: var(--series-2b);
+  --cat-ciclo-ink: var(--series-3b);
+  --cat-reuniao-ink: var(--series-4b);
+  --cat-atividade-ink: var(--series-5b);
 }
 
 @media (min-width: 40rem) {
