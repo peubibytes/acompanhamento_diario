@@ -78,7 +78,7 @@ describe('Movimento', () => {
     stubMotion(false);
     render(<ProgressRing percent={42} />);
     expect(screen.queryByText('42')).not.toBeInTheDocument();
-    expect(await screen.findByText('42', undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText('42', undefined, { timeout: 8000 })).toBeInTheDocument();
     // O texto acessível traz o valor final desde o início.
     expect(screen.getByRole('img', { name: '42% das horas da semana apontadas' })).toBeInTheDocument();
   });

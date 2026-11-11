@@ -37,8 +37,9 @@ export function useCountUp(value: number, duration = 650): number {
     }
     const start = performance.now();
     const origin = from.current;
-    let frame = requestAnimationFrame(function tick(now) {
-      const t = Math.min(1, (now - start) / duration);
+    let frame = requestAnimationFrame(function tick() {
+      // O relógio é sempre o mesmo do início (o do quadro pode ter outra origem, conforme o ambiente).
+      const t = Math.min(1, Math.max(0, (performance.now() - start) / duration));
       setShown(Math.round(origin + (value - origin) * easeOut(t)));
       if (t < 1) frame = requestAnimationFrame(tick);
     });

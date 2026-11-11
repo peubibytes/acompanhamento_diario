@@ -56,5 +56,5 @@ cada componente tinha a sua própria duração (0,15 s aqui, 0,35 s ali, 0,8 s n
   `index.css`, com o comentário do que anima.
 - Um teste de tela que confira o fechamento do painel com movimento ligado precisa esperar a saída (200 ms); os
   testes atuais rodam sem `matchMedia`, portanto sem movimento.
-- O Kanban (decisão 0017, em outro PR) traz o seu próprio movimento (os cartões deslizam ao reordenar) e segue as
-  mesmas regras; quando os dois estiverem na `main`, ele pode passar a usar os tokens daqui.
+- O Kanban (decisão 0017) já trazia o seu movimento (os cartões deslizam ao reordenar, `useFlip`) e segue as mesmas
+  regras: mesma curva, respeito a "reduzir movimento". Os botões do cartão ganham a resposta ao toque (`press`).

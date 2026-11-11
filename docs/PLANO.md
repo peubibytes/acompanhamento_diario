@@ -265,6 +265,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 | 17 | v0.15: seletor de demanda com busca no apontamento (decisão 0014) | ✅ |
 | 18 | v0.15: Painel → Rendimento sem o bloco "Rendimento por ciclo" (decisão 0015) e "Predominou" pela categoria (decisão 0016) | ✅ |
 | 19 | v0.16: Kanban (decisão 0017; migração 10) | ✅ |
+| 20 | v0.16: movimento — animações curtas, com tokens, e respeito a "reduzir movimento" (decisão 0018; seção 7) | ✅ |
 | — | Integração com o Azure | futuro |
 | — | Integração com o Google Agenda (reuniões do dia → sugestões de apontamento) | futuro |
 
