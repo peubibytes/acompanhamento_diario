@@ -287,6 +287,12 @@ body {
  * ─────────
  * Entradas curtas (o conteúdo chega, não desfila), saídas mais rápidas que as entradas e nada que
  * atrase um clique. Cada classe diz o que anima; a duração e a curva vêm dos tokens.
+ *
+ * Entradas usam `backwards`, nunca `both`: o estado final é o natural do elemento, e uma animação de
+ * opacity/transform que continua "preenchendo" depois de acabar deixa o elemento como contexto de
+ * empilhamento para sempre. Numa lista (`stagger`), cada item vira uma camada e o item seguinte passa
+ * por cima da dica do anterior. Só as saídas (`fade-out`, `slide-out`, `toast-out`) usam `both`, para
+ * o elemento continuar escondido até ser removido.
  */
 
 /* Dicas ⓘ, tooltips e menus: surgem perto de onde foram pedidos. */
@@ -297,7 +303,7 @@ body {
   }
 }
 .hint-in {
-  animation: hint-in var(--dur-1) var(--ease-out) both;
+  animation: hint-in var(--dur-1) var(--ease-out) backwards;
 }
 
 /* Fundo escurecido do painel deslizante. */
@@ -312,7 +318,7 @@ body {
   }
 }
 .fade-in {
-  animation: fade-in var(--dur-2) ease-out both;
+  animation: fade-in var(--dur-2) ease-out backwards;
 }
 .fade-out {
   animation: fade-out var(--dur-2) var(--ease-in) both;
@@ -332,7 +338,7 @@ body {
   }
 }
 .slide-in {
-  animation: slide-in var(--dur-3) var(--ease-out) both;
+  animation: slide-in var(--dur-3) var(--ease-out) backwards;
 }
 .slide-out {
   animation: slide-out var(--dur-2) var(--ease-in) both;
@@ -390,12 +396,12 @@ body {
   }
 }
 .rise {
-  animation: rise var(--dur-3) var(--ease-out) both;
+  animation: rise var(--dur-3) var(--ease-out) backwards;
 }
 
 /* Troca de tela: o conteúdo da nova tela chega de leve, de baixo. */
 .page-in {
-  animation: rise var(--dur-3) var(--ease-out) both;
+  animation: rise var(--dur-3) var(--ease-out) backwards;
 }
 
 /* Avisos (toasts): chegam de baixo e saem encolhendo. */
@@ -414,7 +420,7 @@ body {
  * ficar esperando; quem troca só os dados (sem remontar a lista) não repete a entrada.
  */
 .stagger > * {
-  animation: rise var(--dur-3) var(--ease-out) both;
+  animation: rise var(--dur-3) var(--ease-out) backwards;
 }
 .stagger > :nth-child(2) {
   animation-delay: 30ms;
@@ -452,7 +458,7 @@ body {
 }
 .grow-y {
   transform-origin: bottom;
-  animation: grow-y var(--dur-4) var(--ease-out) both;
+  animation: grow-y var(--dur-4) var(--ease-out) backwards;
   animation-delay: calc(var(--i, 0) * var(--grow-step, 45ms));
 }
 
@@ -464,7 +470,7 @@ body {
 }
 .grow-x {
   transform-origin: left;
-  animation: grow-x var(--dur-4) var(--ease-out) both;
+  animation: grow-x var(--dur-4) var(--ease-out) backwards;
 }
 
 /* Rosca da distribuição: gira e aparece ao montar. */
@@ -476,7 +482,7 @@ body {
 }
 .donut-in {
   transform-origin: center;
-  animation: donut-in var(--dur-4) var(--ease-out) both;
+  animation: donut-in var(--dur-4) var(--ease-out) backwards;
 }
 
 /* Selos e ícones que mudam de valor (contador do sino, ícone do tema): um leve "pulo". */
@@ -487,12 +493,12 @@ body {
   }
 }
 .pop {
-  animation: pop var(--dur-3) var(--ease-spring) both;
+  animation: pop var(--dur-3) var(--ease-spring) backwards;
 }
 
 /* Texto que troca no lugar (o nome do período ao navegar). */
 .swap-in {
-  animation: fade-in var(--dur-2) ease-out both;
+  animation: fade-in var(--dur-2) ease-out backwards;
 }
 
 /* Carregando: um brilho que atravessa o bloco, no lugar de piscar. */
