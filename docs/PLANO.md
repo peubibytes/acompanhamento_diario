@@ -115,7 +115,7 @@ acompanhamento_diario/
 - **Testes:** `node --test` para as regras (`shared`), para a API (`server`) e para a varredura (`scripts`);
   **Vitest + Testing Library** para as telas (`web/test`, v0.10), em jsdom, falando com a **API real** (Express e
   SQLite em memória numa porta livre), sem respostas inventadas. O relógio é congelado (só `Date`) para as datas
-  serem estáveis. Cobertos: o Kanban (colunas, prioridade pelas setas, status pelo seletor, filtro e declaração), navegação entre períodos, escala e visão do Painel (URL e preferência), tempo por categoria no Rendimento, formulário de
+  serem estáveis. Cobertos: o Kanban (colunas, prioridade pelas setas, status pelo seletor, filtro e declaração; o deslize dos cartões, `useFlip`, com layout e animações simulados), navegação entre períodos, escala e visão do Painel (URL e preferência), tempo por categoria no Rendimento, formulário de
   apontamento (horário inválido, gravação) e declaração de chamado (maiúsculas, repetido, aviso de rascunho).
   `npm test` roda os dois; `npm run test:rules` e `npm run test:web` rodam cada um.
 - **CI (v0.10):** `.github/workflows/ci.yml` roda, em todo PR e em todo push na `main`, `npm ci`,
@@ -404,7 +404,8 @@ reestilização, auditorias e comparativos) está em `docs/HISTORICO.md`.
   (`rise`, `page-in`, `stagger`, `grow-y`, `grow-x`, `pop`, `press`, `slide-in`/`slide-out`…); nenhuma duração solta
   no código. A tela nova chega de leve; o fundo das abas desliza até a escolhida; o painel deslizante e os avisos
   saem animados; as barras dos gráficos crescem da base e o anel de % se desenha contando; as listas chegam em
-  sequência. Entradas de até 320 ms e saídas de 200 ms: nada atrasa um clique (ao fechar o painel, foco e rolagem
+  sequência. As entradas terminam no estado natural do elemento (`animation-fill-mode: backwards`): um item de lista
+  não fica como camada própria depois de chegar, e a dica de uma linha passa por cima da linha seguinte. Entradas de até 320 ms e saídas de 200 ms: nada atrasa um clique (ao fechar o painel, foco e rolagem
   voltam na hora). Com **"reduzir movimento"** ligado no sistema, nada anima (CSS e `motionOK()` em
   `web/src/motion.ts`).
 - **Acessibilidade:** a cor nunca é a única pista (ícone ou rótulo junto); contraste AA (texto ≥ 4,5:1,
@@ -782,7 +783,9 @@ Princípio: o colaborador vê tudo o que tem em mãos, por andamento, e **põe e
 - **Celular (abaixo de 1024 px):** uma coluna por vez, escolhida nas abas; mudar de coluna é pelo seletor do cartão.
 - **Resposta imediata:** o cartão vai para o lugar novo na hora (`applyBoardMove`) e volta se o servidor recusar.
 - **Movimento:** ao reordenar ou trocar de coluna, o cartão e os vizinhos **deslizam** até o lugar novo (`useFlip`), em
-  vez de pular; solto de um arrasto, o cartão parte de onde o ponteiro o deixou. Com "reduzir movimento" ligado no
+  vez de pular; solto de um arrasto, o cartão parte de onde o ponteiro o deixou. Um movimento no meio de outro parte
+  de onde o cartão está na tela, e os renders seguintes (resposta do servidor, recarga) não reiniciam a animação nem
+  mexem nos cartões que não mudaram de lugar, inclusive os das outras colunas. Com "reduzir movimento" ligado no
   sistema, só troca de lugar.
 - **Não muda:** o relatório diário, os lembretes e o Painel não usam a ordem do quadro (ver consequências da decisão).
 
