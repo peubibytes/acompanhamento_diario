@@ -32,8 +32,8 @@ const MONTHS = [
 ];
 const monthLabel = (ym: string) => `${MONTHS[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}`;
 
-const LABEL = 'text-2xs font-semibold tracking-wider text-ink-3 uppercase';
-const NUMBER = 'tabular mt-1 block text-2xl font-semibold tracking-tight text-ink';
+const LABEL = 'text-xs font-medium text-ink-3';
+const NUMBER = 'num mt-1 block text-2xl font-medium text-ink';
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -116,7 +116,7 @@ export function CycleTimelineAnalysis() {
             ...cycles.map((c) => ({ value: String(c.id), label: isOpenDemand(c) ? c.label : `${c.label} · encerrado` })),
           ]}
         />
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-line px-3 py-1.5 text-sm text-ink-2 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent sm:ml-auto">
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-control border border-line bg-surface px-2.5 py-1 text-sm text-ink-2 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent sm:ml-auto">
           <input
             type="checkbox"
             checked={flaggedOnly}
@@ -130,7 +130,7 @@ export function CycleTimelineAnalysis() {
           />
           <FlagIcon size={14} className="text-critical-text" />
           Só marcados
-          <span className="tabular text-ink-3">{metrics.flagged}</span>
+          <span className="num text-ink-3">{metrics.flagged}</span>
         </label>
       </div>
 
@@ -167,13 +167,13 @@ export function CycleTimelineAnalysis() {
                 type="button"
                 aria-pressed={active}
                 onClick={() => toggleKind(k)}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-accent ${
-                  active ? `${kindStyle[k].badge} border-transparent` : 'border-line text-ink-2 hover:bg-surface-2'
+                className={`inline-flex items-center gap-1.5 rounded-control border px-2.5 py-1 text-sm font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-accent ${
+                  active ? `${kindStyle[k].badge} border-transparent` : 'border-line bg-surface text-ink-2 hover:bg-surface-2'
                 }`}
               >
                 {kindStyle[k].icon(14)}
                 {DEMAND_EVENT_LABEL[k]}
-                <span className="tabular text-ink-3">{metrics.byKind[k]}</span>
+                <span className="num text-ink-3">{metrics.byKind[k]}</span>
               </button>
             );
           })}
@@ -181,7 +181,7 @@ export function CycleTimelineAnalysis() {
       </section>
 
       {ofCycles.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-line px-6 py-14 text-center">
+        <div className="rounded-card border border-dashed border-line px-6 py-14 text-center">
           <p className="font-semibold text-ink">Nenhum registro na linha do tempo</p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-ink-2">
             Registre ações, decisões, validações, deploys e impedimentos nos ciclos para analisá-los aqui.
@@ -191,7 +191,7 @@ export function CycleTimelineAnalysis() {
           </Link>
         </div>
       ) : shown.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-line px-6 py-14 text-center">
+        <div className="rounded-card border border-dashed border-line px-6 py-14 text-center">
           <p className="font-semibold text-ink">Nada com estes filtros</p>
           {hasFilters && (
             <button type="button" onClick={clear} className="mt-3 text-sm font-semibold text-accent hover:underline">
