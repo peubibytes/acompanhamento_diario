@@ -13,7 +13,7 @@ import {
   type PeriodTaskItem,
 } from '@acomp/shared';
 import { usePeriodReport } from '../../api/client';
-import { categoryIcon } from '../../components/DemandVisuals';
+import { categoryIcon, categoryInk } from '../../components/DemandVisuals';
 import { AlertIcon } from '../../components/icons';
 import { PageHeader } from '../../components/PageHeader';
 import { PeriodNav } from '../../components/PeriodNav';
@@ -124,12 +124,12 @@ function DoneSection({ report }: { report: PeriodReport }) {
                   {d.cycles.map((c) => (
                     <li key={c.demandId}>
                       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                        <span className="shrink-0 text-ink-3">{categoryIcon.ciclo(15)}</span>
+                        <span className="shrink-0" style={{ color: categoryInk.ciclo }}>{categoryIcon.ciclo(15)}</span>
                         <Link to={`/demandas#demanda-${c.demandId}`} className="font-semibold text-ink hover:underline">
                           {c.label}
                         </Link>
                         {c.kind && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-warning-soft px-2 py-0.5 text-xs font-medium text-warning-text">
+                          <span className="inline-flex items-center gap-1 rounded-badge bg-warning-soft px-1.5 py-0.5 text-xs font-medium text-warning-text">
                             <AlertIcon size={12} /> {c.kind}
                           </span>
                         )}
@@ -159,7 +159,7 @@ function DoneSection({ report }: { report: PeriodReport }) {
                 <ul className="space-y-1.5 text-sm">
                   {d.meetings.map((m) => (
                     <li key={m.demandId} className="flex items-center gap-2">
-                      <span className="shrink-0 text-ink-3">{categoryIcon.reuniao(15)}</span>
+                      <span className="shrink-0" style={{ color: categoryInk.reuniao }}>{categoryIcon.reuniao(15)}</span>
                       <span className="min-w-0 text-ink">
                         {m.label}
                         {m.subjects.length > 0 && (
@@ -182,7 +182,7 @@ function DoneSection({ report }: { report: PeriodReport }) {
 
 function StatusChip({ text, changed }: { text: string; changed: boolean }) {
   return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${changed ? 'bg-accent-soft text-accent' : 'bg-neutral-soft text-ink-2'}`}>
+    <span className={`rounded-badge px-1.5 py-0.5 text-xs font-medium ${changed ? 'bg-accent-soft text-accent' : 'bg-neutral-soft text-ink-2'}`}>
       {text}
     </span>
   );
@@ -195,7 +195,7 @@ function TaskGroup({ title, items }: { title: string; items: PeriodTaskItem[] })
       <ul className="space-y-2">
         {items.map((i) => (
           <li key={i.demandId} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-            <span className="shrink-0 text-ink-3">{categoryIcon[i.category](15)}</span>
+            <span className="shrink-0" style={{ color: categoryInk[i.category] }}>{categoryIcon[i.category](15)}</span>
             <Link to={`/demandas#demanda-${i.demandId}`} className="font-semibold text-ink hover:underline">
               {i.label}
             </Link>
@@ -232,7 +232,7 @@ function UnplannedSection({ report }: { report: PeriodReport }) {
       <SectionTitle title="Trabalho não planejado" hint={UNPLANNED_HINT} />
       <div className="mt-3 flex items-baseline gap-3">
         {u.percent !== null && (
-          <span className="tabular text-2xl font-semibold tracking-tight text-ink sm:text-display sm:font-bold">{u.percent}%</span>
+          <span className="num text-2xl font-medium text-ink sm:text-display">{u.percent}%</span>
         )}
         <p className="text-sm text-ink-2">{unplannedText(u)}</p>
       </div>

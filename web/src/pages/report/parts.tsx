@@ -20,9 +20,9 @@ export function ScaleSwitch({ value, onChange }: { value: ReportScale; onChange:
 }
 
 export const SECONDARY =
-  'rounded-full px-4 py-2 text-sm font-semibold text-ink-2 outline-none transition hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60';
+  'btn-ghost';
 
-export const GROUP = 'mb-2 text-2xs font-semibold tracking-wider text-ink-3 uppercase';
+export const GROUP = 'mb-2 text-xs font-medium text-ink-3';
 
 export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 

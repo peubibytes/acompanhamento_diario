@@ -28,7 +28,7 @@ import {
   type ReportWorkItem,
 } from '@acomp/shared';
 import { useDailyReport } from '../api/client';
-import { categoryIcon } from '../components/DemandVisuals';
+import { categoryIcon, categoryInk } from '../components/DemandVisuals';
 import { ChevronLeft, ChevronRight } from '../components/icons';
 import { PageHeader } from '../components/PageHeader';
 import { SectionTitle } from '../components/SectionTitle';
@@ -179,7 +179,7 @@ function DayNav({ date, onChange }: { date: ISODate; onChange: (d: ISODate) => v
   const yesterday = previousWorkday(today);
   const tag = date === today ? 'Hoje' : date === yesterday ? 'Dia útil anterior' : 'Dia';
   const navButton =
-    'grid size-9 place-items-center rounded-full text-ink-2 transition hover:bg-surface-2 hover:text-ink disabled:opacity-40';
+    'press btn-icon disabled:opacity-40';
 
   return (
     <div className="flex items-center gap-1">
@@ -203,7 +203,7 @@ function DayNav({ date, onChange }: { date: ISODate; onChange: (d: ISODate) => v
         <button
           type="button"
           onClick={() => onChange(yesterday)}
-          className="ml-1 rounded-full bg-accent-soft px-3 py-1.5 text-xs font-semibold text-accent transition hover:brightness-95"
+          className="ml-1 rounded-control bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent transition hover:brightness-95"
         >
           Dia útil anterior
         </button>
@@ -228,19 +228,19 @@ function Lead({ children }: { children: ReactNode }) {
 
 /** Data do tópico, ao lado do título. */
 function DateChip({ date }: { date: ISODate }) {
-  return <span className="tabular rounded-full bg-surface-2 px-2.5 py-1 text-xs font-medium text-ink-2">{dayLabel(date)}</span>;
+  return <span className="tabular rounded-badge bg-surface-2 px-1.5 py-0.5 text-xs font-medium text-ink-2">{dayLabel(date)}</span>;
 }
 
 function Metric({ label, value, icon }: { label: string; value: string; icon: ReactNode }) {
   return (
     <div className="rounded-control bg-surface-2 px-3 py-2.5">
-      <dt className="flex items-center gap-1.5 text-2xs font-semibold tracking-normal text-ink-3 uppercase sm:tracking-wider">
+      <dt className="flex items-center gap-1.5 text-xs font-medium text-ink-3">
         <span aria-hidden className="hidden sm:inline">
           {icon}
         </span>
         {label}
       </dt>
-      <dd className="tabular mt-1 text-2xl font-semibold text-ink">{value}</dd>
+      <dd className="num mt-1 text-2xl font-medium text-ink">{value}</dd>
     </div>
   );
 }
@@ -254,7 +254,7 @@ const demandLink = (i: { demandId: number; label: string }) => (
 function StatusChip({ item }: { item: ReportWorkItem }) {
   return (
     <span
-      className={`rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${
+      className={`rounded-badge px-1.5 py-0.5 text-xs font-medium whitespace-nowrap ${
         item.changed ? 'bg-accent-soft text-accent' : 'bg-neutral-soft text-ink-2'
       }`}
     >
@@ -269,10 +269,10 @@ function DoneSection({ report, today }: { report: DailyReport; today: ISODate })
   const headline = doneHeadline(report, today);
   // Só os indicadores com valor: não há "0 reuniões" nem "0h de ciclo".
   const metrics = [
-    d.tickets.length > 0 && { label: 'Chamados', value: String(d.tickets.length), icon: categoryIcon.chamado(12) },
-    d.meetings.length > 0 && { label: 'Reuniões', value: String(d.meetings.length), icon: categoryIcon.reuniao(12) },
-    d.trainings.length > 0 && { label: 'Treinamentos', value: String(d.trainings.length), icon: categoryIcon.treinamento(12) },
-    d.cycleMinutes > 0 && { label: 'Ciclos', value: formatDuration(d.cycleMinutes), icon: categoryIcon.ciclo(12) },
+    d.tickets.length > 0 && { label: 'Chamados', value: String(d.tickets.length), icon: <span style={{ color: categoryInk.chamado }}>{categoryIcon.chamado(12)}</span> },
+    d.meetings.length > 0 && { label: 'Reuniões', value: String(d.meetings.length), icon: <span style={{ color: categoryInk.reuniao }}>{categoryIcon.reuniao(12)}</span> },
+    d.trainings.length > 0 && { label: 'Treinamentos', value: String(d.trainings.length), icon: <span style={{ color: categoryInk.treinamento }}>{categoryIcon.treinamento(12)}</span> },
+    d.cycleMinutes > 0 && { label: 'Ciclos', value: formatDuration(d.cycleMinutes), icon: <span style={{ color: categoryInk.ciclo }}>{categoryIcon.ciclo(12)}</span> },
   ].filter((m) => m !== false);
 
   return (
@@ -323,7 +323,7 @@ function DoneSection({ report, today }: { report: DailyReport; today: ISODate })
               <ul className="space-y-1.5 text-sm">
                 {d.meetings.map((m) => (
                   <li key={m.demandId} className="flex items-center gap-2">
-                    <span className="shrink-0 text-ink-3">{categoryIcon.reuniao(15)}</span>
+                    <span className="shrink-0" style={{ color: categoryInk.reuniao }}>{categoryIcon.reuniao(15)}</span>
                     <span className="min-w-0 text-ink">
                       {meetingText(m)}
                       {m.participants.length > 0 && <span className="text-ink-3"> com {joinList(m.participants)}</span>}
@@ -346,7 +346,7 @@ function DoneSection({ report, today }: { report: DailyReport; today: ISODate })
               <ul className="space-y-2 text-sm">
                 {d.otherWork.map((i) => (
                   <li key={i.demandId} className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <span className="shrink-0 text-ink-3">{categoryIcon.atividade(15)}</span>
+                    <span className="shrink-0" style={{ color: categoryInk.atividade }}>{categoryIcon.atividade(15)}</span>
                     {demandLink(i)}
                     <StatusChip item={i} />
                     {i.progress.length > 0 && <span className="min-w-0 text-ink-2">{i.progress.join('; ')}</span>}
@@ -368,7 +368,7 @@ function DoneSection({ report, today }: { report: DailyReport; today: ISODate })
                     {demandLink(i)}
                     <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 sm:hidden">
                       <StatusChip item={i} />
-                      <span className="tabular text-xs text-ink-3">{i.minutes ? formatDuration(i.minutes) : '—'}</span>
+                      <span className="num text-xs text-ink-3">{i.minutes ? formatDuration(i.minutes) : '—'}</span>
                     </span>
                   </>,
                   <StatusChip item={i} />,
@@ -419,10 +419,10 @@ function NextSection({
     row(
       i.demandId,
       <>
-        <span className="mr-1.5 inline-block align-[-2px] text-ink-3">{categoryIcon[i.category](14)}</span>
+        <span className="mr-1.5 inline-block align-[-2px]" style={{ color: categoryInk[i.category] }}>{categoryIcon[i.category](14)}</span>
         <strong className="font-semibold text-ink">{i.label}</strong>
         {i.isNew && (
-          <span className="ml-1.5 rounded-full bg-accent-soft px-1.5 py-0.5 text-2xs font-semibold text-accent">novo</span>
+          <span className="ml-1.5 rounded-badge bg-accent-soft px-1.5 py-0.5 text-2xs font-medium text-accent">novo</span>
         )}
         {i.detail && <span> — {i.detail}</span>}
       </>,
