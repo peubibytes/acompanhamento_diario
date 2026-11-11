@@ -19,7 +19,7 @@ import {
 import { useDemands, useMoveCard } from '../api/client';
 import { DemandForm } from '../components/DemandForms';
 import { FilterSelect } from '../components/FilterSelect';
-import { CheckIcon, ChevronDown, ChevronUp, ClockIcon, DashIcon, HourglassIcon, PlusIcon } from '../components/icons';
+import { CheckIcon, ChevronUp, ClockIcon, DashIcon, HourglassIcon, PlusIcon } from '../components/icons';
 import { PageHeader } from '../components/PageHeader';
 import { Segmented } from '../components/Segmented';
 import { SlideOver } from '../components/SlideOver';
@@ -338,7 +338,8 @@ export function Board() {
                     title={folded ? 'Expandir a coluna' : 'Recolher a coluna'}
                     className="press grid size-7 shrink-0 place-items-center rounded-full text-ink-3 outline-none hover:bg-surface hover:text-ink focus-visible:ring-2 focus-visible:ring-accent can-hover:opacity-0 can-hover:transition can-hover:group-hover/column:opacity-100 can-hover:focus-visible:opacity-100"
                   >
-                    {folded ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
+                    {/* Uma seta só, que gira: para cima aberta, para baixo recolhida. */}
+                    <ChevronUp size={15} className="turn" data-turned={folded || undefined} />
                   </button>
                 </div>
                 {blocked && dragged && (
@@ -346,24 +347,28 @@ export function Board() {
                     {DEMAND_CATEGORY_LABEL[dragged.category]} não tem o status “{BOARD_COLUMN_LABEL[column]}”.
                   </p>
                 )}
-                {folded ? (
+                {folded && over?.allowed && (
                   // Recolhida, a coluna continua recebendo cartões: ao arrastar por cima, mostra onde soltar.
-                  over?.allowed && (
-                    <p className="m-1 rounded-control border border-dashed border-accent px-3 py-3 text-center text-xs text-accent">
-                      Solte aqui
-                    </p>
-                  )
-                ) : cards.length === 0 ? (
-                  <p
-                    className={`m-1 rounded-control border border-dashed px-3 py-6 text-center text-xs ${
-                      over?.allowed ? 'border-accent text-accent' : 'border-line-strong/40 text-ink-3'
-                    }`}
-                  >
-                    {over?.allowed ? 'Solte aqui' : total === 0 && column === 'a_fazer' ? 'Nenhuma demanda por aqui. Declare a primeira.' : 'Nada aqui'}
+                  <p className="m-1 rounded-control border border-dashed border-accent px-3 py-3 text-center text-xs text-accent">
+                    Solte aqui
                   </p>
-                ) : (
-                  <ol className="flex min-h-12 flex-col gap-2 p-1">{items}</ol>
                 )}
+                {/* Os cartões ficam no DOM e a altura anima até zero (.fold); recolhidos, saem do foco e do leitor de tela. */}
+                <div className="fold" data-folded={folded || undefined} aria-hidden={folded || undefined} inert={folded}>
+                  <div>
+                    {cards.length === 0 ? (
+                      <p
+                        className={`m-1 rounded-control border border-dashed px-3 py-6 text-center text-xs ${
+                          over?.allowed ? 'border-accent text-accent' : 'border-line-strong/40 text-ink-3'
+                        }`}
+                      >
+                        {over?.allowed ? 'Solte aqui' : total === 0 && column === 'a_fazer' ? 'Nenhuma demanda por aqui. Declare a primeira.' : 'Nada aqui'}
+                      </p>
+                    ) : (
+                      <ol className="flex min-h-12 flex-col gap-2 p-1">{items}</ol>
+                    )}
+                  </div>
+                </div>
               </section>
             );
           })}

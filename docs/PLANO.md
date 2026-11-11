@@ -408,7 +408,7 @@ reestilização, auditorias e comparativos) está em `docs/HISTORICO.md`.
   `index.css` (durações `--dur-1` a `--dur-4`; curvas `--ease-out`, `--ease-in`, `--ease-spring`) e classes prontas
   (`rise`, `page-in`, `stagger`, `grow-y`, `grow-x`, `pop`, `press`, `slide-in`/`slide-out`…); nenhuma duração solta
   no código. A tela nova chega de leve; o fundo das abas desliza até a escolhida; o painel deslizante e os avisos
-  saem animados; as barras dos gráficos crescem da base e o anel de % se desenha contando; as listas chegam em
+  saem animados; a coluna do Kanban recolhe e expande deslizando; as barras dos gráficos crescem da base e o anel de % se desenha contando; as listas chegam em
   sequência. As entradas terminam no estado natural do elemento (`animation-fill-mode: backwards`): um item de lista
   não fica como camada própria depois de chegar, e a dica de uma linha passa por cima da linha seguinte. Entradas de até 320 ms e saídas de 200 ms: nada atrasa um clique (ao fechar o painel, foco e rolagem
   voltam na hora). Com **"reduzir movimento"** ligado no sistema, nada anima (CSS e `motionOK()` em
@@ -790,7 +790,9 @@ Princípio: o colaborador vê tudo o que tem em mãos, por andamento, e **põe e
 - **Recolher a coluna:** a seta no canto superior direito da coluna (com o mouse, só aparece ao passar por ela ou ao
   focar o botão; no toque, fica sempre à vista) esconde todos os cartões dela; ficam o nome e a contagem. A seta para
   baixo expande. A escolha é lembrada no navegador (`kanban:colunas-recolhidas`). Recolhida, a coluna ainda recebe
-  cartões arrastados ("Solte aqui"), que entram no fim dela.
+  cartões arrastados ("Solte aqui"), que entram no fim dela. **Animação:** a altura desliza até zero e os cartões somem
+  junto (`.fold`, em `index.css`: 200 ms acelerando ao recolher, 320 ms desacelerando ao expandir) e a seta gira em vez
+  de trocar de ícone (`.turn`). Os cartões ficam no DOM, fora do foco e do leitor de tela (`inert`, `aria-hidden`).
 - **Arrastar:** com o mouse, pelo cartão inteiro; no toque, pela pega (o resto do cartão rola a página). Um
   fantasma segue o ponteiro, uma linha marca onde o cartão cai e a coluna de destino ganha um anel; Esc cancela.
   **Sem arrastar**, o seletor e as setas fazem o mesmo (teclado e leitor de tela).
