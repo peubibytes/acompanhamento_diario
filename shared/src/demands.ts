@@ -373,6 +373,8 @@ export interface DemandSummaryExtras {
   subtitle: string;
   /** Data em que a demanda passou a Concluído (a última vez); nula se não está concluída. */
   completedAt: ISODate | null;
+  /** Posição no Kanban dentro da coluna (1 = topo); nula enquanto o colaborador não a ordenou. */
+  boardRank: number | null;
   metrics: DemandMetrics;
   tracking: DemandTracking;
 }
@@ -511,6 +513,8 @@ export function buildDemandSummary(
     events?: TimelineEvent[];
     blockers?: TimelineBlocker[];
     statusChanges?: DemandStatusChange[];
+    /** Ordem manual no Kanban, por id da demanda. */
+    boardRanks?: ReadonlyMap<number, number>;
   } = {},
 ): DemandSummary {
   const events = history.events ?? [];
@@ -520,6 +524,7 @@ export function buildDemandSummary(
     label: demandLabel(demand),
     subtitle: demandSubtitle(demand),
     completedAt: completedAtOf(demand, changes),
+    boardRank: history.boardRanks?.get(demand.id) ?? null,
     metrics: demandMetrics(demand, activities, today),
     tracking: demandTracking(
       demand.id,

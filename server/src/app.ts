@@ -6,6 +6,7 @@ import type { Repo } from './repo.ts';
 import type { BackupService } from './backup.ts';
 import type { RouteContext } from './http.ts';
 import { registerActivityRoutes } from './routes/activities.ts';
+import { registerBoardRoutes } from './routes/board.ts';
 import { registerDataRoutes } from './routes/data.ts';
 import { registerDemandRoutes } from './routes/demands.ts';
 import { registerPeriodRoutes } from './routes/periods.ts';
@@ -45,6 +46,7 @@ export function createApp({ repo, today = () => todayISO(), staticDir, allowedHo
       events: repo.listAllEvents(),
       blockers: repo.listAllBlockers(),
       statusChanges: repo.listAllStatusChanges(),
+      boardRanks: repo.boardRanks(),
     };
     return demands.map((d) => buildDemandSummary(d, linked, now, history)).sort(compareDemands);
   };
@@ -71,6 +73,7 @@ export function createApp({ repo, today = () => todayISO(), staticDir, allowedHo
   registerTimelineRoutes(app, ctx);
   registerActivityRoutes(app, ctx);
   registerDemandRoutes(app, ctx);
+  registerBoardRoutes(app, ctx);
   registerDataRoutes(app, ctx);
 
   app.use('/api', (_req, res) => {

@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+/* Dispositivos com ponteiro que paira (mouse): controles que só aparecem no hover. No toque ficam sempre visíveis. */
+@custom-variant can-hover (@media (hover: hover));
+
 /*
  * Tokens visuais
  * ──────────────

@@ -16,6 +16,7 @@ metas e relatórios de prestação de contas (daily, 1:1, relatório mensal).
 |---|---|---|
 | Apontamento de horas | Existente (seções 1–7 e 9) | Ciclo sex→qui, meta, apontamentos sobre demandas, métricas, conformidade |
 | Demandas | Existente (seções 6, 8.1 e 9) | Declarações: Tarefas (chamados, reuniões, treinamentos, atividades) e Ciclos (prazo, linha do tempo, impedimentos) |
+| Kanban | Existente (seção 14, v0.16) | As demandas com status em quatro colunas; a ordem na coluna é a prioridade do colaborador |
 | Treinamentos | Existente como Tarefa (seção 9) | Nome, descrição e status; as horas de estudo são apontadas |
 | Metas | Novo (seção 8) | Objetivos com prazo e progresso, ligados a atividades/demandas/treinamentos |
 | Relatórios | Existente (seções 10 e 13) | Diário (v0.7, consolidado na v0.11), semanal e mensal (v0.10), exportáveis; indicador de trabalho não planejado |
@@ -43,6 +44,8 @@ metas e relatórios de prestação de contas (daily, 1:1, relatório mensal).
   `docs/decisions/0005`). No código e na API continua `cycle`.
 - **Apontamento:** intervalo de tempo (data, início, fim) gasto em uma demanda declarada. Só é
   feito na tela Apontamentos. No código e no banco mantém o nome histórico `activity`.
+- **Kanban (v0.16):** as demandas com status em colunas (A fazer, Em andamento, Aguardando, Concluído). A coluna vem
+  do status; a **ordem dentro da coluna** é a prioridade que o colaborador deu. Decisão em `docs/decisions/0017`.
 - **Evento:** linha datada na linha do tempo de um ciclo.
 - **Impedimento:** bloqueio de um ciclo, com responsável externo e data de início.
 - **Intempestiva:** demanda não planejada, que interrompe o planejado.
@@ -112,7 +115,7 @@ acompanhamento_diario/
 - **Testes:** `node --test` para as regras (`shared`), para a API (`server`) e para a varredura (`scripts`);
   **Vitest + Testing Library** para as telas (`web/test`, v0.10), em jsdom, falando com a **API real** (Express e
   SQLite em memória numa porta livre), sem respostas inventadas. O relógio é congelado (só `Date`) para as datas
-  serem estáveis. Cobertos: navegação entre períodos, escala e visão do Painel (URL e preferência), tempo por categoria no Rendimento, formulário de
+  serem estáveis. Cobertos: o Kanban (colunas, prioridade pelas setas, status pelo seletor, filtro e declaração), navegação entre períodos, escala e visão do Painel (URL e preferência), tempo por categoria no Rendimento, formulário de
   apontamento (horário inválido, gravação) e declaração de chamado (maiúsculas, repetido, aviso de rascunho).
   `npm test` roda os dois; `npm run test:rules` e `npm run test:web` rodam cada um.
 - **CI (v0.10):** `.github/workflows/ci.yml` roda, em todo PR e em todo push na `main`, `npm ci`,
@@ -137,6 +140,7 @@ demands(id, category ('ciclo'|'chamado'|'reuniao'|'treinamento'|'atividade'),
         ticket_number (chamado, único), meeting_type, participants (reunião),
         kind, priority, start_date, due_date, branch, pr_url, environment (ciclo),
         status (ciclo: 6 estados · chamado: 4 (sem 'iniciado', com 'em_espera', v0.14) · treinamento e atividade: 4 · reunião: nulo),
+        board_rank,  -- v0.16: posição no Kanban dentro da coluna (1 = topo); nula enquanto não ordenada
         created_at, updated_at)
 demand_events(id, demand_id → demands (ON DELETE CASCADE), date, kind, text, flagged, created_at)
 demand_blockers(id, demand_id → demands (ON DELETE CASCADE), owner, description, since,
@@ -157,11 +161,12 @@ O esquema evolui por migrações numeradas em `server/src/db.ts` (`PRAGMA user_v
 | POST | `/api/activities` | aponta (exige `demandId` de uma demanda declarada); aceita `participants` e `subject` (reunião) e `demandStatus` (v0.14: novo status da demanda, gravado na mesma transação) |
 | PUT | `/api/activities/:id` | edita |
 | DELETE | `/api/activities/:id` | remove |
-| GET | `/api/demands?status=&category=` | demandas com nome, métricas (horas apontadas, prazo) e acompanhamento; `status` = `abertas` ou `encerradas` |
+| GET | `/api/demands?status=&category=` | demandas com nome, métricas (horas apontadas, prazo), acompanhamento e `boardRank` (a ordem no Kanban, v0.16); `status` = `abertas` ou `encerradas` |
 | GET | `/api/demands/:id` | demanda com métricas, apontamentos, eventos e impedimentos |
 | POST | `/api/demands` | declara (corpo por `category`; chamado ou reunião repetidos → 409) |
 | PUT | `/api/demands/:id` | edita (a categoria não muda; o nome é atualizado nos apontamentos) |
 | PUT | `/api/demands/:id/status` | troca só o status (`{ status }`, v0.14), validado pela categoria; grava a troca no histórico |
+| PUT | `/api/board` | Kanban (v0.16): move um cartão. `{ demandId, status?, order? }`: troca o status (validado pela categoria, com a troca no histórico) e regrava a ordem da coluna de destino (`order` = os ids do topo para o fim), tudo numa transação. Reunião → 400 |
 | DELETE | `/api/demands/:id` | remove; com apontamentos → 409 (eventos e impedimentos vão junto) |
 | POST/PUT/DELETE | `/api/demands/:id/events[/:eventId]` | linha do tempo (só ciclos) |
 | POST/PUT/DELETE | `/api/demands/:id/blockers[/:blockerId]` | impedimentos (só ciclos) |
@@ -217,6 +222,8 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
    abertos), o tipo da tarefa (chamado, reunião ou treinamento) num menu, e o status (em
    aberto, encerrados, todos) à direita. A lista é de linhas compactas; o formulário abre num
    painel deslizante pelo botão "Declarar {tipo}" ou ao editar. Ver seção 9.
+   **Kanban (`/kanban`, v0.16)** — as demandas com status em quatro colunas, com a ordem na coluna como
+   prioridade; um filtro por tipo e a ação "Declarar demanda". Ver seção 14.
 4. **Detalhes (`/detalhes`)** — duas abas, **Dia a dia** e **Ciclos** (v0.8, ver seção 11). Dia a dia:
    tabela fiel à planilha: data, dia, meta, horas, diferença, qtd
    apontamentos, conformidade, diagnóstico e linha de total geral. Linhas com listras suaves em
@@ -257,6 +264,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 | 16 | v0.14: reunião só pelo tipo (decisão 0012), chamado "Em espera" no lugar de "Iniciado" (0013), status pelo apontamento, ciclo reaberto no relatório e plano com ciclos futuros e atividades (migração 9) | ✅ |
 | 17 | v0.15: seletor de demanda com busca no apontamento (decisão 0014) | ✅ |
 | 18 | v0.15: Painel → Rendimento sem o bloco "Rendimento por ciclo" (decisão 0015) e "Predominou" pela categoria (decisão 0016) | ✅ |
+| 19 | v0.16: Kanban (decisão 0017; migração 10) | ✅ |
 | — | Integração com o Azure | futuro |
 | — | Integração com o Google Agenda (reuniões do dia → sugestões de apontamento) | futuro |
 
@@ -357,7 +365,7 @@ O texto original da v0.2 (demandas com meta de horas, gráfico de horas × meta)
   da paleta categórica (5 tons e 5 variações por tema, 10 no total; depois repetem), atribuídas pela identidade
   e não pelo tamanho. O espaço entre arcos é proporcional (no máximo 3px, nunca mais que 40% do arco) e o arco
   tem um mínimo visível; a legenda cresce sem limite e fatia abaixo de 1% mostra "<1%".
-- **Celular:** barra inferior com as telas principais.
+- **Celular:** barra inferior com as telas principais (seis desde a v0.16; "Apontamentos" aparece como "Apontar").
 
 ## 7. Painel sob demanda, sino, lembretes e estilo visual
 
@@ -735,4 +743,37 @@ fictícios. Copiar (Markdown), `Baixar .md` e `Imprimir / PDF`, como no diário.
   outra demanda vale metade para cada uma. Minutos inteiros; a fatia é arredondada e é nula sem apontamento.
 - **Onde aparece:** no relatório do período e no Painel → Rendimento, como o selo **Não planejado** ao lado de
   "Predominou" (âmbar com ícone quando houve; neutro com "Nenhum · 0%" ou "Sem apontamentos").
+
+## 14. Kanban (v0.16)
+
+Decisão em `docs/decisions/0017-kanban.md`. Regras em `shared/src/board.ts`, testadas com dados fictícios.
+
+Princípio: o colaborador vê tudo o que tem em mãos, por andamento, e **põe em cima o que importa mais**.
+
+- **Tela (`/kanban`):** quatro colunas, **A fazer**, **Em andamento**, **Aguardando** e **Concluído**, com a
+  contagem de cada uma. Um filtro por tipo (todos, chamados, ciclos, treinamentos, atividades; na URL como `?tipo=`) e a
+  ação principal **Declarar demanda** (o mesmo formulário de Demandas, com o tipo escolhido no topo do painel).
+- **Coluna = status** (`boardColumnOf`): A fazer = Novo, Não iniciado · Em andamento = Em andamento, Iniciado ·
+  Aguardando = Aguardando terceiro, Em homologação (ciclos) e Em espera (chamados) · Concluído = Concluído.
+- **Fora do quadro:** reuniões (sem status), ciclos cancelados e o que foi concluído há mais de 7 dias
+  (`BOARD_DONE_DAYS`, contando hoje). Tudo continua em Demandas.
+- **Prioridade = ordem na coluna.** O número ao lado do nome é a posição (1 = topo). A ordem é gravada
+  (`board_rank`); o que ainda não foi ordenado vem depois, por prazo (vencido, hoje, próximo), prioridade do ciclo e
+  ordem de declaração (`compareBoard`). Cada movimento regrava a coluna inteira, inclusive o que o filtro esconde.
+  "Concluído" não tem ordem manual: o mais recente primeiro.
+- **Mover de coluna troca o status** (`statusForColumn`): o cartão recebe o primeiro status da coluna para a sua
+  categoria (ciclo em "Aguardando" → Aguardando terceiro) e a troca entra no histórico, com a data. Treinamento e
+  atividade não têm "Aguardando": a coluna fica apagada e diz por quê.
+- **Cartão:** posição, ícone do tipo, nome (link para a demanda em Demandas), começo da descrição e, quando há:
+  prioridade alta ou urgente (ciclos), prazo, impedimentos abertos e horas apontadas. Embaixo, o **seletor de
+  status** (todos os da categoria; "Cancelado" tira o ciclo do quadro) e **subir**, **descer** e **editar**.
+- **Arrastar:** com o mouse, pelo cartão inteiro; no toque, pela pega (o resto do cartão rola a página). Um
+  fantasma segue o ponteiro, uma linha marca onde o cartão cai e a coluna de destino ganha um anel; Esc cancela.
+  **Sem arrastar**, o seletor e as setas fazem o mesmo (teclado e leitor de tela).
+- **Celular (abaixo de 1024 px):** uma coluna por vez, escolhida nas abas; mudar de coluna é pelo seletor do cartão.
+- **Resposta imediata:** o cartão vai para o lugar novo na hora (`applyBoardMove`) e volta se o servidor recusar.
+- **Movimento:** ao reordenar ou trocar de coluna, o cartão e os vizinhos **deslizam** até o lugar novo (`useFlip`), em
+  vez de pular; solto de um arrasto, o cartão parte de onde o ponteiro o deixou. Com "reduzir movimento" ligado no
+  sistema, só troca de lugar.
+- **Não muda:** o relatório diário, os lembretes e o Painel não usam a ordem do quadro (ver consequências da decisão).
 
