@@ -19,7 +19,7 @@ import {
 import { useDemands, useMoveCard } from '../api/client';
 import { DemandForm } from '../components/DemandForms';
 import { FilterSelect } from '../components/FilterSelect';
-import { CheckIcon, ClockIcon, DashIcon, HourglassIcon, PlusIcon } from '../components/icons';
+import { CheckIcon, ChevronDown, ChevronUp, ClockIcon, DashIcon, HourglassIcon, PlusIcon } from '../components/icons';
 import { PageHeader } from '../components/PageHeader';
 import { Segmented } from '../components/Segmented';
 import { SlideOver } from '../components/SlideOver';
@@ -66,6 +66,8 @@ const sameOrder = (a: readonly number[], b: readonly number[]) => a.length === b
 
 // Os cartões recolhidos são uma preferência local: lembrados entre visitas, sem ir ao servidor.
 const COLLAPSED_KEY = 'kanban:recolhidos';
+// As colunas recolhidas também: os cartões delas somem, fica só o cabeçalho.
+const COLLAPSED_COLUMNS_KEY = 'kanban:colunas-recolhidas';
 
 function storedCollapsed(): Set<number> {
   try {
@@ -73,6 +75,16 @@ function storedCollapsed(): Set<number> {
     if (Array.isArray(saved)) return new Set(saved.filter((id): id is number => Number.isInteger(id)));
   } catch {
     // Armazenamento indisponível ou valor estranho: todos os cartões começam abertos.
+  }
+  return new Set();
+}
+
+function storedCollapsedColumns(): Set<BoardColumn> {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(COLLAPSED_COLUMNS_KEY) ?? '[]');
+    if (Array.isArray(saved)) return new Set(BOARD_COLUMNS.filter((c) => saved.includes(c)));
+  } catch {
+    // Armazenamento indisponível ou valor estranho: todas as colunas começam abertas.
   }
   return new Set();
 }
@@ -90,6 +102,7 @@ export function Board() {
   const [panel, setPanel] = useState<Panel | null>(null);
   const [dirty, setDirty] = useState(false);
   const [collapsed, setCollapsed] = useState(storedCollapsed);
+  const [collapsedColumns, setCollapsedColumns] = useState(storedCollapsedColumns);
   // Os cartões deslizam até o lugar novo ao reordenar ou trocar de coluna.
   const boardRef = useRef<HTMLDivElement>(null);
   const flipFrom = useFlip(boardRef);
@@ -147,7 +160,11 @@ export function Board() {
       const demand = find(id);
       if (!demand) return;
       if (from) flipFrom(id, from);
-      place(demand, target.column, target.index);
+      // Numa coluna recolhida não há cartões à vista para mirar: o cartão entra no fim dela, como pelo seletor.
+      const index = collapsedColumns.has(target.column)
+        ? visible(target.column).filter((d) => d.id !== id).length
+        : target.index;
+      place(demand, target.column, index);
     },
   });
   const dragged = drag ? find(drag.id) : undefined;
@@ -168,6 +185,21 @@ export function Board() {
       if (!next.delete(id)) next.add(id);
       return next;
     });
+  /** Recolhe ou expande uma coluna inteira. */
+  const toggleColumn = (column: BoardColumn) =>
+    setCollapsedColumns((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(column)) next.add(column);
+      return next;
+    });
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLLAPSED_COLUMNS_KEY, JSON.stringify([...collapsedColumns]));
+    } catch {
+      // Sem armazenamento, vale só nesta sessão.
+    }
+  }, [collapsedColumns]);
+
   // Grava só os ids que ainda existem (com a lista carregada), para não crescer sem fim com demandas excluídas.
   useEffect(() => {
     if (!demands.data) return;
@@ -259,6 +291,7 @@ export function Board() {
             const line = (
               <li key="drop-line" aria-hidden="true" className="h-1 rounded-full bg-accent" />
             );
+            const folded = collapsedColumns.has(column);
             const items: ReactNode[] = [];
             cards.forEach((d, i) => {
               if (showLine && rest[over.index]?.id === d.id) items.push(line);
@@ -285,22 +318,42 @@ export function Board() {
                 key={column}
                 data-board-column={column}
                 aria-label={BOARD_COLUMN_LABEL[column]}
-                className={`min-w-0 flex-col rounded-card bg-surface-2/60 p-2 transition ${column === mobileColumn ? 'flex' : 'hidden lg:flex'} ${
+                className={`group/column min-w-0 flex-col rounded-card bg-surface-2/60 p-2 transition ${column === mobileColumn ? 'flex' : 'hidden lg:flex'} ${
                   over?.allowed ? 'ring-2 ring-accent' : ''
                 } ${blocked ? 'opacity-50' : ''}`}
               >
-                <h2 className="flex items-center gap-2 px-2 py-1.5 text-sm font-semibold text-ink">
-                  <span className="text-ink-3">{COLUMN_ICON[column](15)}</span>
-                  {BOARD_COLUMN_LABEL[column]}
-                  <span className="tabular text-xs font-medium text-ink-3">{cards.length}</span>
-                  {column === 'concluido' && <span className="ml-auto text-2xs font-medium text-ink-3">últimos {BOARD_DONE_DAYS} dias</span>}
-                </h2>
+                <div className="flex items-center gap-2 pl-2">
+                  <h2 className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-sm font-semibold text-ink">
+                    <span className="text-ink-3">{COLUMN_ICON[column](15)}</span>
+                    {BOARD_COLUMN_LABEL[column]}
+                    <span className="tabular text-xs font-medium text-ink-3">{cards.length}</span>
+                    {column === 'concluido' && <span className="ml-auto text-2xs font-medium text-ink-3">últimos {BOARD_DONE_DAYS} dias</span>}
+                  </h2>
+                  {/* Canto superior direito da coluna. Com o mouse, só aparece ao passar por ela (ou ao focar o botão). */}
+                  <button
+                    type="button"
+                    onClick={() => toggleColumn(column)}
+                    aria-expanded={!folded}
+                    aria-label={`${folded ? 'Expandir' : 'Recolher'} a coluna ${BOARD_COLUMN_LABEL[column]}`}
+                    title={folded ? 'Expandir a coluna' : 'Recolher a coluna'}
+                    className="press grid size-7 shrink-0 place-items-center rounded-full text-ink-3 outline-none hover:bg-surface hover:text-ink focus-visible:ring-2 focus-visible:ring-accent can-hover:opacity-0 can-hover:transition can-hover:group-hover/column:opacity-100 can-hover:focus-visible:opacity-100"
+                  >
+                    {folded ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
+                  </button>
+                </div>
                 {blocked && dragged && (
                   <p className="px-2 pb-1 text-xs text-ink-2">
                     {DEMAND_CATEGORY_LABEL[dragged.category]} não tem o status “{BOARD_COLUMN_LABEL[column]}”.
                   </p>
                 )}
-                {cards.length === 0 ? (
+                {folded ? (
+                  // Recolhida, a coluna continua recebendo cartões: ao arrastar por cima, mostra onde soltar.
+                  over?.allowed && (
+                    <p className="m-1 rounded-control border border-dashed border-accent px-3 py-3 text-center text-xs text-accent">
+                      Solte aqui
+                    </p>
+                  )
+                ) : cards.length === 0 ? (
                   <p
                     className={`m-1 rounded-control border border-dashed px-3 py-6 text-center text-xs ${
                       over?.allowed ? 'border-accent text-accent' : 'border-line-strong/40 text-ink-3'
