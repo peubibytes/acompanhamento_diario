@@ -108,6 +108,21 @@
   --series-4b: #8a6200;
   --series-5b: #a83a64;
   --series-other: #a8a79f;
+
+  /* Cor fixa de cada tipo de demanda (v0.17): a mesma no gráfico e no seletor de categoria.
+   * --cat-* preenche (barras, fundo suave); --cat-*-ink desenha (ícone, anel): a variante "b" da paleta,
+   * escura no tema claro e clara no escuro, com contraste ≥ 3:1 sobre surface e surface-2.
+   * Os temas só trocam as --series-*; estas seguem por referência. */
+  --cat-chamado: var(--series-1);
+  --cat-ciclo: var(--series-2);
+  --cat-reuniao: var(--series-3);
+  --cat-atividade: var(--series-4);
+  --cat-treinamento: var(--series-5);
+  --cat-chamado-ink: var(--series-1b);
+  --cat-ciclo-ink: var(--series-2b);
+  --cat-reuniao-ink: var(--series-3b);
+  --cat-atividade-ink: var(--series-4b);
+  --cat-treinamento-ink: var(--series-5b);
 }
 
 @media (min-width: 40rem) {
@@ -406,6 +421,14 @@ body {
 }
 .press:active {
   scale: 0.94;
+}
+
+/* Chip de categoria (CategoryFilter): --chip é a cor do tipo e --chip-ink a variante que desenha o anel.
+ * Escolhido: fundo suave na cor, anel de 1px e texto forte; sem cor (Todos), o neutro. */
+.chip[aria-checked='true'] {
+  background-color: color-mix(in srgb, var(--chip, var(--text-3)) 14%, var(--surface));
+  box-shadow: inset 0 0 0 1px var(--chip-ink, var(--border-strong));
+  color: var(--text);
 }
 
 /* Blocos e cartões que chegam à tela. */

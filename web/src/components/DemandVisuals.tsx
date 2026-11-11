@@ -38,6 +38,24 @@ export const categoryIcon: Record<DemandCategory, (s: number) => ReactNode> = {
   atividade: (s) => <ChecklistIcon size={s} />,
 };
 
+/** Cor fixa de cada tipo (tokens --cat-* em index.css): preenche gráficos e o fundo do chip escolhido. */
+export const categoryColor: Record<DemandCategory, string> = {
+  ciclo: 'var(--cat-ciclo)',
+  chamado: 'var(--cat-chamado)',
+  reuniao: 'var(--cat-reuniao)',
+  treinamento: 'var(--cat-treinamento)',
+  atividade: 'var(--cat-atividade)',
+};
+
+/** A mesma cor, na variante para desenhar sobre o fundo (ícone, anel): contraste ≥ 3:1 nos dois temas. */
+export const categoryInk: Record<DemandCategory, string> = {
+  ciclo: 'var(--cat-ciclo-ink)',
+  chamado: 'var(--cat-chamado-ink)',
+  reuniao: 'var(--cat-reuniao-ink)',
+  treinamento: 'var(--cat-treinamento-ink)',
+  atividade: 'var(--cat-atividade-ink)',
+};
+
 /** Ícone do tipo num círculo suave, para listas e cabeçalhos de grupo. */
 export function CategoryAvatar({ category, size = 32 }: { category: DemandCategory; size?: number }) {
   return (

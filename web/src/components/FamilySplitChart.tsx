@@ -16,7 +16,7 @@ import {
   type UnplannedTime,
 } from '@acomp/shared';
 import { ChartTooltip, COLUMN_GAP, SIDE_GUTTER } from './ChartTooltip';
-import { categoryIcon } from './DemandVisuals';
+import { categoryColor, categoryIcon } from './DemandVisuals';
 import { AlertIcon, DashIcon, PlusIcon } from './icons';
 import { SectionTitle } from './SectionTitle';
 
@@ -51,11 +51,11 @@ const HEADROOM = 1.14;
 // Do chão para cima: as Tarefas juntas e o Ciclo por cima. A cor é fixa por categoria e acompanha o ícone
 // e o nome escritos na legenda e no tooltip: nunca é a única pista.
 const PARTS: { key: SplitGroup; label: string; color: string; icon: (s: number) => ReactNode }[] = [
-  { key: 'chamado', label: DEMAND_CATEGORY_PLURAL.chamado, color: 'var(--series-1)', icon: categoryIcon.chamado },
-  { key: 'reuniao', label: DEMAND_CATEGORY_PLURAL.reuniao, color: 'var(--series-3)', icon: categoryIcon.reuniao },
-  { key: 'treinamento', label: DEMAND_CATEGORY_PLURAL.treinamento, color: 'var(--series-5)', icon: categoryIcon.treinamento },
-  { key: 'atividade', label: DEMAND_CATEGORY_PLURAL.atividade, color: 'var(--series-4)', icon: categoryIcon.atividade },
-  { key: 'ciclo', label: DEMAND_CATEGORY_PLURAL.ciclo, color: 'var(--series-2)', icon: categoryIcon.ciclo },
+  { key: 'chamado', label: DEMAND_CATEGORY_PLURAL.chamado, color: categoryColor.chamado, icon: categoryIcon.chamado },
+  { key: 'reuniao', label: DEMAND_CATEGORY_PLURAL.reuniao, color: categoryColor.reuniao, icon: categoryIcon.reuniao },
+  { key: 'treinamento', label: DEMAND_CATEGORY_PLURAL.treinamento, color: categoryColor.treinamento, icon: categoryIcon.treinamento },
+  { key: 'atividade', label: DEMAND_CATEGORY_PLURAL.atividade, color: categoryColor.atividade, icon: categoryIcon.atividade },
+  { key: 'ciclo', label: DEMAND_CATEGORY_PLURAL.ciclo, color: categoryColor.ciclo, icon: categoryIcon.ciclo },
   { key: 'semDemanda', label: 'Sem demanda', color: 'var(--series-other)', icon: (s) => <DashIcon size={s} /> },
 ];
 
