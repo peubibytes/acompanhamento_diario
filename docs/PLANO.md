@@ -115,7 +115,7 @@ acompanhamento_diario/
 - **Testes:** `node --test` para as regras (`shared`), para a API (`server`) e para a varredura (`scripts`);
   **Vitest + Testing Library** para as telas (`web/test`, v0.10), em jsdom, falando com a **API real** (Express e
   SQLite em memória numa porta livre), sem respostas inventadas. O relógio é congelado (só `Date`) para as datas
-  serem estáveis. Cobertos: o Kanban (colunas, prioridade pelas setas, status pelo seletor, filtro, declaração e recolher o cartão; o deslize dos cartões, `useFlip`, com layout e animações simulados), navegação entre períodos, escala e visão do Painel (URL e preferência; quais visões cabem na janela), tempo por categoria no Rendimento, formulário de
+  serem estáveis. Cobertos: o Kanban (colunas, prioridade pelas setas, status pelo seletor, filtro, declaração e recolher o cartão e a coluna; o deslize dos cartões, `useFlip`, com layout e animações simulados), navegação entre períodos, escala e visão do Painel (URL e preferência; quais visões cabem na janela), tempo por categoria no Rendimento, formulário de
   apontamento (horário inválido, gravação) e declaração de chamado (maiúsculas, repetido, aviso de rascunho).
   `npm test` roda os dois; `npm run test:rules` e `npm run test:web` rodam cada um.
 - **CI (v0.10):** `.github/workflows/ci.yml` roda, em todo PR e em todo push na `main`, `npm ci`,
@@ -787,6 +787,10 @@ Princípio: o colaborador vê tudo o que tem em mãos, por andamento, e **põe e
   impedimento aberto viram um alerta (⚠, com o motivo no title e no leitor de tela). O ˅ expande; o foco acompanha o
   botão. A escolha é lembrada no navegador (`kanban:recolhidos`, os ids das demandas), sem ir ao servidor. Recolhido,
   com o mouse ele ainda arrasta; seletor, setas, editar e a pega do toque voltam ao expandir.
+- **Recolher a coluna:** a seta no canto superior direito da coluna (com o mouse, só aparece ao passar por ela ou ao
+  focar o botão; no toque, fica sempre à vista) esconde todos os cartões dela; ficam o nome e a contagem. A seta para
+  baixo expande. A escolha é lembrada no navegador (`kanban:colunas-recolhidas`). Recolhida, a coluna ainda recebe
+  cartões arrastados ("Solte aqui"), que entram no fim dela.
 - **Arrastar:** com o mouse, pelo cartão inteiro; no toque, pela pega (o resto do cartão rola a página). Um
   fantasma segue o ponteiro, uma linha marca onde o cartão cai e a coluna de destino ganha um anel; Esc cancela.
   **Sem arrastar**, o seletor e as setas fazem o mesmo (teclado e leitor de tela).

@@ -167,4 +167,32 @@ describe('Kanban', () => {
     expect(collapse(A)[0]).toHaveFocus();
     expect(screen.getByRole('button', { name: 'Expandir Projeto de exemplo' })).toBeInTheDocument();
   });
+
+  it('recolhe a coluna inteira: os cartões somem, a contagem fica e a escolha é lembrada', async () => {
+    await ticket(A);
+    await ticket(B);
+    await ticket(C, 'em_andamento');
+    const view = renderPage(<Board />, { url: '/kanban' });
+    await ready();
+    await column('A fazer').findByText(A);
+
+    const fold = screen.getByRole('button', { name: 'Recolher a coluna A fazer' });
+    expect(fold).toHaveAttribute('aria-expanded', 'true');
+    await userEvent.click(fold);
+    expect(cardsOf('A fazer')).toEqual([]);
+    expect(column('A fazer').getByRole('heading', { name: /A fazer\s*2/ })).toBeInTheDocument();
+    expect(column('A fazer').queryByText('Nada aqui')).not.toBeInTheDocument();
+    // As outras colunas não mudam.
+    expect(cardsOf('Em andamento')).toEqual([C]);
+
+    view.unmount();
+    renderPage(<Board />, { url: '/kanban' });
+    await ready();
+    await column('Em andamento').findByText(C);
+    expect(cardsOf('A fazer')).toEqual([]);
+    const unfold = screen.getByRole('button', { name: 'Expandir a coluna A fazer' });
+    expect(unfold).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(unfold);
+    expect(cardsOf('A fazer')).toEqual([A, B]);
+  });
 });
