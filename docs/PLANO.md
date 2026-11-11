@@ -115,7 +115,7 @@ acompanhamento_diario/
 - **Testes:** `node --test` para as regras (`shared`), para a API (`server`) e para a varredura (`scripts`);
   **Vitest + Testing Library** para as telas (`web/test`, v0.10), em jsdom, falando com a **API real** (Express e
   SQLite em memória numa porta livre), sem respostas inventadas. O relógio é congelado (só `Date`) para as datas
-  serem estáveis. Cobertos: o Kanban (colunas, prioridade pelas setas, status pelo seletor, filtro e declaração; o deslize dos cartões, `useFlip`, com layout e animações simulados), navegação entre períodos, escala e visão do Painel (URL e preferência), tempo por categoria no Rendimento, formulário de
+  serem estáveis. Cobertos: o Kanban (colunas, prioridade pelas setas, status pelo seletor, filtro, declaração e recolher o cartão; o deslize dos cartões, `useFlip`, com layout e animações simulados), navegação entre períodos, escala e visão do Painel (URL e preferência; quais visões cabem na janela), tempo por categoria no Rendimento, formulário de
   apontamento (horário inválido, gravação) e declaração de chamado (maiúsculas, repetido, aviso de rascunho).
   `npm test` roda os dois; `npm run test:rules` e `npm run test:web` rodam cada um.
 - **CI (v0.10):** `.github/workflows/ci.yml` roda, em todo PR e em todo push na `main`, `npm ci`,
@@ -394,6 +394,11 @@ reestilização, auditorias e comparativos) está em `docs/HISTORICO.md`.
 - **`PageHeader`** em todas as telas: título, ⓘ e a ação principal (ou a seta de voltar, `onBack`).
 - **Estrutura:** header de 56 px (logo, telas, sino, tema; só a tela atual tem fundo); todas as telas com
   `max-w-page`, `px-gutter` e `space-y-section`; espaço da barra de rolagem sempre reservado.
+- **Cabe na janela (v0.16, notebook):** no Painel, **Dia útil** e **Rendimento** são um cartão só, sem nada abaixo,
+  então não criam rolagem: a partir de 1024 px de largura (`fit-viewport`, em `index.css`), a tela ocupa a altura útil
+  da janela e quem cede é o gráfico (barras de 21rem/18rem até no mínimo 9rem; as alturas são em %). Em tela alta nada
+  muda. Com até 800 px de altura, o espaço entre blocos (`--section`) cai para 1,25rem. Ciclos e Distribuição crescem
+  com o conteúdo e seguem rolando.
 - **Painel deslizante (`SlideOver`)** para formulários: diálogo modal (foco preso, Esc fecha, foco volta a
   quem abriu, rolagem travada); com algo digitado, fechar pede confirmação; no celular ocupa a tela.
 - **Listas compactas:** o essencial na linha; detalhes ao expandir; editar e excluir no hover (no celular,
@@ -777,6 +782,11 @@ Princípio: o colaborador vê tudo o que tem em mãos, por andamento, e **põe e
 - **Cartão:** posição, ícone do tipo, nome (link para a demanda em Demandas), começo da descrição e, quando há:
   prioridade alta ou urgente (ciclos), prazo, impedimentos abertos e horas apontadas. Embaixo, o **seletor de
   status** (todos os da categoria; "Cancelado" tira o ciclo do quadro) e **subir**, **descer** e **editar**.
+- **Recolher o cartão:** o botão ˄ (com o mouse, junto de subir, descer e editar; no toque, no canto do nome) deixa só
+  a linha de cima: posição, tipo e nome (até duas linhas). O status é o da coluna; prazo vencido ou de hoje e
+  impedimento aberto viram um alerta (⚠, com o motivo no title e no leitor de tela). O ˅ expande; o foco acompanha o
+  botão. A escolha é lembrada no navegador (`kanban:recolhidos`, os ids das demandas), sem ir ao servidor. Recolhido,
+  com o mouse ele ainda arrasta; seletor, setas, editar e a pega do toque voltam ao expandir.
 - **Arrastar:** com o mouse, pelo cartão inteiro; no toque, pela pega (o resto do cartão rola a página). Um
   fantasma segue o ponteiro, uma linha marca onde o cartão cai e a coluna de destino ganha um anel; Esc cancela.
   **Sem arrastar**, o seletor e as setas fazem o mesmo (teclado e leitor de tela).
