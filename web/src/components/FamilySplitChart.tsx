@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 import {
   DEMAND_CATEGORY_PLURAL,
@@ -237,8 +237,12 @@ function Columns({ days, scale }: { days: SplitDay[]; scale: PeriodScale }) {
                   {d.total > 0 ? formatDuration(d.total) : '—'}
                 </span>
                 <span
-                  className={`flex w-full flex-col-reverse overflow-hidden rounded-t-md transition-[height] duration-700 ease-out ${month ? 'max-w-10' : 'max-w-16'}`}
-                  style={{ height: `${(d.total / max) * 100}%`, minHeight: d.total > 0 ? 3 : 0 }}
+                  className={`grow-y flex w-full flex-col-reverse overflow-hidden rounded-t-md transition-[height] duration-700 ease-out ${month ? 'max-w-10' : 'max-w-16'}`}
+                  style={{
+                    height: `${(d.total / max) * 100}%`,
+                    minHeight: d.total > 0 ? 3 : 0,
+                    ...({ '--i': i, '--grow-step': month ? '14ms' : '45ms' } as CSSProperties),
+                  }}
                 >
                   {PARTS.map((p) => (
                     <span key={p.key} style={{ height: `${(d[p.key] / (d.total || 1)) * 100}%`, background: p.color }} />

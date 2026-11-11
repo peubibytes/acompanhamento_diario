@@ -61,7 +61,9 @@ export function NotificationBell() {
         <BellIcon size={18} />
         {attention > 0 && (
           <span
-            className={`tabular absolute -top-1 -right-1 grid h-[18px] min-w-[18px] place-items-center rounded-full px-1 text-2xs font-bold ring-2 ring-bg ${
+            // A chave refaz o "pulo" quando o número muda.
+            key={attention}
+            className={`pop tabular absolute -top-1 -right-1 grid h-[18px] min-w-[18px] place-items-center rounded-full px-1 text-2xs font-bold ring-2 ring-bg ${
               critical ? 'bg-critical text-white' : 'bg-warning text-[#0b0b0b]'
             }`}
             aria-hidden="true"

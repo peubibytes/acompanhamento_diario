@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { useExit } from '../motion';
 import { XIcon } from './icons';
 
 const FOCUSABLE =
@@ -10,6 +11,8 @@ const FOCUSABLE =
  * sem disputar a atenção com a lista. Teclado e leitor de tela: diálogo modal com foco preso
  * dentro dele, Esc fecha, o foco volta a quem o abriu e a rolagem da página fica travada.
  * Com `dirty`, fechar (✕, Esc ou clique fora) pede confirmação antes de descartar o que foi digitado.
+ * Ao fechar, o painel sai por onde entrou (ainda com o conteúdo) e só então deixa a tela; o foco e a
+ * rolagem voltam na hora, sem esperar a animação.
  */
 export function SlideOver({
   open,
@@ -30,6 +33,11 @@ export function SlideOver({
   const titleId = useId();
   const panel = useRef<HTMLDivElement>(null);
   const [confirming, setConfirming] = useState(false);
+  const { mounted, closing } = useExit(open);
+  // Quem usa o painel costuma esvaziar o título e o conteúdo ao fechar: a saída mostra o que estava aberto.
+  const last = useRef({ title, subtitle, children });
+  if (open) last.current = { title, subtitle, children };
+  const shown = last.current;
 
   const requestClose = () => (dirty ? setConfirming(true) : onClose());
   // Guarda a versão mais recente para o listener de teclado (registrado uma vez por abertura).
@@ -67,7 +75,7 @@ export function SlideOver({
     };
   }, [open]);
 
-  if (!open) return null;
+  if (!mounted) return null;
 
   /** Tab e Shift+Tab giram dentro do painel. */
   const trapFocus = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -90,8 +98,8 @@ export function SlideOver({
 
   return createPortal(
     // z-40: acima do header (z-30) e abaixo dos avisos (z-50).
-    <div className="fixed inset-0 z-40">
-      <div className="hint-in absolute inset-0 bg-black/40" onClick={requestClose} aria-hidden="true" />
+    <div className={`fixed inset-0 z-40 ${closing ? 'pointer-events-none' : ''}`} aria-hidden={closing || undefined}>
+      <div className={`${closing ? 'fade-out' : 'fade-in'} absolute inset-0 bg-black/40`} onClick={requestClose} aria-hidden="true" />
       <div
         ref={panel}
         role="dialog"
@@ -99,20 +107,20 @@ export function SlideOver({
         aria-labelledby={titleId}
         tabIndex={-1}
         onKeyDown={trapFocus}
-        className="slide-in absolute inset-y-0 right-0 flex w-full flex-col border-l border-line bg-surface shadow-[var(--shadow-pop)] outline-none sm:max-w-[28rem]"
+        className={`${closing ? 'slide-out' : 'slide-in'} absolute inset-y-0 right-0 flex w-full flex-col border-l border-line bg-surface shadow-[var(--shadow-pop)] outline-none sm:max-w-[28rem]`}
       >
         <header className="flex items-start justify-between gap-3 border-b border-line px-5 py-4 sm:px-6">
           <div className="min-w-0">
             <h2 id={titleId} className="text-base font-semibold text-ink">
-              {title}
+              {shown.title}
             </h2>
-            {subtitle && <p className="mt-0.5 text-xs text-ink-3">{subtitle}</p>}
+            {shown.subtitle && <p className="mt-0.5 text-xs text-ink-3">{shown.subtitle}</p>}
           </div>
           <button
             type="button"
             onClick={requestClose}
             aria-label="Fechar"
-            className="-mt-1 -mr-1.5 grid size-9 shrink-0 place-items-center rounded-full text-ink-3 outline-none transition hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-accent"
+            className="press -mt-1 -mr-1.5 grid size-9 shrink-0 place-items-center rounded-full text-ink-3 outline-none hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-accent"
           >
             <XIcon size={18} />
           </button>
@@ -144,7 +152,7 @@ export function SlideOver({
         )}
 
         <div data-slideover-body className="flex-1 overflow-y-auto px-5 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-6">
-          {children}
+          {shown.children}
         </div>
       </div>
     </div>,

@@ -5,6 +5,7 @@ interface Box {
   top: number;
 }
 
+// Os mesmos valores dos tokens de movimento do CSS (--dur-2 a --dur-3 e --ease-out, em index.css).
 const DURATION = 240;
 const EASING = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
 /** Um ponto de partida informado vale por este tempo: o lugar novo chega logo depois de soltar, não no mesmo render. */
