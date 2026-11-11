@@ -180,6 +180,10 @@ describe('Kanban', () => {
     expect(fold).toHaveAttribute('aria-expanded', 'true');
     await userEvent.click(fold);
     expect(cardsOf('A fazer')).toEqual([]);
+    // Os cartões continuam no DOM (a altura anima até zero), mas fora do leitor de tela e do foco.
+    const hidden = screen.getByText(A).closest('.fold');
+    expect(hidden).toHaveAttribute('aria-hidden', 'true');
+    expect(hidden).toHaveAttribute('inert');
     expect(column('A fazer').getByRole('heading', { name: /A fazer\s*2/ })).toBeInTheDocument();
     expect(column('A fazer').queryByText('Nada aqui')).not.toBeInTheDocument();
     // As outras colunas não mudam.

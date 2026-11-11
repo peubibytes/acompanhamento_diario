@@ -516,6 +516,51 @@ body {
   animation: pop var(--dur-3) var(--ease-spring) backwards;
 }
 
+/*
+ * Recolher e expandir um bloco (a coluna do Kanban): a altura vai a zero (grid de 1fr a 0fr, sem medir em JS) e o
+ * conteúdo some junto. Ao recolher, sai mais rápido e acelerando; ao expandir, chega desacelerando. O filho corta o
+ * que passa da altura só enquanto anima (fold-clip) e quando recolhido, para as sombras e o foco dos cartões não
+ * ficarem cortados com o bloco aberto. Recolhido, fica invisível ao fim da transição (sai do foco e do leitor de tela).
+ */
+.fold {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition:
+    grid-template-rows var(--dur-3) var(--ease-out),
+    opacity var(--dur-3) var(--ease-out);
+}
+.fold > * {
+  min-height: 0;
+  animation: fold-clip var(--dur-3) linear;
+}
+.fold[data-folded] {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    grid-template-rows var(--dur-2) var(--ease-in),
+    opacity var(--dur-2) var(--ease-in),
+    visibility 0s var(--dur-2);
+}
+.fold[data-folded] > * {
+  overflow: hidden;
+  animation: none;
+}
+@keyframes fold-clip {
+  0%,
+  99% {
+    overflow: hidden;
+  }
+}
+
+/* Seta que gira no lugar de trocar de ícone (aberto ↔ recolhido). */
+.turn {
+  transition: rotate var(--dur-3) var(--ease-out);
+}
+.turn[data-turned] {
+  rotate: 180deg;
+}
+
 /* Texto que troca no lugar (o nome do período ao navegar). */
 .swap-in {
   animation: fade-in var(--dur-2) ease-out backwards;
