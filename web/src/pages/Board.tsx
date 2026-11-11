@@ -44,6 +44,14 @@ const COLUMN_ICON: Record<BoardColumn, (s: number) => ReactNode> = {
   concluido: (s) => <CheckIcon size={s} />,
 };
 
+/** Coluna vazia: o que ela recebe e como chegar lá, em vez de "Nada aqui". */
+const EMPTY_COLUMN: Record<BoardColumn, string> = {
+  a_fazer: 'Nada a fazer. Declare uma demanda ou arraste para cá.',
+  em_andamento: 'Nada em andamento. Arraste para cá o que você começou.',
+  aguardando: 'Nada aguardando. Arraste para cá o que depende de outra pessoa.',
+  concluido: `Nada concluído nos últimos ${BOARD_DONE_DAYS} dias.`,
+};
+
 const PAGE_HINT = (
   <>
     <span className="block">
@@ -332,11 +340,12 @@ export function Board() {
                   over?.allowed ? 'ring-2 ring-accent' : ''
                 } ${blocked ? 'opacity-50' : ''}`}
               >
-                <div className="flex items-center gap-2 pl-2">
+                {/* Abaixo de lg as abas já dizem qual é a coluna: o cabeçalho só fica em "Concluído", pela janela de dias. */}
+                <div className={`items-center gap-2 pl-2 ${column === 'concluido' ? 'flex' : 'hidden lg:flex'}`}>
                   <h2 className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-sm font-semibold text-ink">
                     <span className="text-ink-3">{COLUMN_ICON[column](15)}</span>
                     {BOARD_COLUMN_LABEL[column]}
-                    <span className="tabular text-xs font-medium text-ink-3">{cards.length}</span>
+                    <span className="num text-xs font-medium text-ink-3">{cards.length}</span>
                     {column === 'concluido' && <span className="ml-auto text-2xs font-medium text-ink-3">últimos {BOARD_DONE_DAYS} dias</span>}
                   </h2>
                   {/* Canto superior direito da coluna. Com o mouse, só aparece ao passar por ela (ou ao focar o botão). */}
@@ -346,7 +355,7 @@ export function Board() {
                     aria-expanded={!folded}
                     aria-label={`${folded ? 'Expandir' : 'Recolher'} a coluna ${BOARD_COLUMN_LABEL[column]}`}
                     title={folded ? 'Expandir a coluna' : 'Recolher a coluna'}
-                    className="press grid size-7 shrink-0 place-items-center rounded-full text-ink-3 outline-none hover:bg-surface hover:text-ink focus-visible:ring-2 focus-visible:ring-accent can-hover:opacity-0 can-hover:transition can-hover:group-hover/column:opacity-100 can-hover:focus-visible:opacity-100"
+                    className="press grid size-7 shrink-0 place-items-center rounded-control text-ink-3 outline-none hover:bg-surface hover:text-ink focus-visible:ring-2 focus-visible:ring-accent can-hover:opacity-0 can-hover:transition can-hover:group-hover/column:opacity-100 can-hover:focus-visible:opacity-100"
                   >
                     {/* Uma seta só, que gira: para cima aberta, para baixo recolhida. */}
                     <ChevronUp size={15} className="turn" data-turned={folded || undefined} />
@@ -372,7 +381,11 @@ export function Board() {
                           over?.allowed ? 'border-accent text-accent' : 'border-line-strong/40 text-ink-3'
                         }`}
                       >
-                        {over?.allowed ? 'Solte aqui' : total === 0 && column === 'a_fazer' ? 'Nenhuma demanda por aqui. Declare a primeira.' : 'Nada aqui'}
+                        {over?.allowed
+                          ? 'Solte aqui'
+                          : total === 0 && column === 'a_fazer'
+                            ? 'Nenhuma demanda por aqui. Declare a primeira.'
+                            : EMPTY_COLUMN[column]}
                       </p>
                     ) : (
                       <ol className="flex min-h-12 flex-col gap-2 p-1">{items}</ol>
