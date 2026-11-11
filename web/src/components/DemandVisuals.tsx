@@ -56,12 +56,17 @@ export const categoryInk: Record<DemandCategory, string> = {
   atividade: 'var(--cat-atividade-ink)',
 };
 
-/** Ícone do tipo num círculo suave, para listas e cabeçalhos de grupo. */
+/** Ícone do tipo num quadrado suave na cor do tipo, para listas e cabeçalhos de grupo. */
 export function CategoryAvatar({ category, size = 32 }: { category: DemandCategory; size?: number }) {
   return (
     <span
-      className="grid shrink-0 place-items-center rounded-full bg-accent-soft text-accent"
-      style={{ width: size, height: size }}
+      className="grid shrink-0 place-items-center rounded-control"
+      style={{
+        width: size,
+        height: size,
+        color: categoryInk[category],
+        background: `color-mix(in srgb, ${categoryColor[category]} 14%, var(--surface))`,
+      }}
       title={DEMAND_CATEGORY_LABEL[category]}
     >
       {categoryIcon[category](Math.round(size * 0.5))}
