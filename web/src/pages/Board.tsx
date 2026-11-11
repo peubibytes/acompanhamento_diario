@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router';
 import {
@@ -27,6 +27,7 @@ import { ErrorState, Skeleton } from '../components/States';
 import { useToast } from '../components/Toast';
 import { BoardCard, CardFace, type BoardDemand } from './board/BoardCard';
 import { useCardDrag, type DropTarget } from './board/useCardDrag';
+import { useFlip } from './board/useFlip';
 
 /** As categorias com status, na ordem do filtro e do formulário. */
 const BOARD_CATEGORIES = ['chamado', 'ciclo', 'treinamento', 'atividade'] as const;
@@ -75,6 +76,9 @@ export function Board() {
   const [mobileColumn, setMobileColumn] = useState<BoardColumn>('em_andamento');
   const [panel, setPanel] = useState<Panel | null>(null);
   const [dirty, setDirty] = useState(false);
+  // Os cartões deslizam até o lugar novo ao reordenar ou trocar de coluna.
+  const boardRef = useRef<HTMLDivElement>(null);
+  const flipFrom = useFlip(boardRef);
 
   // O quadro inteiro (a ordem gravada é sempre a da coluna completa) e o que o filtro deixa ver.
   const board = useMemo(() => buildBoard(demands.data ?? [], todayISO()), [demands.data]);
@@ -125,9 +129,11 @@ export function Board() {
       const demand = find(id);
       return demand !== undefined && (boardColumnOf(demand.status) === column || statusForColumn(demand.category, column) !== null);
     },
-    onDrop: (id, target: DropTarget) => {
+    onDrop: (id, target: DropTarget, from) => {
       const demand = find(id);
-      if (demand) place(demand, target.column, target.index);
+      if (!demand) return;
+      if (from) flipFrom(id, from);
+      place(demand, target.column, target.index);
     },
   });
   const dragged = drag ? find(drag.id) : undefined;
@@ -208,7 +214,7 @@ export function Board() {
       ) : demands.isError ? (
         <ErrorState message={demands.error.message} onRetry={() => demands.refetch()} />
       ) : (
-        <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-4">
+        <div ref={boardRef} className="grid grid-cols-1 items-start gap-3 lg:grid-cols-4">
           {BOARD_COLUMNS.map((column) => {
             const cards = visible(column);
             const over = drag?.over?.column === column ? drag.over : null;

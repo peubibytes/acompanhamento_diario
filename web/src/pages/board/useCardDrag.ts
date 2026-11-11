@@ -46,7 +46,8 @@ export function useCardDrag({
   onDrop,
 }: {
   canDrop: (id: number, column: BoardColumn) => boolean;
-  onDrop: (id: number, target: DropTarget) => void;
+  /** `from`: onde o fantasma estava ao soltar (para o cartão deslizar dali até o lugar novo). */
+  onDrop: (id: number, target: DropTarget, from: { left: number; top: number } | null) => void;
 }) {
   const [drag, setDrag] = useState<DragState | null>(null);
   const ghost = useRef<HTMLDivElement>(null);
@@ -100,9 +101,10 @@ export function useCardDrag({
       setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 0);
 
       const over = latest.current.over;
+      const from = ghost.current?.getBoundingClientRect() ?? null;
       latest.current.over = null;
       setDrag(null);
-      if (drop && over?.allowed) latest.current.onDrop(s.id, over);
+      if (drop && over?.allowed) latest.current.onDrop(s.id, over, from);
     };
 
     function onMove(e: PointerEvent) {

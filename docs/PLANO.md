@@ -772,5 +772,8 @@ Princípio: o colaborador vê tudo o que tem em mãos, por andamento, e **põe e
   **Sem arrastar**, o seletor e as setas fazem o mesmo (teclado e leitor de tela).
 - **Celular (abaixo de 1024 px):** uma coluna por vez, escolhida nas abas; mudar de coluna é pelo seletor do cartão.
 - **Resposta imediata:** o cartão vai para o lugar novo na hora (`applyBoardMove`) e volta se o servidor recusar.
+- **Movimento:** ao reordenar ou trocar de coluna, o cartão e os vizinhos **deslizam** até o lugar novo (`useFlip`), em
+  vez de pular; solto de um arrasto, o cartão parte de onde o ponteiro o deixou. Com "reduzir movimento" ligado no
+  sistema, só troca de lugar.
 - **Não muda:** o relatório diário, os lembretes e o Painel não usam a ordem do quadro (ver consequências da decisão).
 
