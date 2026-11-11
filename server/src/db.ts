@@ -311,6 +311,11 @@ const MIGRATIONS = [
   ALTER TABLE activities ADD COLUMN participants TEXT NOT NULL DEFAULT '';
   ALTER TABLE activities ADD COLUMN subject TEXT NOT NULL DEFAULT '';
   `,
+  // 10 — Kanban (docs/decisions/0017): a ordem que o colaborador dá aos cartões dentro de uma coluna.
+  // Nula enquanto a demanda não foi ordenada; só é comparada entre demandas da mesma coluna.
+  `
+  ALTER TABLE demands ADD COLUMN board_rank INTEGER;
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

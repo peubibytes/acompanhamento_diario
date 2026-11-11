@@ -260,6 +260,8 @@ export function createRepo(db: DatabaseSync) {
         environment = :environment, updated_at = CURRENT_TIMESTAMP
       WHERE id = :id AND category = :category`),
     setStatus: db.prepare('UPDATE demands SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'),
+    boardRanks: db.prepare('SELECT id, board_rank FROM demands WHERE board_rank IS NOT NULL'),
+    setBoardRank: db.prepare('UPDATE demands SET board_rank = ? WHERE id = ?'),
     ticketByNumber: db.prepare(
       "SELECT id FROM demands WHERE category = 'chamado' AND ticket_number = ? AND id <> ?",
     ),
@@ -333,6 +335,17 @@ export function createRepo(db: DatabaseSync) {
       if (!before || !from || from === status) return;
       q.setStatus.run(status, id);
       q.insertStatusChange.run({ demandId: id, from, to: status, date: today });
+    },
+
+    /** Ordem manual do Kanban: posição de cada demanda já ordenada, por id. */
+    boardRanks(): Map<number, number> {
+      const rows = q.boardRanks.all() as unknown as { id: number; board_rank: number }[];
+      return new Map(rows.map((r) => [r.id, r.board_rank]));
+    },
+
+    /** Grava a ordem de uma coluna do Kanban (1 = topo). Fora de transação própria; não mexe em `updated_at`. */
+    setBoardOrder(ids: readonly number[]): void {
+      ids.forEach((id, index) => q.setBoardRank.run(index + 1, id));
     },
 
     /** Todas as tabelas num arquivo só (ver transfer.ts). */

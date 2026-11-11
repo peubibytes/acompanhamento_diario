@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  applyBoardMove,
   getPeriod,
+  todayISO,
+  type BoardMove,
   getCycle,
   type Activity,
   type ActivityInput,
@@ -230,6 +233,33 @@ export function useSetDemandStatus() {
     mutationFn: ({ id, status }: { id: number; status: string }) =>
       request<DemandSummary>('PUT', `/demands/${id}/status`, { status }),
     onSuccess: invalidate,
+  });
+}
+
+const BOARD_MOVE = ['board-move'] as const;
+
+/**
+ * Move um cartão do Kanban (status, ordem da coluna ou os dois). O cartão aparece no lugar novo na
+ * hora; se o servidor recusar, volta para onde estava. Com vários movimentos seguidos, só o último
+ * revalida as listas (uma resposta antiga não desfaz o que acabou de ser arrastado).
+ */
+export function useMoveCard() {
+  const client = useQueryClient();
+  const invalidate = useInvalidate();
+  const key = keys.demands();
+  return useMutation({
+    mutationKey: BOARD_MOVE,
+    mutationFn: (move: BoardMove) => request<DemandSummary>('PUT', '/board', move),
+    onMutate: async (move) => {
+      await client.cancelQueries({ queryKey: ['demands'] });
+      const previous = client.getQueryData<DemandSummary[]>(key);
+      if (previous) client.setQueryData(key, applyBoardMove(previous, move, todayISO()));
+      return { previous };
+    },
+    onError: (_err, _move, context) => {
+      if (context?.previous) client.setQueryData(key, context.previous);
+    },
+    onSettled: () => (client.isMutating({ mutationKey: BOARD_MOVE }) <= 1 ? invalidate() : undefined),
   });
 }
 

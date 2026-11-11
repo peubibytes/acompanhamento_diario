@@ -50,7 +50,10 @@ export function Segmented<T extends string>({
           >
             {o.icon}
             <span className="truncate">{o.label}</span>
-            {o.count !== undefined && <span className="tabular text-xs text-ink-3">{o.count}</span>}
+            {o.count !== undefined && (
+              // Com `dense`, a contagem some nas telas mais estreitas: o nome inteiro vale mais que o número.
+              <span className={`tabular text-xs text-ink-3 ${dense ? 'max-[26rem]:hidden' : ''}`}>{o.count}</span>
+            )}
           </button>
         );
       })}

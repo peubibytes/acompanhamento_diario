@@ -975,6 +975,44 @@ describe('v0.14: status pelo apontamento, reuniões e chamados em espera', () =>
     await api('DELETE', `/demands/${created.id}`);
   });
 
+  it('PUT /board move o cartão: status no histórico e a ordem da coluna, tudo ou nada', async () => {
+    const a = (await api('POST', '/demands', { ...ticket, ticketNumber: 'SCTASK0000071' })).data as DemandSummary;
+    const b = (await api('POST', '/demands', { ...ticket, ticketNumber: 'SCTASK0000072' })).data as DemandSummary;
+    const course = (await api('POST', '/demands', { category: 'treinamento', title: 'Curso de exemplo' })).data as DemandSummary;
+    assert.equal(a.boardRank, null);
+
+    // Só reordenar: sem troca de status, sem linha nova no histórico.
+    const reordered = await api('PUT', '/board', { demandId: b.id, order: [b.id, a.id] });
+    assert.equal(reordered.status, 200);
+    assert.equal(reordered.data.boardRank, 1);
+    const rankOf = async (id: number) => ((await api('GET', `/demands/${id}`)).data as DemandSummary).boardRank;
+    assert.equal(await rankOf(a.id), 2);
+    assert.equal((await api('GET', `/demands/${b.id}`)).data.statusChanges.length, 1);
+
+    // Mudar de coluna: status e ordem juntos; a troca entra no histórico com a data de hoje.
+    today = '2026-10-28';
+    const moved = await api('PUT', '/board', { demandId: a.id, status: 'em_andamento', order: [a.id] });
+    assert.equal(moved.data.status, 'em_andamento');
+    assert.equal(moved.data.boardRank, 1);
+    const { data: detail } = await api('GET', `/demands/${a.id}`);
+    assert.deepEqual([detail.statusChanges[0].from, detail.statusChanges[0].to, detail.statusChanges[0].date], [
+      'nao_iniciado',
+      'em_andamento',
+      '2026-10-28',
+    ]);
+
+    // Inválidos: nada muda.
+    assert.equal((await api('PUT', '/board', { demandId: course.id, status: 'em_espera', order: [course.id] })).status, 400);
+    assert.equal(await rankOf(course.id), null);
+    assert.equal((await api('PUT', '/board', { demandId: a.id, status: 'concluido', order: [a.id, 9999] })).status, 400);
+    assert.equal((await api('GET', `/demands/${a.id}`)).data.status, 'em_andamento');
+    assert.equal((await api('PUT', '/board', { demandId: a.id, order: [a.id, a.id] })).status, 400);
+    assert.equal((await api('PUT', '/board', { demandId: sample.demandId, status: 'concluido' })).status, 400);
+    assert.equal((await api('PUT', '/board', { demandId: 9999 })).status, 404);
+
+    for (const d of [a, b, course]) await api('DELETE', `/demands/${d.id}`);
+  });
+
   it('o apontamento pode trocar o status da demanda, tudo ou nada', async () => {
     const created = (await api('POST', '/demands', ticket)).data as DemandSummary;
     const bad = await api('POST', '/activities', { ...sample, date: '2026-11-03', demandId: created.id, demandStatus: 'iniciado' });

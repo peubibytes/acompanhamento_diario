@@ -5,6 +5,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { Layout } from './components/Layout';
 import { ToastProvider } from './components/Toast';
 import './index.css';
+import { Board } from './pages/Board';
 import { Dashboard } from './pages/Dashboard';
 import { Demands } from './pages/Demands';
 import { Details } from './pages/Details';
@@ -33,6 +34,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="apontamentos" element={<TimeEntries />} />
               <Route path="atividades" element={<LegacyActivitiesRedirect />} />
               <Route path="demandas" element={<Demands />} />
+              <Route path="kanban" element={<Board />} />
               <Route path="detalhes" element={<Details />} />
               <Route path="relatorio" element={<Report />} />
               {/* Fora do seletor de telas: acessível apenas pelo sino do header. */}

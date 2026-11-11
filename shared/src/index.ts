@@ -1,3 +1,4 @@
+export * from './board.ts';
 export * from './breakdown.ts';
 export * from './cycle.ts';
 export * from './demandSearch.ts';

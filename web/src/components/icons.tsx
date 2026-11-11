@@ -243,3 +243,28 @@ export const FlagIcon = ({ filled = false, ...p }: IconProps & { filled?: boolea
     <path d="M5 21V4M5 4h11l-2 4 2 4H5" />
   </Icon>
 );
+
+/** Kanban: três colunas de alturas diferentes. */
+export const KanbanIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="3.5" y="4" width="4.5" height="16" rx="1.5" />
+    <rect x="9.75" y="4" width="4.5" height="10" rx="1.5" />
+    <rect x="16" y="4" width="4.5" height="13" rx="1.5" />
+  </Icon>
+);
+/** Pega para arrastar um cartão. */
+export const GripIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M9 6v.01M15 6v.01M9 12v.01M15 12v.01M9 18v.01M15 18v.01" strokeWidth={2.75} />
+  </Icon>
+);
+export const ArrowUp = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 19V5M6 11l6-6 6 6" />
+  </Icon>
+);
+export const ArrowDown = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 5v14M6 13l6 6 6-6" />
+  </Icon>
+);
