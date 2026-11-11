@@ -2,7 +2,7 @@ import { useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router';
 import { formatDayMonth, formatDuration, todayISO, type DayMetrics, type DemandCategory, type PeriodScale } from '@acomp/shared';
 import { useDayActivities, useDemands } from '../api/client';
-import { dayStyle } from './Badges';
+import { dayStyle, toneStyle } from './Badges';
 import { ChartTooltip, COLUMN_GAP, SIDE_GUTTER } from './ChartTooltip';
 
 /** Folga acima da barra mais alta para o valor (e o ícone de status) caber dentro do gráfico. */
@@ -49,29 +49,34 @@ export function DailyChart({ days, goal, scale = 'week' }: { days: DayMetrics[];
               >
                 {month ? (
                   <span
-                    className={`tabular mb-1.5 hidden flex-col items-center gap-0.5 text-xs font-semibold @lg:flex ${d.minutes > 0 ? 'text-ink' : 'text-ink-3'}`}
+                    className={`num mb-1.5 hidden flex-col items-center gap-0.5 text-xs font-medium @lg:flex ${d.minutes > 0 ? 'text-ink' : 'text-ink-3'}`}
                   >
                     <span className={style.text}>{style.icon(13)}</span>
                     <span className="hidden @[58rem]:inline">{d.minutes > 0 ? formatDuration(d.minutes) : '—'}</span>
                   </span>
                 ) : (
                   <span
-                    className={`tabular mb-1.5 inline-flex flex-col items-center gap-0.5 text-sm font-semibold sm:flex-row sm:gap-1 ${d.minutes > 0 ? 'text-ink' : 'text-ink-3'}`}
+                    className={`num mb-1.5 inline-flex flex-col items-center gap-0.5 text-sm font-medium sm:flex-row sm:gap-1 ${d.minutes > 0 ? 'text-ink' : 'text-ink-3'}`}
                   >
                     <span className={style.text}>{style.icon(13)}</span>
                     {d.minutes > 0 ? formatDuration(d.minutes) : '—'}
                   </span>
                 )}
                 <span
-                  className={`grow-y w-full rounded-t-md transition-[height] duration-700 ease-out ${month ? 'max-w-10' : 'max-w-16'}`}
+                  className={`grow-y flex w-full flex-col overflow-hidden rounded-t-control transition-[height] duration-700 ease-out ${month ? 'max-w-10' : 'max-w-16'}`}
                   style={{
                     // As barras crescem da linha de base, uma depois da outra (mais rápido no mês, com ~22 colunas).
                     ...({ '--i': i, '--grow-step': month ? '14ms' : '45ms' } as CSSProperties),
                     height: `${(d.minutes / max) * 100}%`,
                     minHeight: d.minutes > 0 ? 3 : 0,
-                    background: style.bar,
                   }}
-                />
+                >
+                  {/* Acima da meta, só o que passou dela fica hachurado em vermelho; a meta segue neutra embaixo. */}
+                  {d.exceeded && (
+                    <span className="hatch-critical shrink-0 rounded-t-control" style={{ height: `${((d.minutes - d.goal) / d.minutes) * 100}%` }} />
+                  )}
+                  <span className="flex-1" style={{ background: d.exceeded ? toneStyle.abaixo.bar : style.bar }} />
+                </span>
               </button>
             );
           })}

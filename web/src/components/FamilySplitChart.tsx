@@ -42,8 +42,8 @@ const HINT = (
   </>
 );
 
-const LABEL = 'text-2xs font-semibold tracking-wider text-ink-3 uppercase';
-const NUMBER = 'tabular mt-1 block text-2xl font-semibold tracking-tight text-ink sm:text-display sm:font-bold';
+const LABEL = 'kpi-label';
+const NUMBER = 'kpi-value';
 
 /** Folga acima da barra mais alta para o total do dia caber dentro do gráfico. */
 const HEADROOM = 1.14;
@@ -67,7 +67,7 @@ const percent = (part: number, total: number) => (total > 0 ? Math.round((part *
 /** Selo de quem predominou: ícone(s), nome(s) e fatia escritos. Pode quebrar linha (cabe em 320 px). */
 function Predominance({ split }: { split: CategorySplit }) {
   const p = split.predominant;
-  const badge = 'mt-1.5 inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium';
+  const badge = 'badge mt-1.5 max-w-full whitespace-normal';
   if (!p) {
     return (
       <span className={`${badge} bg-neutral-soft text-ink-2 whitespace-nowrap`}>
@@ -99,7 +99,7 @@ function Predominance({ split }: { split: CategorySplit }) {
 
 /** Selo do trabalho não planejado: ícone e fatia escritos; âmbar quando houve. */
 function Unplanned({ unplanned }: { unplanned: UnplannedTime }) {
-  const badge = 'mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap';
+  const badge = 'badge mt-1.5';
   if (unplanned.percent === null || unplanned.minutes === 0) {
     return (
       <span className={`${badge} bg-neutral-soft text-ink-2`}>
@@ -161,7 +161,7 @@ export function FamilySplitChart({
       </dl>
 
       {total.total === 0 ? (
-        <div className="mt-6 flex flex-col items-center rounded-2xl border border-dashed border-line px-6 py-14 text-center">
+        <div className="mt-6 flex flex-col items-center rounded-card border border-dashed border-line px-6 py-14 text-center">
           <p className="font-semibold text-ink">Nenhum apontamento neste período</p>
           <Link
             to="/apontamentos"
@@ -189,8 +189,8 @@ function Legend({ total }: { total: SplitMinutes }) {
           <span className="size-3 shrink-0 rounded-sm" style={{ background: p.color }} />
           <span className="shrink-0 text-ink-3">{p.icon(14)}</span>
           <span className="text-ink">{p.label}</span>
-          <span className="tabular font-semibold text-ink">{formatDuration(total[p.key])}</span>
-          <span className="tabular text-xs text-ink-3">{percent(total[p.key], total.total)}%</span>
+          <span className="num font-medium text-ink">{formatDuration(total[p.key])}</span>
+          <span className="num text-xs text-ink-3">{percent(total[p.key], total.total)}%</span>
         </li>
       ))}
     </ul>
@@ -231,7 +231,7 @@ function Columns({ days, scale }: { days: SplitDay[]; scale: PeriodScale }) {
                 }.`}
               >
                 <span
-                  className={`tabular mb-1.5 text-sm font-semibold ${d.total > 0 ? 'text-ink' : 'text-ink-3'} ${
+                  className={`num mb-1.5 text-sm font-medium ${d.total > 0 ? 'text-ink' : 'text-ink-3'} ${
                     month ? 'hidden text-xs @[58rem]:block' : ''
                   }`}
                 >

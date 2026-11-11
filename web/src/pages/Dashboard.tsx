@@ -97,12 +97,18 @@ export function Dashboard() {
         }
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex w-full flex-col items-start gap-3 sm:w-auto sm:flex-row sm:items-center">
+      {/* Celular: as visões numa linha e, embaixo, a escala e o período lado a lado (duas faixas, não três).
+          De sm em diante: escala, visões e, à direita, o período. */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="order-2 sm:order-1">
           <Segmented size="sm" label="Escala do período" value={scale} onChange={setScale} options={SCALES} />
+        </div>
+        <div className="order-1 w-full sm:order-2 sm:w-auto">
           <Segmented label="Métricas do painel" value={view} onChange={choose} options={VIEWS} stretch dense />
         </div>
-        <PeriodNav date={date} scale={scale} onChange={setDate} />
+        <div className="order-3 ml-auto">
+          <PeriodNav date={date} scale={scale} onChange={setDate} />
+        </div>
       </div>
 
       <div

@@ -157,13 +157,13 @@ export function GoalPopover({
         aria-controls={open ? id : undefined}
         onClick={() => setOpen((o) => !o)}
         title="Alterar a meta diária"
-        className="group -m-1 rounded-lg p-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="group -m-1 rounded-control p-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
-        <span className="flex items-center gap-1 text-2xs font-semibold tracking-wider text-ink-3 uppercase">
+        <span className="kpi-label flex items-center gap-1">
           {label}
           <PencilIcon size={11} className="transition group-hover:text-ink" />
         </span>
-        <span className="tabular mt-1 block text-2xl font-semibold tracking-tight text-ink sm:text-display sm:font-bold">
+        <span className="kpi-value">
           {formatDuration(weekGoal)}
         </span>
       </button>

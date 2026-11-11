@@ -26,7 +26,7 @@ export function PeriodNav({
       <div className="min-w-0 px-1 text-center sm:text-left">
         <p className="text-2xs font-semibold tracking-wider text-ink-3 uppercase">{tag}</p>
         {/* A chave refaz a entrada do texto a cada período. */}
-        <p key={period.start} className="swap-in tabular text-base font-semibold whitespace-nowrap text-ink">
+        <p key={period.start} className="swap-in tabular text-sm font-semibold whitespace-nowrap text-ink sm:text-base">
           {scale === 'week' ? (
             <>
               Sex {formatDayMonth(period.start)} <span className="text-ink-3">→</span> Qui {formatDayMonth(period.end)}
