@@ -4,10 +4,11 @@ import type { AppNotification, Severity } from '@acomp/shared';
 import { targetHref } from '../api/reminders';
 import { BellIcon, CalendarIcon, DownloadIcon, FolderIcon, TargetIcon, TrendUpIcon } from './icons';
 
-export const severityStyle: Record<Severity, { chip: string; label: string }> = {
-  critical: { chip: 'bg-critical-soft text-critical-text', label: 'Urgente' },
-  warning: { chip: 'bg-warning-soft text-warning-text', label: 'Atenção' },
-  info: { chip: 'bg-neutral-soft text-ink-2', label: 'Informativo' },
+/** `chip`: o quadrado do ícone; `text`: o rótulo escrito ao lado do título (só texto e ponto, sem fundo). */
+export const severityStyle: Record<Severity, { chip: string; text: string; label: string }> = {
+  critical: { chip: 'bg-critical-soft text-critical-text', text: 'text-critical-text', label: 'Urgente' },
+  warning: { chip: 'bg-warning-soft text-warning-text', text: 'text-warning-text', label: 'Atenção' },
+  info: { chip: 'bg-neutral-soft text-ink-2', text: 'text-ink-3', label: 'Informativo' },
 };
 
 const kindIcon: Record<AppNotification['kind'], (s: number) => ReactNode> = {
@@ -21,7 +22,7 @@ const kindIcon: Record<AppNotification['kind'], (s: number) => ReactNode> = {
 export function SeverityIcon({ severity, kind, size = 16 }: { severity: Severity; kind: AppNotification['kind']; size?: number }) {
   return (
     <span
-      className={`grid shrink-0 place-items-center rounded-full ${severityStyle[severity].chip}`}
+      className={`grid shrink-0 place-items-center rounded-control ${severityStyle[severity].chip}`}
       style={{ width: size + 14, height: size + 14 }}
       title={severityStyle[severity].label}
     >
@@ -48,7 +49,10 @@ export function ReminderRow({
           {/* Resumo do sino: uma linha só; tela completa: o título quebra para não esconder a data. */}
           <span className={`min-w-0 font-semibold text-ink ${compact ? 'truncate text-xs' : 'text-sm'}`}>{item.title}</span>
           {!compact && item.severity !== 'info' && (
-            <span className={`shrink-0 rounded-full px-2 py-0.5 text-2xs font-semibold ${severityStyle[item.severity].chip}`}>
+            // Vários urgentes seguidos não viram uma fileira de selos vermelhos: o quadrado do ícone já tem a cor, e
+            // aqui fica só o rótulo escrito (a cor nunca é a única pista).
+            <span className={`inline-flex shrink-0 items-center gap-1 text-2xs font-medium ${severityStyle[item.severity].text}`}>
+              <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
               {severityStyle[item.severity].label}
             </span>
           )}
@@ -62,7 +66,7 @@ export function ReminderRow({
     <Link
       to={targetHref(item.target)}
       onClick={onNavigate}
-      className={`flex items-start gap-3 rounded-xl outline-none transition hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent ${compact ? 'px-2.5 py-2' : 'p-3'}`}
+      className={`flex items-start gap-3 rounded-control outline-none transition hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent ${compact ? 'px-2.5 py-2' : 'p-3'}`}
     >
       {body}
     </Link>
@@ -72,7 +76,7 @@ export function ReminderRow({
 export function EmptyReminders({ compact = false }: { compact?: boolean }) {
   return (
     <div className={`flex flex-col items-center text-center ${compact ? 'px-4 py-6' : 'px-6 py-10'}`}>
-      <span className="grid size-10 place-items-center rounded-full bg-good-soft text-good-text">
+      <span className="grid size-10 place-items-center rounded-control bg-good-soft text-good-text">
         <BellIcon size={18} />
       </span>
       <p className="mt-2 text-sm font-semibold text-ink">Nada pendente</p>

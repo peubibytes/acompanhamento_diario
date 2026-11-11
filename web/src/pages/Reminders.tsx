@@ -90,7 +90,7 @@ const DATA_HINT = (
 );
 
 const EXPORT_LINK =
-  'rounded-full bg-surface-2 px-4 py-2 text-sm font-semibold text-ink outline-none transition hover:brightness-95 focus-visible:ring-2 focus-visible:ring-accent';
+  'btn-secondary';
 
 const dateTime = (iso: string) => new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 
@@ -123,14 +123,14 @@ function YourData() {
       <div className="card flex flex-wrap items-center justify-between gap-x-6 gap-y-3 p-5">
         <dl className="flex flex-wrap gap-x-8 gap-y-3">
           <div>
-            <dt className="text-2xs font-semibold tracking-wider text-ink-3 uppercase">Último backup</dt>
-            <dd className="tabular mt-1 text-sm font-semibold text-ink">
+            <dt className="text-xs font-medium text-ink-3">Último backup</dt>
+            <dd className="tabular mt-1 text-sm font-medium text-ink">
               {statusText(backups, backups.data?.last?.at, 'Não foi possível consultar os backups.', 'Nenhum ainda')}
             </dd>
           </div>
           <div>
-            <dt className="text-2xs font-semibold tracking-wider text-ink-3 uppercase">Última exportação</dt>
-            <dd className="tabular mt-1 text-sm font-semibold text-ink">
+            <dt className="text-xs font-medium text-ink-3">Última exportação</dt>
+            <dd className="tabular mt-1 text-sm font-medium text-ink">
               {statusText(storage, storage.data?.lastExportAt, 'Não foi possível consultar.', 'Nenhuma ainda')}
             </dd>
           </div>
@@ -146,7 +146,7 @@ function YourData() {
 function ReminderGroup({ title, items }: { title: string; items: AppNotification[] }) {
   return (
     <div className="py-1 first:pt-0 last:pb-0">
-      <p className="px-3 pt-2 pb-1 text-2xs font-semibold tracking-wider text-ink-3 uppercase">
+      <p className="px-3 pt-2 pb-1 text-xs font-medium text-ink-3">
         {title} <span className="tabular">· {items.length}</span>
       </p>
       <ul className="stagger">
@@ -248,10 +248,10 @@ function AgendaDay({
             <li key={i.id}>
               <Link
                 to={targetHref(i.target)}
-                className="flex items-start gap-3 rounded-xl px-3 py-2.5 outline-none transition hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent"
+                className="flex items-start gap-3 rounded-control px-3 py-2.5 outline-none transition hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent"
               >
                 <span
-                  className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-full ${
+                  className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-control ${
                     status ? status.badge : 'bg-surface-2 text-ink-2'
                   }`}
                 >

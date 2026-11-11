@@ -54,7 +54,7 @@ export function NotificationBell() {
         aria-label={label}
         aria-haspopup="true"
         aria-expanded={open}
-        className={`relative grid size-9 place-items-center rounded-full outline-none transition focus-visible:ring-2 focus-visible:ring-accent ${
+        className={`relative grid size-9 place-items-center rounded-control outline-none transition focus-visible:ring-2 focus-visible:ring-accent ${
           onPage ? 'bg-surface-2 text-ink' : 'text-ink-2 hover:bg-surface-2 hover:text-ink'
         }`}
       >
@@ -105,7 +105,7 @@ export function NotificationBell() {
           <Link
             to="/lembretes"
             onClick={() => setOpen(false)}
-            className="mt-1 flex items-center justify-between rounded-xl border-t border-line px-2.5 pt-2.5 pb-1.5 text-sm font-semibold text-accent hover:underline"
+            className="mt-1 flex items-center justify-between rounded-control border-t border-line px-2.5 pt-2.5 pb-1.5 text-sm font-medium text-accent hover:underline"
           >
             {notifications.length > PREVIEW_ITEMS
               ? `Ver todos (${notifications.length}) e a agenda`
