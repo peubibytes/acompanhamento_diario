@@ -111,7 +111,7 @@ export function SlideOver({
       >
         <header className="flex items-start justify-between gap-3 border-b border-line px-5 py-4 sm:px-6">
           <div className="min-w-0">
-            <h2 id={titleId} className="text-base font-semibold text-ink">
+            <h2 id={titleId} className="text-lg font-semibold tracking-tight text-ink">
               {shown.title}
             </h2>
             {shown.subtitle && <p className="mt-0.5 text-xs text-ink-3">{shown.subtitle}</p>}
@@ -120,7 +120,7 @@ export function SlideOver({
             type="button"
             onClick={requestClose}
             aria-label="Fechar"
-            className="press -mt-1 -mr-1.5 grid size-9 shrink-0 place-items-center rounded-full text-ink-3 outline-none hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-accent"
+            className="btn-icon -mt-0.5 -mr-1.5"
           >
             <XIcon size={18} />
           </button>
@@ -136,14 +136,14 @@ export function SlideOver({
               <button
                 type="button"
                 onClick={() => setConfirming(false)}
-                className="rounded-full px-3 py-1 text-xs font-semibold outline-none hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-accent"
+                className="btn-ghost btn-sm"
               >
                 Continuar editando
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-full bg-critical px-3 py-1 text-xs font-semibold text-white outline-none hover:brightness-110 focus-visible:ring-2 focus-visible:ring-accent"
+                className="btn-danger btn-sm"
               >
                 Descartar
               </button>

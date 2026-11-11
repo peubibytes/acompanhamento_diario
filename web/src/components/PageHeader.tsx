@@ -26,7 +26,7 @@ export function PageHeader({
             type="button"
             onClick={onBack}
             aria-label="Voltar"
-            className="-ml-2 grid size-9 shrink-0 place-items-center rounded-full text-ink-2 outline-none transition hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-accent"
+            className="btn-icon -ml-1.5"
           >
             <ArrowLeft size={18} />
           </button>

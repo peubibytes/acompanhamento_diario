@@ -55,14 +55,14 @@ export function GoalSelector({
   };
 
   const segment = (active: boolean) =>
-    `rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
+    `rounded-badge px-3 py-1.5 text-sm font-medium transition ${
       active ? 'bg-surface text-ink shadow-sm' : 'text-ink-2 hover:text-ink'
     }`;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-sm text-ink-2">Meta diária</span>
-      <div className="flex items-center rounded-full bg-surface-2 p-1" role="group" aria-label="Meta diária">
+      <div className="flex items-center rounded-control bg-surface-2 p-0.5" role="group" aria-label="Meta diária">
         {GOAL_PRESETS.map((p) => (
           <button
             key={p.minutes}
@@ -94,7 +94,7 @@ export function GoalSelector({
           <button
             type="submit"
             disabled={setGoal.isPending}
-            className="rounded-full bg-accent px-3.5 py-1.5 text-sm font-semibold text-on-accent transition hover:bg-accent-hover disabled:opacity-60"
+            className="btn-primary btn-sm"
           >
             Aplicar
           </button>

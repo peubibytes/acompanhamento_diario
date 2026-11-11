@@ -19,7 +19,7 @@ export function FilterSelect<T extends string>({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as T)}
-        className="cursor-pointer appearance-none rounded-full bg-surface-2 py-1.5 pr-8 pl-3.5 text-sm font-medium text-ink outline-none transition hover:bg-surface-2/70 focus-visible:ring-2 focus-visible:ring-accent"
+        className="cursor-pointer appearance-none rounded-control bg-surface-2 py-1.5 pr-8 pl-3 text-sm font-medium text-ink outline-none transition hover:bg-surface-2/70 focus-visible:ring-2 focus-visible:ring-accent"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>

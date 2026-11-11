@@ -82,8 +82,8 @@ export function CategoryFilter<T extends string>({
               tabIndex={on ? 0 : -1}
               onClick={() => onChange(o.value)}
               style={style}
-              className={`chip press inline-flex items-center gap-1.5 rounded-full bg-surface-2 py-1.5 pl-3 text-sm font-medium whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-accent max-sm:gap-1 max-sm:pl-2 max-sm:text-xs ${
-                o.count === undefined ? 'pr-3 max-sm:pr-2' : 'pr-1.5 max-sm:pr-1'
+              className={`chip press inline-flex items-center gap-1.5 rounded-control py-1 pl-2.5 text-sm font-medium whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-accent max-sm:gap-1 max-sm:pl-2 max-sm:text-xs ${
+                o.count === undefined ? 'pr-2.5 max-sm:pr-2' : 'pr-1 max-sm:pr-1'
               } ${on ? '' : empty ? 'text-ink-3 hover:text-ink-2' : 'text-ink-2 hover:text-ink'}`}
             >
               {o.category && (
@@ -94,7 +94,7 @@ export function CategoryFilter<T extends string>({
               <span>{o.label}</span>
               {o.count !== undefined && (
                 <span
-                  className={`tabular min-w-5 rounded-full bg-surface px-1.5 text-center text-xs leading-5 max-sm:min-w-4 max-sm:px-1 ${on ? 'text-ink' : 'text-ink-3'}`}
+                  className={`num min-w-5 rounded-badge bg-surface-2 px-1 text-center text-xs leading-5 max-sm:min-w-4 ${on ? 'text-ink' : 'text-ink-3'}`}
                 >
                   {o.count}
                 </span>

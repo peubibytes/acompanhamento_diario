@@ -44,7 +44,7 @@ export function Layout() {
                   to={withDate(l.to, date, scale)}
                   end
                   className={({ isActive }) =>
-                    `rounded-full px-1.5 py-1.5 text-sm font-medium md:px-3.5 outline-none transition focus-visible:ring-2 focus-visible:ring-accent ${
+                    `rounded-control px-1.5 py-1.5 text-sm font-medium md:px-3 outline-none transition focus-visible:ring-2 focus-visible:ring-accent ${
                       isActive ? 'bg-surface-2 text-ink' : 'text-ink-2 hover:text-ink'
                     }`
                   }

@@ -16,7 +16,7 @@ export function PeriodNav({
   const isCurrent = period.start === current;
   const tag = isCurrent ? 'Período atual' : period.start < current ? 'Período anterior' : 'Próximo período';
 
-  const navButton = 'press grid size-9 place-items-center rounded-full text-ink-2 hover:bg-surface-2 hover:text-ink';
+  const navButton = 'press btn-icon';
 
   return (
     <div className="flex flex-wrap items-center gap-1">
@@ -42,7 +42,7 @@ export function PeriodNav({
       {!isCurrent && (
         <button
           onClick={() => onChange(todayISO())}
-          className="ml-1 inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-3 py-1.5 text-xs font-semibold text-accent transition hover:brightness-95"
+          className="ml-1 inline-flex items-center gap-1.5 rounded-control bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent transition hover:brightness-95"
         >
           <CalendarIcon size={14} /> Hoje
         </button>

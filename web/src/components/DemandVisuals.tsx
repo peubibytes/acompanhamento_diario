@@ -69,7 +69,7 @@ export function CategoryAvatar({ category, size = 32 }: { category: DemandCatego
   );
 }
 
-const BADGE = 'inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap';
+const BADGE = 'badge';
 
 export const deadlineStyle: Record<DeadlineStatus, { badge: string; icon: (s: number) => ReactNode }> = {
   sem_prazo: { badge: 'bg-neutral-soft text-ink-2', icon: (s) => <DashIcon size={s} /> },
