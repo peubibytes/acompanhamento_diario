@@ -71,7 +71,7 @@ export function DailyChart({ days, goal, scale = 'week' }: { days: DayMetrics[];
                     minHeight: d.minutes > 0 ? 3 : 0,
                   }}
                 >
-                  {/* Acima da meta, só o que passou dela fica hachurado em vermelho; a meta segue neutra embaixo. */}
+                  {/* Acima da meta, só o que passou dela fica hachurado em vermelho; a meta segue em azul-escuro embaixo. */}
                   {d.exceeded && (
                     <span className="hatch-critical shrink-0 rounded-t-control" style={{ height: `${((d.minutes - d.goal) / d.minutes) * 100}%` }} />
                   )}
