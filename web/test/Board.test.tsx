@@ -102,15 +102,44 @@ describe('Kanban', () => {
     await column('A fazer').findByText(A);
     expect(cardsOf('A fazer')).toEqual([A, 'Documentação de exemplo', B]);
 
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Tipo de demanda' }), 'Chamados (2)');
+    const types = within(screen.getByRole('radiogroup', { name: 'Tipo de demanda' }));
+    expect(types.getByRole('radio', { name: 'Todos, 3 no quadro' })).toBeChecked();
+    expect(types.getByRole('radio', { name: 'Ciclos, 0 no quadro' })).toBeInTheDocument();
+    await userEvent.click(types.getByRole('radio', { name: 'Chamados, 2 no quadro' }));
     expect(screen.getByTestId('location').textContent).toBe('/kanban?tipo=chamado');
+    expect(types.getByRole('radio', { name: /^Chamados/ })).toBeChecked();
     expect(cardsOf('A fazer')).toEqual([A, B]);
 
     // B sobe para antes de A; a atividade, escondida pelo filtro, continua na ordem gravada.
     await userEvent.click(screen.getByRole('button', { name: `Subir ${B}` }));
     await waitFor(() => expect(cardsOf('A fazer')).toEqual([B, A]));
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Tipo de demanda' }), 'Todos os tipos');
+    await userEvent.click(types.getByRole('radio', { name: /^Todos/ }));
     await waitFor(() => expect(cardsOf('A fazer')).toEqual([B, A, 'Documentação de exemplo']));
+    expect(screen.getByTestId('location').textContent).toBe('/kanban');
+  });
+
+  it('o seletor de tipo responde ao teclado: só o escolhido recebe o Tab; setas, Home e End trocam', async () => {
+    await ticket(A);
+    renderPage(<Board />, { url: '/kanban?tipo=ciclo' });
+    await ready();
+    const types = within(screen.getByRole('radiogroup', { name: 'Tipo de demanda' }));
+    const ciclos = types.getByRole('radio', { name: /^Ciclos/ });
+    expect(ciclos).toBeChecked();
+    expect(types.getAllByRole('radio').filter((r) => r.tabIndex === 0)).toEqual([ciclos]);
+
+    ciclos.focus();
+    await userEvent.keyboard('{ArrowRight}');
+    expect(screen.getByTestId('location').textContent).toBe('/kanban?tipo=treinamento');
+    expect(types.getByRole('radio', { name: /^Treinamentos/ })).toHaveFocus();
+    await userEvent.keyboard('{End}');
+    expect(screen.getByTestId('location').textContent).toBe('/kanban?tipo=atividade');
+    await userEvent.keyboard('{ArrowRight}');
+    expect(screen.getByTestId('location').textContent).toBe('/kanban');
+    expect(types.getByRole('radio', { name: /^Todos/ })).toHaveFocus();
+    await userEvent.keyboard('{ArrowLeft}');
+    expect(screen.getByTestId('location').textContent).toBe('/kanban?tipo=atividade');
+    await userEvent.keyboard('{Home}');
+    expect(types.getByRole('radio', { name: /^Todos/ })).toBeChecked();
   });
 
   it('declara uma demanda pelo quadro e ela aparece em "A fazer"', async () => {

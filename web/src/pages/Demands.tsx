@@ -18,7 +18,6 @@ import {
   type CycleStatus,
   type DemandCategory,
   type DemandSummary,
-  type TaskCategory,
   type TaskStatus,
   type TicketStatus,
 } from '@acomp/shared';
@@ -26,7 +25,7 @@ import { useDeleteDemand, useDemands, useSaveDemand, useSetDemandStatus } from '
 import { ActivityHistory, CycleTracking, IconButton } from '../components/DemandHistory';
 import { DemandForm } from '../components/DemandForms';
 import { categoryIcon, CycleStatusBadge, DeadlineBadge, taskStatusStyle } from '../components/DemandVisuals';
-import { FilterSelect } from '../components/FilterSelect';
+import { CategoryFilter } from '../components/CategoryFilter';
 import { CheckIcon, ChevronDown, HourglassIcon, PencilIcon, PlusIcon, TrashIcon, UndoIcon } from '../components/icons';
 import { PageHeader } from '../components/PageHeader';
 import { Segmented } from '../components/Segmented';
@@ -35,7 +34,8 @@ import { ErrorState, Skeleton } from '../components/States';
 import { useToast } from '../components/Toast';
 
 type StatusFilter = 'abertas' | 'encerradas' | 'todas';
-type Tab = 'tarefas' | 'ciclo';
+/** A ordem da barra de categorias: as Tarefas e, depois do divisor, o Ciclo. */
+const CATEGORY_ORDER: readonly DemandCategory[] = [...TASK_CATEGORIES, 'ciclo'];
 /** O formulário aberto no painel: declarar uma demanda do tipo atual ou editar uma existente. */
 type Panel = { mode: 'new'; category: DemandCategory } | { mode: 'edit'; id: number };
 
@@ -91,9 +91,6 @@ export function Demands() {
   const { hash } = useLocation();
   const tipo = params.get('tipo');
   const category: DemandCategory = isCategory(tipo) ? tipo : 'chamado';
-  const tab: Tab = category === 'ciclo' ? 'ciclo' : 'tarefas';
-
-  const [lastTask, setLastTask] = useState<TaskCategory>(category === 'ciclo' ? 'chamado' : category);
   const [filter, setFilter] = useState<StatusFilter>('abertas');
   const [panel, setPanel] = useState<Panel | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -106,13 +103,13 @@ export function Demands() {
   const list = hasStatus ? ofCategory.filter((d) => matches(d, filter)) : ofCategory;
   const editing = panel?.mode === 'edit' ? all.find((d) => d.id === panel.id) : undefined;
   const panelCategory = panel?.mode === 'new' ? panel.category : editing?.category;
-  const openCount = (cats: readonly DemandCategory[]) => all.filter((d) => cats.includes(d.category) && isOpenDemand(d)).length;
+  const openCount = (c: DemandCategory) => all.filter((d) => d.category === c && isOpenDemand(d)).length;
 
   const chooseCategory = (next: DemandCategory) => {
+    if (next === category) return;
     setPanel(null);
     setExpandedId(null);
     setFilter('abertas');
-    if (next !== 'ciclo') setLastTask(next);
     setParams(
       (p) => {
         p.set('tipo', next);
@@ -158,29 +155,22 @@ export function Demands() {
         }
       />
 
-      {/* Uma barra só: a família (Tarefas | Ciclo), o tipo da tarefa (menu) e o status. */}
+      {/* Uma barra só: as categorias à vista (as Tarefas, um divisor e o Ciclo) e o status. */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-3">
-        <Segmented
-          label="Família de demandas"
-          value={tab}
-          onChange={(next) => chooseCategory(next === 'ciclo' ? 'ciclo' : lastTask)}
-          stretch
-          options={[
-            { value: 'tarefas', label: 'Tarefas', count: demands.data ? openCount(TASK_CATEGORIES) : undefined },
-            { value: 'ciclo', label: 'Ciclo', count: demands.data ? openCount(['ciclo']) : undefined },
-          ]}
+        <CategoryFilter
+          label="Tipo de demanda"
+          value={category}
+          onChange={chooseCategory}
+          options={CATEGORY_ORDER.map((c) => ({
+            value: c,
+            label: DEMAND_CATEGORY_PLURAL[c],
+            category: c,
+            group: c === 'ciclo' ? 'ciclo' : 'tarefas',
+            // Reunião não tem status: conta as declaradas; as demais, as em aberto.
+            count: demands.data ? openCount(c) : undefined,
+            countLabel: c === 'reuniao' ? 'declaradas' : 'em aberto',
+          }))}
         />
-        {tab === 'tarefas' && (
-          <FilterSelect
-            label="Tipo de tarefa"
-            value={category as TaskCategory}
-            onChange={chooseCategory}
-            options={TASK_CATEGORIES.map((c) => ({
-              value: c,
-              label: `${DEMAND_CATEGORY_PLURAL[c]}${demands.data ? ` (${all.filter((d) => d.category === c).length})` : ''}`,
-            }))}
-          />
-        )}
         {hasStatus && (
           <div className="sm:ml-auto">
             <Segmented

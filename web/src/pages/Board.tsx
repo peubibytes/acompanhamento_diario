@@ -18,7 +18,7 @@ import {
 } from '@acomp/shared';
 import { useDemands, useMoveCard } from '../api/client';
 import { DemandForm } from '../components/DemandForms';
-import { FilterSelect } from '../components/FilterSelect';
+import { CategoryFilter } from '../components/CategoryFilter';
 import { CheckIcon, ChevronUp, ClockIcon, DashIcon, HourglassIcon, PlusIcon } from '../components/icons';
 import { PageHeader } from '../components/PageHeader';
 import { Segmented } from '../components/Segmented';
@@ -231,7 +231,7 @@ export function Board() {
       />
 
       <div className="flex flex-wrap items-center gap-3">
-        <FilterSelect
+        <CategoryFilter
           label="Tipo de demanda"
           value={filter}
           onChange={(next) =>
@@ -245,10 +245,20 @@ export function Board() {
             )
           }
           options={[
-            { value: 'todos' as Filter, label: 'Todos os tipos' },
+            {
+              value: 'todos' as Filter,
+              label: 'Todos',
+              group: 'todos',
+              count: demands.data ? BOARD_CATEGORIES.reduce((sum, c) => sum + countOf(c), 0) : undefined,
+              countLabel: 'no quadro',
+            },
             ...BOARD_CATEGORIES.map((c) => ({
               value: c as Filter,
-              label: `${DEMAND_CATEGORY_PLURAL[c]}${demands.data ? ` (${countOf(c)})` : ''}`,
+              label: DEMAND_CATEGORY_PLURAL[c],
+              category: c,
+              group: 'tipos',
+              count: demands.data ? countOf(c) : undefined,
+              countLabel: 'no quadro',
             })),
           ]}
         />

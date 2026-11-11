@@ -115,7 +115,7 @@ acompanhamento_diario/
 - **Testes:** `node --test` para as regras (`shared`), para a API (`server`) e para a varredura (`scripts`);
   **Vitest + Testing Library** para as telas (`web/test`, v0.10), em jsdom, falando com a **API real** (Express e
   SQLite em memória numa porta livre), sem respostas inventadas. O relógio é congelado (só `Date`) para as datas
-  serem estáveis. Cobertos: o Kanban (colunas, prioridade pelas setas, status pelo seletor, filtro, declaração e recolher o cartão e a coluna; o deslize dos cartões, `useFlip`, com layout e animações simulados), navegação entre períodos, escala e visão do Painel (URL e preferência; quais visões cabem na janela), tempo por categoria no Rendimento, formulário de
+  serem estáveis. Cobertos: o seletor de categoria (Demandas e Kanban: URL, contagens e teclado), o Kanban (colunas, prioridade pelas setas, status pelo seletor, filtro, declaração e recolher o cartão e a coluna; o deslize dos cartões, `useFlip`, com layout e animações simulados), navegação entre períodos, escala e visão do Painel (URL e preferência; quais visões cabem na janela), tempo por categoria no Rendimento, formulário de
   apontamento (horário inválido, gravação) e declaração de chamado (maiúsculas, repetido, aviso de rascunho).
   `npm test` roda os dois; `npm run test:rules` e `npm run test:web` rodam cada um.
 - **CI (v0.10):** `.github/workflows/ci.yml` roda, em todo PR e em todo push na `main`, `npm ci`,
@@ -218,12 +218,12 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
    linha, e a lista (por horário ou por demanda) ocupando a tela. O formulário (demanda, início,
    fim, duração ao vivo, o que foi feito, observações, status; a demanda se escolhe num seletor com busca) abre num painel deslizante pelo
    botão "Novo apontamento" ou ao editar. Ver seção 9.
-3. **Demandas (`/demandas`)** — uma barra só: abas **Tarefas | Ciclo** (com a contagem dos
-   abertos), o tipo da tarefa (chamado, reunião ou treinamento) num menu, e o status (em
-   aberto, encerrados, todos) à direita. A lista é de linhas compactas; o formulário abre num
+3. **Demandas (`/demandas`)** — uma barra só: o **seletor de categoria** (v0.17, seção 7), com Chamados,
+   Reuniões, Treinamentos, Atividades, um divisor e Ciclos, cada um com a contagem dos abertos, e o status (em
+   aberto, encerrados, todos) à direita. (Até a v0.16: abas Tarefas | Ciclo e o tipo da tarefa num menu.) A lista é de linhas compactas; o formulário abre num
    painel deslizante pelo botão "Declarar {tipo}" ou ao editar. Ver seção 9.
    **Kanban (`/kanban`, v0.16)** — as demandas com status em quatro colunas, com a ordem na coluna como
-   prioridade; um filtro por tipo e a ação "Declarar demanda". Ver seção 14.
+   prioridade; o seletor de categoria e a ação "Declarar demanda". Ver seção 14.
 4. **Detalhes (`/detalhes`)** — duas abas, **Dia a dia** e **Ciclos** (v0.8, ver seção 11). Dia a dia:
    tabela fiel à planilha: data, dia, meta, horas, diferença, qtd
    apontamentos, conformidade, diagnóstico e linha de total geral. Linhas com listras suaves em
@@ -266,6 +266,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 | 18 | v0.15: Painel → Rendimento sem o bloco "Rendimento por ciclo" (decisão 0015) e "Predominou" pela categoria (decisão 0016) | ✅ |
 | 19 | v0.16: Kanban (decisão 0017; migração 10) | ✅ |
 | 20 | v0.16: movimento — animações curtas, com tokens, e respeito a "reduzir movimento" (decisão 0018; seção 7) | ✅ |
+| 21 | v0.17: seletor de categoria em chips em Demandas e no Kanban, com cor fixa por tipo (decisão 0019; seção 7) | ✅ |
 | — | Integração com o Azure | futuro |
 | — | Integração com o Google Agenda (reuniões do dia → sugestões de apontamento) | futuro |
 
@@ -399,6 +400,12 @@ reestilização, auditorias e comparativos) está em `docs/HISTORICO.md`.
   da janela e quem cede é o gráfico (barras de 21rem/18rem até no mínimo 9rem; as alturas são em %). Em tela alta nada
   muda. Com até 800 px de altura, o espaço entre blocos (`--section`) cai para 1,25rem. Ciclos e Distribuição crescem
   com o conteúdo e seguem rolando.
+- **Seletor de categoria (v0.17, `CategoryFilter`, `docs/decisions/0019`):** em Demandas e no Kanban, o filtro por tipo
+  é uma barra de chips com todas as opções à vista: ícone do tipo na cor do tipo, nome e contagem num selo. O escolhido
+  ganha fundo suave na cor, anel de 1px e texto forte (a cor nunca é a única pista); contagem zero deixa o chip apagado,
+  mas clicável. Cores em tokens: `--cat-<tipo>` (preenche; os gráficos usam a mesma) e `--cat-<tipo>-ink` (ícone e
+  anel, contraste ≥ 3:1 nos dois temas), expostas como `categoryColor` e `categoryInk`. É um `radiogroup`: Tab entra no
+  escolhido; setas, Home e End trocam. No celular os chips quebram linha, mais compactos abaixo de 640 px.
 - **Painel deslizante (`SlideOver`)** para formulários: diálogo modal (foco preso, Esc fecha, foco volta a
   quem abriu, rolagem travada); com algo digitado, fechar pede confirmação; no celular ocupa a tela.
 - **Listas compactas:** o essencial na linha; detalhes ao expandir; editar e excluir no hover (no celular,
@@ -441,7 +448,7 @@ Decisão em `docs/decisions/0001-demandas-viram-chamados.md`; o texto original d
   já houver algum preenchido.
 
 ### 8.2 Treinamentos — ✅ como Tarefa (v0.5)
-Declarados em Demandas → Tarefas → Treinamentos: nome, descrição e status (não iniciado,
+Declarados em Demandas → Treinamentos: nome, descrição e status (não iniciado,
 iniciado, em andamento, concluído). Sem carga horária: as horas de estudo são apontadas.
 Vínculo com metas fica para a seção 8.3.
 
@@ -478,8 +485,9 @@ sobre uma demanda já declarada. Assim, a mesma coisa feita em horários diferen
 cada dia, um chamado retomado à tarde) aparece reunida.
 
 ### Demandas (`/demandas`)
-- Duas famílias, nas abas do topo: **Tarefas** e **Ciclo**.
-- **Tarefas** têm quatro tipos (menu ao lado das abas):
+- Duas famílias: **Tarefas** e **Ciclo**. Desde a v0.17 todos os tipos ficam numa barra só, o seletor de categoria
+  (seção 7): as quatro Tarefas, um divisor e o Ciclo, cada um com a contagem dos abertos (reunião: as declaradas).
+- **Tarefas** têm quatro tipos:
   - **Chamados:** número do chamado (obrigatório, normalizado em maiúsculas, único), descrição
     (obrigatória: problema, quem solicitou, outras informações) e status: Não iniciado,
     Em andamento, **Em espera**, Concluído (v0.14, decisão 0013: sem "Iniciado"; treinamentos e atividades mantêm
@@ -766,7 +774,8 @@ Decisão em `docs/decisions/0017-kanban.md`. Regras em `shared/src/board.ts`, te
 Princípio: o colaborador vê tudo o que tem em mãos, por andamento, e **põe em cima o que importa mais**.
 
 - **Tela (`/kanban`):** quatro colunas, **A fazer**, **Em andamento**, **Aguardando** e **Concluído**, com a
-  contagem de cada uma. Um filtro por tipo (todos, chamados, ciclos, treinamentos, atividades; na URL como `?tipo=`) e a
+  contagem de cada uma. O seletor de categoria (seção 7: todos, chamados, ciclos, treinamentos, atividades, com os
+  cartões no quadro de cada um; na URL como `?tipo=`) e a
   ação principal **Declarar demanda** (o mesmo formulário de Demandas, com o tipo escolhido no topo do painel).
 - **Coluna = status** (`boardColumnOf`): A fazer = Novo, Não iniciado · Em andamento = Em andamento, Iniciado ·
   Aguardando = Aguardando terceiro, Em homologação (ciclos) e Em espera (chamados) · Concluído = Concluído.
