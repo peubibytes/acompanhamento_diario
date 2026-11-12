@@ -13,7 +13,7 @@ import {
   type TaskStatus,
   type TicketStatus,
 } from '@acomp/shared';
-import { categoryIcon, cycleStatusStyle, deadlineStyle, taskStatusStyle } from '../../components/DemandVisuals';
+import { categoryIcon, categoryInk, cycleStatusStyle, deadlineStyle, taskStatusStyle } from '../../components/DemandVisuals';
 import {
   AlertIcon,
   ArrowDown,
@@ -59,7 +59,7 @@ function CardButton({
       aria-expanded={expanded}
       data-collapse-toggle={expanded === undefined ? undefined : ''}
       title={label}
-      className={`press grid shrink-0 ${size === 'sm' ? 'size-6' : 'size-8'} ${className} place-items-center rounded-full text-ink-3 outline-none hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-30`}
+      className={`press grid shrink-0 ${size === 'sm' ? 'size-6' : 'size-8'} ${className} place-items-center rounded-control text-ink-3 outline-none hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-30`}
     >
       {children}
     </button>
@@ -89,7 +89,7 @@ export function CardFace({
     <span
       title={collapsed ? d.label : undefined}
       className={`min-w-0 text-sm font-semibold text-ink break-words ${collapsed ? 'line-clamp-2' : ''} ${
-        d.category === 'chamado' ? 'tabular tracking-wide' : ''
+        d.category === 'chamado' ? 'num' : ''
       } ${open ? '' : 'line-through decoration-ink-3'}`}
     >
       {d.label}
@@ -112,14 +112,14 @@ export function CardFace({
       <div className="flex items-start gap-2">
         {rank !== undefined && (
           <span
-            className="tabular mt-0.5 w-4 shrink-0 text-right text-xs font-semibold text-ink-3"
+            className="num mt-0.5 w-4 shrink-0 text-right text-xs font-medium text-ink-3"
             title={`Prioridade ${rank} na coluna`}
           >
             {rank}
             <span className="sr-only">º na coluna: </span>
           </span>
         )}
-        <span className="mt-0.5 shrink-0 text-ink-3" title={DEMAND_CATEGORY_LABEL[d.category]}>
+        <span className="mt-0.5 shrink-0" style={{ color: categoryInk[d.category] }} title={DEMAND_CATEGORY_LABEL[d.category]}>
           {categoryIcon[d.category](15)}
           <span className="sr-only">{DEMAND_CATEGORY_LABEL[d.category]}: </span>
         </span>
@@ -158,7 +158,7 @@ export function CardFace({
                 </span>
               )}
               {deadline && d.category === 'ciclo' && d.dueDate && (
-                <span className={`tabular inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${deadline.badge}`}>
+                <span className={`badge tabular ${deadline.badge}`}>
                   {deadline.icon(12)}
                   {d.metrics.deadline === 'atrasada' ? 'Venceu' : d.metrics.deadline === 'vence_hoje' ? 'Hoje' : 'Prazo'}
                   {d.metrics.deadline !== 'vence_hoje' && ` ${formatDayMonth(d.dueDate)}`}
@@ -172,7 +172,7 @@ export function CardFace({
                 </span>
               )}
               {d.metrics.logged > 0 && (
-                <span className="tabular inline-flex items-center gap-1" title="Horas apontadas">
+                <span className="num inline-flex items-center gap-1" title="Horas apontadas">
                   <ClockIcon size={12} />
                   {formatDuration(d.metrics.logged)}
                   <span className="sr-only"> apontadas</span>
@@ -264,7 +264,7 @@ export function BoardCard({
       {!collapsed && (
         <div className="mt-2.5 flex flex-wrap items-center justify-between gap-1">
           <label
-            className={`relative inline-flex max-w-full items-center gap-1.5 rounded-full py-1 pr-1 pl-2.5 text-xs font-medium has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent ${style.badge}`}
+            className={`relative inline-flex max-w-full items-center gap-1.5 rounded-badge py-0.5 pr-1 pl-1.5 text-xs font-medium has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent ${style.badge}`}
           >
             <span className="shrink-0">{style.icon(13)}</span>
             <span className="sr-only">Status de {d.label}</span>
@@ -284,7 +284,7 @@ export function BoardCard({
           </label>
 
           {/* Com mouse, os controles flutuam no canto do cartão ao passar por ele ou focar; no toque, ficam sempre à mão, ao lado do status. */}
-          <div className="ml-auto flex shrink-0 items-center can-hover:absolute can-hover:top-1.5 can-hover:right-1.5 can-hover:rounded-full can-hover:bg-surface can-hover:opacity-0 can-hover:shadow-[var(--shadow-pop)] can-hover:transition can-hover:group-focus-within:opacity-100 can-hover:group-hover:opacity-100">
+          <div className="ml-auto flex shrink-0 items-center can-hover:absolute can-hover:top-1.5 can-hover:right-1.5 can-hover:rounded-control can-hover:bg-surface can-hover:opacity-0 can-hover:shadow-[var(--shadow-pop)] can-hover:transition can-hover:group-focus-within:opacity-100 can-hover:group-hover:opacity-100">
             {rank !== undefined && (
               <>
                 <CardButton label={`Subir ${d.label}`} onClick={() => onUp?.()} disabled={!onUp}>
@@ -305,7 +305,7 @@ export function BoardCard({
               data-drag-handle
               aria-hidden="true"
               title="Arrastar"
-              className="grid size-8 touch-none place-items-center rounded-full text-ink-3 can-hover:hidden"
+              className="grid size-8 touch-none place-items-center rounded-control text-ink-3 can-hover:hidden"
             >
               <GripIcon size={16} />
             </span>
