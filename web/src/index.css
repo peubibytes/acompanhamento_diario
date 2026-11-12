@@ -20,7 +20,7 @@
  *               px-gutter (margem da página), gap-section / space-y-section (entre blocos),
  *               max-w-page (largura do conteúdo)
  *   sombras     só no que flutua (shadow-pop: dicas, menus, painel deslizante). Cartões se separam por borda.
- * Componentes prontos (fim deste arquivo): .tabular · .num · .card · .field · .btn-primary · .btn-secondary · .btn-ghost ·
+ * Componentes prontos (fim deste arquivo): .tabular · .num · .kpi-label/.kpi-value · .hatch-critical · .card · .field · .btn-primary · .btn-secondary · .btn-ghost ·
  *   .btn-danger · .btn-icon (e .btn-sm) · .badge · .chip
  * Cores (por tema), em :root e nos dois blocos escuros:
  *   neutros levemente frios (na direção do íris); --bar (azul-escuro) preenche as barras de dados sem categoria;
@@ -330,18 +330,52 @@ body {
   box-shadow: var(--shadow-card);
 }
 
-/* Selo (status, prazo, situação): retângulo de cantos curtos, para não se confundir com botão nem com chip. */
-.badge {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 0.3125rem;
-  border-radius: var(--radius-badge);
-  padding: 0.125rem 0.375rem;
-  font-size: var(--text-xs);
-  line-height: var(--text-xs--line-height);
-  font-weight: 500;
-  white-space: nowrap;
+/* Em camada própria: os utilitários do Tailwind (flex, margens, quebra de linha) ainda valem por cima destas classes. */
+@layer components {
+  /* Selo (status, prazo, situação): retângulo de cantos curtos, para não se confundir com botão nem com chip. */
+  .badge {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.3125rem;
+    border-radius: var(--radius-badge);
+    padding: 0.125rem 0.375rem;
+    font-size: var(--text-xs);
+    line-height: var(--text-xs--line-height);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  /* Indicadores (KPIs): rótulo discreto em caixa normal e o número em Geist Mono. */
+  .kpi-label {
+    font-size: var(--text-xs);
+    line-height: var(--text-xs--line-height);
+    font-weight: 500;
+    color: var(--text-3);
+  }
+  .kpi-value {
+    display: block;
+    margin-top: 0.25rem;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--text-2xl);
+    line-height: var(--text-display--line-height);
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    color: var(--text);
+  }
+  @media (min-width: 40rem) {
+    .kpi-value {
+      font-size: var(--text-display);
+    }
+  }
+
+  /* Excesso acima da meta: hachura na cor crítica, com contorno. Só a parte que passou leva a cor; o ícone e o
+     "+hh:mm" acompanham (a cor nunca é a única pista). */
+  .hatch-critical {
+    background: repeating-linear-gradient(135deg, var(--critical) 0 2px, transparent 2px 5px);
+    box-shadow: inset 0 0 0 1.5px var(--critical);
+  }
 }
 
 /* Superfície flutuante (dicas ⓘ, tooltip do gráfico): separada do fundo pela sombra. */

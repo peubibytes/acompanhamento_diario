@@ -82,8 +82,8 @@ export function CyclesChart({
       />
 
       {cycles.length === 0 ? (
-        <div className="mt-6 flex flex-col items-center rounded-2xl border border-dashed border-line px-6 py-14 text-center">
-          <span className="grid size-10 place-items-center rounded-full bg-surface-2 text-ink-2">
+        <div className="mt-6 flex flex-col items-center rounded-card border border-dashed border-line px-6 py-14 text-center">
+          <span className="grid size-10 place-items-center rounded-control bg-surface-2 text-ink-2">
             <TargetIcon size={20} />
           </span>
           <p className="mt-3 font-semibold text-ink">Nenhum ciclo aberto</p>

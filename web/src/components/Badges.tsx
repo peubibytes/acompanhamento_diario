@@ -37,7 +37,7 @@ export const toneStyle: Record<
     short: 'Abaixo',
     badge: 'bg-warning-soft text-warning-text',
     text: 'text-warning-text',
-    bar: 'var(--warning)',
+    bar: 'var(--bar)',
     icon: (s) => <AlertIcon size={s} />,
   },
   acima: {

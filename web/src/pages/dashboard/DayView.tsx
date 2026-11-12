@@ -21,8 +21,8 @@ function weekStatus(week: WeekMetrics) {
   };
 }
 
-const LABEL = 'text-2xs font-semibold tracking-wider text-ink-3 uppercase';
-const NUMBER = 'tabular mt-1 block text-2xl font-semibold tracking-tight text-ink sm:text-display sm:font-bold';
+const LABEL = 'kpi-label';
+const NUMBER = 'kpi-value';
 
 /** Meta diária mais comum entre os dias: a linha de meta do gráfico (no mês, os ciclos podem diferir). */
 function commonGoal(days: DayMetrics[]): number {
@@ -58,7 +58,7 @@ export function DayView({
           <ProgressRing percent={week.fillPercent} exceeded={week.diff > 0} size={72} />
           <div className="min-w-0">
             <p className={LABEL}>Preenchido</p>
-            <span className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap ${status.style}`}>
+            <span className={`badge mt-1.5 ${status.style}`}>
               {status.icon}
               {status.text}
             </span>
@@ -200,7 +200,7 @@ function ChartHint({ scale }: { scale: PeriodScale }) {
       <span className="mt-2 grid gap-1.5">
         {(Object.keys(toneStyle) as DayTone[]).map((c) => (
           <span key={c} className="flex items-center gap-2">
-            <span className="size-2.5 shrink-0 rounded-sm" style={{ background: toneStyle[c].bar }} />
+            <span className={`size-2.5 shrink-0 rounded-sm ${c === 'acima' ? 'hatch-critical' : ''}`} style={c === 'acima' ? undefined : { background: toneStyle[c].bar }} />
             <span className={`shrink-0 ${toneStyle[c].text}`}>{toneStyle[c].icon(12)}</span>
             {toneStyle[c].label}
           </span>
