@@ -109,7 +109,7 @@ export function Details() {
 function DiffCell({ label }: { label: string }) {
   if (!label) return <span className="text-ink-3">—</span>;
   const tone = label === '00:00' ? 'text-good-text' : label.startsWith('+') ? 'text-critical-text' : 'text-warning-text';
-  return <span className={`font-semibold ${tone}`}>{label}</span>;
+  return <span className={`num font-medium ${tone}`}>{label}</span>;
 }
 
 function DetailTable({ summary }: { summary: CycleSummary }) {
@@ -118,9 +118,12 @@ function DetailTable({ summary }: { summary: CycleSummary }) {
   const allConform = week.conformDays === WORKDAYS_PER_CYCLE;
 
   // Cabeçalho fixo dentro da área rolável (que também rola na horizontal no celular).
+  // Celular: o dia da semana entra na coluna da data e a meta sai (é a mesma na semana), para horas, diferença e
+  // apontamentos caberem sem rolar; conformidade e diagnóstico seguem à direita. A partir de sm, a tabela da planilha.
   const th =
-    'sticky top-0 z-10 bg-surface px-4 py-3 text-left text-2xs font-semibold tracking-wider whitespace-nowrap text-ink-3 uppercase shadow-[inset_0_-1px_0_var(--border)]';
-  const td = 'px-4 py-3.5 whitespace-nowrap';
+    'sticky top-0 z-10 bg-surface px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap text-ink-3 shadow-[inset_0_-1px_0_var(--border)] sm:px-4';
+  const td = 'px-3 py-3 whitespace-nowrap sm:px-4';
+  const wide = 'hidden sm:table-cell';
 
   return (
     <div className="card rise overflow-hidden">
@@ -129,11 +132,20 @@ function DetailTable({ summary }: { summary: CycleSummary }) {
           <thead>
             <tr>
               <th className={th}>Data</th>
-              <th className={th}>Dia da semana</th>
-              <th className={`${th} text-right!`}>Meta</th>
-              <th className={`${th} text-right!`}>Horas apontadas</th>
-              <th className={`${th} text-right!`}>Diferença</th>
-              <th className={`${th} text-right!`}>Apontamentos</th>
+              <th className={`${th} ${wide}`}>Dia da semana</th>
+              <th className={`${th} ${wide} text-right!`}>Meta</th>
+              <th className={`${th} text-right!`}>
+                <span className="sm:hidden">Horas</span>
+                <span className="hidden sm:inline">Horas apontadas</span>
+              </th>
+              <th className={`${th} text-right!`}>
+                <span className="sm:hidden">Dif.</span>
+                <span className="hidden sm:inline">Diferença</span>
+              </th>
+              <th className={`${th} text-right!`}>
+                <span className="sm:hidden" title="Apontamentos">Qtd.</span>
+                <span className="hidden sm:inline">Apontamentos</span>
+              </th>
               <th className={th}>Conformidade</th>
               <th className={th}>Diagnóstico</th>
             </tr>
@@ -151,22 +163,24 @@ function DetailTable({ summary }: { summary: CycleSummary }) {
                 <td className={td}>
                   <Link
                     to={`/apontamentos?data=${d.date}`}
-                    className="rounded font-semibold text-ink outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent"
+                    className="rounded-badge font-semibold text-ink outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent"
                   >
+                    <span className="mr-1.5 font-medium text-ink-2 sm:hidden">{d.weekdayShort}</span>
                     {formatDayMonth(d.date)}
                   </Link>
                 </td>
-                <td className={`${td} text-ink-2 [font-variant-numeric:normal]`}>{d.weekdayLong}</td>
-                <td className={`${td} text-right text-ink-2`}>{formatHM(d.goal)}</td>
-                <td className={`${td} text-right font-semibold text-ink`}>{formatHM(d.minutes)}</td>
+                <td className={`${td} ${wide} text-ink-2`}>{d.weekdayLong}</td>
+                <td className={`${td} ${wide} num text-right text-ink-2`}>{formatHM(d.goal)}</td>
+                <td className={`${td} num text-right font-medium text-ink`}>{formatHM(d.minutes)}</td>
                 <td className={`${td} text-right`}>
                   <DiffCell label={d.diffLabel} />
                 </td>
-                <td className={`${td} text-right text-ink`}>{d.activityCount}</td>
+                <td className={`${td} num text-right text-ink`}>{d.activityCount}</td>
                 <td className={td}>
                   <ConformityBadge day={d} />
                 </td>
-                <td className={`${td} min-w-64 whitespace-normal! ${d.exceeded ? 'font-medium text-critical-text' : 'text-ink-2'}`}>
+                {/* O selo "Irregular" já leva o alerta em vermelho; o diagnóstico não repete a cor. */}
+                <td className={`${td} min-w-64 whitespace-normal! text-ink-2`}>
                   {d.diagnosis}
                 </td>
               </tr>
@@ -175,16 +189,16 @@ function DetailTable({ summary }: { summary: CycleSummary }) {
           <tfoot>
             <tr className="bg-surface-2 font-semibold">
               <td className={`${td} text-ink`}>Total geral</td>
-              <td className={`${td} text-ink-2`}>{WORKDAYS_PER_CYCLE} dias</td>
-              <td className={`${td} text-right text-ink`}>{formatHM(week.goal)}</td>
-              <td className={`${td} text-right text-ink`}>{formatHM(week.total)}</td>
+              <td className={`${td} ${wide} text-ink-2`}>{WORKDAYS_PER_CYCLE} dias</td>
+              <td className={`${td} ${wide} num text-right text-ink`}>{formatHM(week.goal)}</td>
+              <td className={`${td} num text-right text-ink`}>{formatHM(week.total)}</td>
               <td className={`${td} text-right`}>
                 <DiffCell label={week.diffLabel} />
               </td>
-              <td className={`${td} text-right text-ink`}>{week.activityCount}</td>
+              <td className={`${td} num text-right text-ink`}>{week.activityCount}</td>
               <td className={td}>
                 <span
-                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs ${
+                  className={`badge ${
                     allConform ? 'bg-good-soft text-good-text' : 'bg-warning-soft text-warning-text'
                   }`}
                 >
