@@ -4,7 +4,7 @@ import { AlertIcon, CheckIcon, DashIcon, TrendUpIcon } from './icons';
 
 function Badge({ className, icon, children }: { className: string; icon: ReactNode; children: ReactNode }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap ${className}`}>
+    <span className={`badge ${className}`}>
       {icon}
       {children}
     </span>
@@ -37,7 +37,7 @@ export const toneStyle: Record<
     short: 'Abaixo',
     badge: 'bg-warning-soft text-warning-text',
     text: 'text-warning-text',
-    bar: 'var(--warning)',
+    bar: 'var(--bar)',
     icon: (s) => <AlertIcon size={s} />,
   },
   acima: {

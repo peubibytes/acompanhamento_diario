@@ -16,7 +16,7 @@ export function PeriodNav({
   const isCurrent = period.start === current;
   const tag = isCurrent ? 'Período atual' : period.start < current ? 'Período anterior' : 'Próximo período';
 
-  const navButton = 'press grid size-9 place-items-center rounded-full text-ink-2 hover:bg-surface-2 hover:text-ink';
+  const navButton = 'press btn-icon';
 
   return (
     <div className="flex flex-wrap items-center gap-1">
@@ -26,7 +26,7 @@ export function PeriodNav({
       <div className="min-w-0 px-1 text-center sm:text-left">
         <p className="text-2xs font-semibold tracking-wider text-ink-3 uppercase">{tag}</p>
         {/* A chave refaz a entrada do texto a cada período. */}
-        <p key={period.start} className="swap-in tabular text-base font-semibold whitespace-nowrap text-ink">
+        <p key={period.start} className="swap-in tabular text-sm font-semibold whitespace-nowrap text-ink sm:text-base">
           {scale === 'week' ? (
             <>
               Sex {formatDayMonth(period.start)} <span className="text-ink-3">→</span> Qui {formatDayMonth(period.end)}
@@ -42,7 +42,7 @@ export function PeriodNav({
       {!isCurrent && (
         <button
           onClick={() => onChange(todayISO())}
-          className="ml-1 inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-3 py-1.5 text-xs font-semibold text-accent transition hover:brightness-95"
+          className="ml-1 inline-flex items-center gap-1.5 rounded-control bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent transition hover:brightness-95"
         >
           <CalendarIcon size={14} /> Hoje
         </button>

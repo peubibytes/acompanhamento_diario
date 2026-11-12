@@ -30,7 +30,7 @@ export function KindBadge({ kind }: { kind: DemandEventKind }) {
   const style = kindStyle[kind];
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-medium whitespace-nowrap ${style.badge}`}
+      className={`badge text-2xs ${style.badge}`}
     >
       {style.icon(11)}
       {DEMAND_EVENT_LABEL[kind]}
@@ -50,7 +50,7 @@ export function FlagButton({ entry }: { entry: TimelineEntry }) {
       title={entry.flagged ? 'Desmarcar' : 'Marcar com bandeira'}
       disabled={flag.isPending}
       onClick={() => flag.mutate({ entry, flagged: !entry.flagged }, { onError: (err) => toast(err.message, 'error') })}
-      className={`grid size-7 shrink-0 place-items-center rounded-full outline-none transition focus-visible:ring-2 focus-visible:ring-accent ${
+      className={`grid size-7 shrink-0 place-items-center rounded-control outline-none transition focus-visible:ring-2 focus-visible:ring-accent ${
         entry.flagged ? 'text-critical-text hover:bg-critical-soft' : 'text-ink-3 hover:bg-surface-2 hover:text-ink'
       }`}
     >
@@ -133,7 +133,7 @@ function ResolveButton({ entry }: { entry: TimelineEntry }) {
           },
         )
       }
-      className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+      className={`rounded-control px-2.5 py-1 text-xs font-medium transition ${
         open ? 'bg-good-soft text-good-text hover:brightness-95' : 'text-ink-2 hover:bg-surface-2'
       }`}
     >
@@ -157,7 +157,7 @@ function DeleteButton({ entry }: { entry: TimelineEntry }) {
           onError: (err) => toast(err.message, 'error'),
         })
       }
-      className="grid size-7 place-items-center rounded-full text-ink-3 opacity-0 transition group-hover:opacity-100 hover:bg-surface-2 hover:text-critical-text focus:opacity-100"
+      className="grid size-7 place-items-center rounded-control text-ink-3 opacity-0 transition group-hover:opacity-100 hover:bg-surface-2 hover:text-critical-text focus:opacity-100"
     >
       {entry.source === 'evento' ? <XIcon size={14} /> : <TrashIcon size={14} />}
     </button>
@@ -167,7 +167,7 @@ function DeleteButton({ entry }: { entry: TimelineEntry }) {
 /** Lista de entradas, do mais recente ao mais antigo. */
 export function TimelineList({ entries, showCycle, actions }: { entries: TimelineEntry[]; showCycle?: boolean; actions?: 'full' | 'flag' }) {
   return (
-    <ol className="divide-y divide-line overflow-hidden rounded-xl border border-line">
+    <ol className="divide-y divide-line overflow-hidden rounded-card border border-line">
       {entries.map((e) => (
         <TimelineRow key={e.key} entry={e} showCycle={showCycle} actions={actions} />
       ))}

@@ -1,7 +1,7 @@
 import { AlertIcon } from './icons';
 
 export function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`skeleton rounded-2xl ${className}`} />;
+  return <div className={`skeleton rounded-card ${className}`} />;
 }
 
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
@@ -15,7 +15,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
       {onRetry && (
         <button
           onClick={onRetry}
-          className="mt-1 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-on-accent hover:bg-accent-hover"
+          className="btn-primary mt-1"
         >
           Tentar novamente
         </button>

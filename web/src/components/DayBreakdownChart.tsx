@@ -9,6 +9,7 @@ import {
   formatDuration,
   todayISO,
   type BreakdownSlice,
+  type DemandCategory,
   type DayMetrics,
   type ISODate,
   type PeriodScale,
@@ -17,7 +18,8 @@ import {
 import { useDayActivities, useDemands, useRangeActivities } from '../api/client';
 import { SectionTitle } from './SectionTitle';
 import { Skeleton } from './States';
-import { PlusIcon } from './icons';
+import { DashIcon, PlusIcon } from './icons';
+import { categoryColor, categoryIcon, categoryInk } from './DemandVisuals';
 
 /** Geometria interna do gráfico; o SVG escala com o contêiner (viewBox). */
 const SIZE = 280;
@@ -29,28 +31,48 @@ const GAP = 3;
 const GAP_MAX_SHARE = 0.4;
 /** Tamanho mínimo visível de um arco (px do SVG). */
 const MIN_ARC = 1.5;
-/** 5 tons da paleta e 5 variações (mais escuras no claro, mais claras no escuro); depois disso as cores se repetem. */
-const SLOT_COLORS = [1, 2, 3, 4, 5, '1b', '2b', '3b', '4b', '5b'].map((n) => `var(--series-${n})`);
+/** Ordem dos tipos na rosca (a mesma do Rendimento) e cor dos apontamentos antigos, sem demanda. */
+const CATEGORY_ORDER: DemandCategory[] = ['chamado', 'reuniao', 'treinamento', 'atividade', 'ciclo'];
+const NO_DEMAND_COLOR = 'var(--series-other)';
+
+/** Tons de um tipo: a cor dele, a variante que desenha e as duas mais suaves; passando de quatro, repetem. */
+const tonesOf = (c: DemandCategory) => [
+  categoryColor[c],
+  categoryInk[c],
+  `color-mix(in srgb, ${categoryColor[c]} 55%, var(--surface))`,
+  `color-mix(in srgb, ${categoryInk[c]} 55%, var(--surface))`,
+];
 
 interface ColoredSlice extends BreakdownSlice {
   color: string;
+  category: DemandCategory | null;
 }
 
 /**
- * Cores pela identidade, não pelo tamanho: demandas (por id) e depois projetos (por nome)
- * recebem os slots na ordem fixa da paleta (10 cores; passando disso, repetem). As fatias são
- * desenhadas nessa mesma ordem, que é a que garante vizinhas distinguíveis para daltônicos; com
- * cores repetidas, a legenda e o hover seguem identificando cada fatia pelo nome.
+ * Cor pelo tipo da demanda (v0.18): a mesma do Rendimento e do seletor de categoria. Duas demandas do mesmo tipo
+ * recebem tons dele, pela identidade (id), não pelo tamanho. As fatias saem agrupadas por tipo, na ordem fixa, e o
+ * ícone do tipo acompanha cada nome na legenda: a cor nunca é a única pista.
  */
-function colorize(slices: BreakdownSlice[]): ColoredSlice[] {
-  return [...slices]
-    .sort(
-      (a, b) =>
-        (a.kind === 'demanda' ? 0 : 1) - (b.kind === 'demanda' ? 0 : 1) ||
-        (a.demandId ?? 0) - (b.demandId ?? 0) ||
-        a.label.localeCompare(b.label, 'pt-BR'),
-    )
-    .map((s, i) => ({ ...s, color: SLOT_COLORS[i % SLOT_COLORS.length] }));
+function colorize(slices: BreakdownSlice[], categoryOf: Map<number, DemandCategory>): ColoredSlice[] {
+  const withCategory = slices.map((s) => ({
+    ...s,
+    category: s.kind === 'demanda' ? (categoryOf.get(s.demandId!) ?? null) : null,
+  }));
+  const rank = (c: DemandCategory | null) => (c ? CATEGORY_ORDER.indexOf(c) : CATEGORY_ORDER.length);
+  const sorted = withCategory.sort(
+    (a, b) =>
+      rank(a.category) - rank(b.category) ||
+      (a.demandId ?? 0) - (b.demandId ?? 0) ||
+      a.label.localeCompare(b.label, 'pt-BR'),
+  );
+  const seen = new Map<DemandCategory, number>();
+  return sorted.map((s) => {
+    if (!s.category) return { ...s, color: NO_DEMAND_COLOR };
+    const n = seen.get(s.category) ?? 0;
+    seen.set(s.category, n + 1);
+    const tones = tonesOf(s.category);
+    return { ...s, color: tones[n % tones.length] };
+  });
 }
 
 /** "<1%" para fatia pequena, em vez de "0%". */
@@ -94,7 +116,7 @@ export function DayBreakdownChart({ days, period }: { days: DayMetrics[]; period
 
   const breakdown = activities.data && demands.data ? dayBreakdown(activities.data, demands.data) : null;
   const categoryOf = new Map(demands.data?.map((d) => [d.id, d.category]));
-  const drawn = breakdown ? colorize(breakdown.slices) : [];
+  const drawn = breakdown ? colorize(breakdown.slices, categoryOf) : [];
   const legend = [...drawn].sort((a, b) => b.minutes - a.minutes);
   const focus = drawn.find((s) => s.key === active);
 
@@ -122,7 +144,7 @@ export function DayBreakdownChart({ days, period }: { days: DayMetrics[]; period
         hint={HINT(period.scale)}
         aside={
           month ? undefined : (
-          <div className="flex w-full rounded-full bg-surface-2 p-1 sm:w-auto" role="tablist" aria-label="Dia analisado">
+          <div className="flex w-full rounded-control bg-surface-2 p-0.5 sm:w-auto" role="tablist" aria-label="Dia analisado">
             {days.map((d) => {
               const on = d.date === day;
               return (
@@ -134,8 +156,8 @@ export function DayBreakdownChart({ days, period }: { days: DayMetrics[]; period
                     setDay(d.date);
                     setActive(null);
                   }}
-                  className={`min-w-0 flex-1 rounded-full px-3 py-1 text-center transition sm:flex-none ${
-                    on ? 'bg-surface text-ink shadow-sm' : 'text-ink-2 hover:text-ink'
+                  className={`min-w-0 flex-1 rounded-badge px-3 py-1 text-center outline-none transition focus-visible:ring-2 focus-visible:ring-accent sm:flex-none ${
+                    on ? 'bg-surface text-ink shadow-sm ring-1 ring-line' : 'text-ink-2 hover:text-ink'
                   }`}
                 >
                   <span className="block text-xs font-semibold">{d.weekdayShort}</span>
@@ -153,7 +175,7 @@ export function DayBreakdownChart({ days, period }: { days: DayMetrics[]; period
       {!breakdown ? (
         <Skeleton className="mt-6 h-72" />
       ) : breakdown.total === 0 ? (
-        <div className="mt-6 flex flex-col items-center justify-center rounded-2xl border border-dashed border-line px-6 py-16 text-center">
+        <div className="mt-6 flex flex-col items-center justify-center rounded-card border border-dashed border-line px-6 py-16 text-center">
           <p className="font-semibold text-ink">
             Nenhum apontamento em {month ? formatPeriodLabel(period) : `${selected.weekdayShort} ${formatDayMonth(day)}`}
           </p>
@@ -197,14 +219,14 @@ export function DayBreakdownChart({ days, period }: { days: DayMetrics[]; period
               {focus ? (
                 <div>
                   <p className="line-clamp-2 text-xs font-medium text-ink-2">{focus.label}</p>
-                  <p className="tabular mt-0.5 text-2xl font-bold text-ink">{formatDuration(focus.minutes)}</p>
+                  <p className="num mt-0.5 text-2xl font-medium text-ink">{formatDuration(focus.minutes)}</p>
                   <p className="tabular text-xs text-ink-3">{percentText(focus.share)} do {scope}</p>
                   <p className="mt-1 text-2xs text-ink-3">{detail(focus)}</p>
                 </div>
               ) : (
                 <div>
-                  <p className="tabular text-display font-bold tracking-tight text-ink">{formatDuration(breakdown.total)}</p>
-                  <p className="text-2xs font-medium tracking-wider text-ink-3 uppercase">apontadas</p>
+                  <p className="kpi-value mt-0">{formatDuration(breakdown.total)}</p>
+                  <p className="kpi-label">apontadas</p>
                 </div>
               )}
             </div>
@@ -220,14 +242,21 @@ export function DayBreakdownChart({ days, period }: { days: DayMetrics[]; period
                   onMouseLeave={() => setActive(null)}
                   onFocus={() => setActive(s.key)}
                   onBlur={() => setActive(null)}
-                  className={`flex items-center gap-3 rounded-lg px-2.5 py-2 outline-none transition focus-visible:ring-2 focus-visible:ring-accent ${
+                  className={`flex items-center gap-3 rounded-control px-2.5 py-2 outline-none transition focus-visible:ring-2 focus-visible:ring-accent ${
                     active === s.key ? 'bg-surface-2' : ''
                   }`}
                 >
                   <span className="size-3 shrink-0 rounded-sm" style={{ background: s.color }} />
+                  <span
+                    className="shrink-0"
+                    style={{ color: s.category ? categoryInk[s.category] : undefined }}
+                    title={s.category ? DEMAND_CATEGORY_LABEL[s.category] : 'Sem demanda (antigo)'}
+                  >
+                    {s.category ? categoryIcon[s.category](14) : <DashIcon size={14} className="text-ink-3" />}
+                  </span>
                   <span className="min-w-0 flex-1 truncate text-sm text-ink">{s.label}</span>
-                  <span className="tabular shrink-0 text-sm font-semibold text-ink">{formatDuration(s.minutes)}</span>
-                  <span className="tabular w-10 shrink-0 text-right text-xs text-ink-3">{percentText(s.share)}</span>
+                  <span className="num shrink-0 text-sm font-medium text-ink">{formatDuration(s.minutes)}</span>
+                  <span className="num w-10 shrink-0 text-right text-xs text-ink-3">{percentText(s.share)}</span>
                 </div>
               </li>
             ))}

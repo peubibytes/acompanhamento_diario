@@ -44,7 +44,7 @@ export function ProgressRing({ percent, exceeded = false, size = 72 }: { percent
         />
       </svg>
       <div className="absolute inset-0 grid place-items-center">
-        <p className="tabular text-lg font-bold tracking-tight text-ink">
+        <p className="num text-lg font-medium text-ink">
           {counted}
           <span className="text-xs font-semibold text-ink-3">%</span>
         </p>

@@ -149,7 +149,7 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone, onDirtyCh
         </p>
         <Link
           to="/demandas"
-          className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-on-accent hover:bg-accent-hover"
+          className="btn-primary mt-4"
         >
           Declarar em Demandas <ArrowRight size={15} />
         </Link>
@@ -302,7 +302,7 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone, onDirtyCh
               type="button"
               onClick={() => persist(true)}
               disabled={save.isPending}
-              className="rounded-full px-4 py-2 text-sm font-semibold text-ink-2 outline-none transition hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60"
+              className="btn-ghost"
             >
               Adicionar e continuar
             </button>
@@ -310,7 +310,7 @@ export function TimeEntryForm({ date, editing, suggestedStart, onDone, onDirtyCh
           <button
             type="button"
             onClick={() => onDone()}
-            className="rounded-full px-4 py-2 text-sm font-semibold text-ink-3 outline-none transition hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-accent"
+            className="btn-ghost"
           >
             Cancelar
           </button>

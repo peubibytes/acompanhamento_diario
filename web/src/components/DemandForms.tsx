@@ -175,11 +175,11 @@ function CycleForm({ editing, onDone, onDirtyChange }: FormProps<CycleDemand>) {
             </span>
           </InfoHint>
         </legend>
-        <div className="flex rounded-full bg-surface-2 p-1">
+        <div className="flex rounded-control bg-surface-2 p-0.5">
           {DEMAND_KINDS.map((k) => (
             <label
               key={k}
-              className={`flex-1 cursor-pointer rounded-full px-2 py-1.5 text-center text-xs font-medium transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent ${
+              className={`flex-1 cursor-pointer rounded-badge px-2 py-1.5 text-center text-xs font-medium transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent ${
                 kind === k ? 'bg-surface text-ink shadow-sm' : 'text-ink-2 hover:text-ink'
               }`}
             >
@@ -360,7 +360,7 @@ function MeetingForm({ editing, onDone, onDirtyChange }: FormProps<MeetingDemand
             key={t}
             type="button"
             onClick={() => setMeetingType(t)}
-            className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+            className={`rounded-control border px-3 py-1 text-xs font-medium transition ${
               meetingType === t ? 'border-accent bg-accent-soft text-accent' : 'border-line text-ink-2 hover:bg-surface-2'
             }`}
           >
@@ -526,7 +526,7 @@ function Actions({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-full px-4 py-2 text-sm font-semibold text-ink-3 outline-none transition hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-accent"
+          className="btn-ghost"
         >
           Cancelar
         </button>

@@ -190,8 +190,8 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 1. **Painel (`/`)** — no canto superior esquerdo, o seletor de **escala** do período (**Semana** |
    **Mês**, v0.9, guardada na URL como `?escala=mes`) e, ao lado, o seletor da visão (**Dia útil**,
    **Distribuição**, **Ciclos** ou **Rendimento**; a visão **Tarefas** saiu na v0.11); a navegação entre períodos fica à direita (em todas as
-   visões). A escala vale para todas as visões; no celular, escala e visões se empilham à esquerda e a
-   navegação desce. A semana é sexta → quinta; o mês é o mês civil, com os dias úteis Seg–Sex.
+   visões). A escala vale para todas as visões; no celular (v0.18), as visões ocupam uma linha e, embaixo, a escala e a
+   navegação ficam lado a lado. A semana é sexta → quinta; o mês é o mês civil, com os dias úteis Seg–Sex.
    *Visões no mês (v0.9):* **Dia útil** com uma barra por dia útil do mês (rótulo "dd"; o ícone e o valor só
    aparecem quando cabem, pela largura do gráfico; o resto fica no tooltip), Meta do período, Total realizado
    e Dias conformes `X/N` (a linha de meta é a meta diária mais comum do mês; o popover de meta edita a meta
@@ -201,11 +201,12 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
    - *Dia útil:* faixa fina com o anel de % preenchido, o selo da situação ("Faltam 17h15",
      "Excedeu 1h", "Meta atingida"), total realizado, meta semanal (no mês, "Meta do período") e dias conformes; abaixo, o
      gráfico por dia útil (~340 px), com o valor e o ícone de status em cima de cada barra e
-     a linha de meta por cima das barras. Tocar em "Meta semanal" abre a meta diária (5h30,
+     a linha de meta por cima das barras. Desde a v0.18 a barra vai até a meta em azul-escuro (`--bar`; verde quando
+     bate a meta) e só o que passou dela fica hachurado em vermelho (decisão 0020). Tocar em "Meta semanal" abre a meta diária (5h30,
      9h ou outro). O lembrete de dia de apontamento fica no sino. Passar o mouse numa coluna
      mostra o apontado, a diferença, o nº de apontamentos, quantas reuniões, chamados,
      treinamentos e ciclos foram apontados no dia (demandas distintas) e o diagnóstico.
-   - *Distribuição:* rosca grande do dia escolhido (Sex–Qui) e legenda com nome, horas e %.
+   - *Distribuição:* rosca grande do dia escolhido (Sex–Qui) e legenda com ícone do tipo, nome, horas e %.
    - *Ciclos:* cada ciclo aberto com o selo de prazo, a última atualização, as horas apontadas
      (como número) e o **mapa da linha do tempo** em serpentina (v0.8, seção 11), no lugar da barra.
    - *Rendimento (v0.9):* em semana e em mês, um só bloco, **Tempo por categoria** (horas em
@@ -220,7 +221,8 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
    botão "Novo apontamento" ou ao editar. Ver seção 9.
 3. **Demandas (`/demandas`)** — uma barra só: o **seletor de categoria** (v0.17, seção 7), com Chamados,
    Reuniões, Treinamentos, Atividades, um divisor e Ciclos, cada um com a contagem dos abertos, e o status (em
-   aberto, encerrados, todos) à direita. (Até a v0.16: abas Tarefas | Ciclo e o tipo da tarefa num menu.) A lista é de linhas compactas; o formulário abre num
+   aberto, encerrados, todos) à direita. (Até a v0.16: abas Tarefas | Ciclo e o tipo da tarefa num menu.) A lista é de linhas compactas
+   (desde a v0.18, com o começo da descrição embaixo do nome); o formulário abre num
    painel deslizante pelo botão "Declarar {tipo}" ou ao editar. Ver seção 9.
    **Kanban (`/kanban`, v0.16)** — as demandas com status em quatro colunas, com a ordem na coluna como
    prioridade; o seletor de categoria e a ação "Declarar demanda". Ver seção 14.
@@ -228,7 +230,9 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
    tabela fiel à planilha: data, dia, meta, horas, diferença, qtd
    apontamentos, conformidade, diagnóstico e linha de total geral. Linhas com listras suaves em
    vez de bordas, números à direita (algarismos tabulares) e cabeçalho fixo; clicar num dia abre
-   os apontamentos dele.
+   os apontamentos dele. No celular (abaixo de 640 px, v0.18), o dia da semana entra na coluna da data ("Seg 09/11") e
+   a meta sai (é a mesma na semana), para horas, diferença e apontamentos caberem sem rolar; conformidade e
+   diagnóstico seguem à direita, rolando dentro do cartão.
 5. **Lembretes e agenda (`/lembretes`)** — só pelo sino; seta de voltar ao lado do título.
    Lembretes por gravidade ("Pedem atenção", "Para saber") e a agenda por dia, em listas sem
    molduras. Embaixo, **Seus dados** (`#seus-dados`): último backup, última exportação e "Exportar dados".
@@ -267,6 +271,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 | 19 | v0.16: Kanban (decisão 0017; migração 10) | ✅ |
 | 20 | v0.16: movimento — animações curtas, com tokens, e respeito a "reduzir movimento" (decisão 0018; seção 7) | ✅ |
 | 21 | v0.17: seletor de categoria em chips em Demandas e no Kanban, com cor fixa por tipo (decisão 0019; seção 7) | ✅ |
+| 22 | v0.18: redesenho visual "Precisa" — tokens, componentes base e as sete telas; cores com significado (decisão 0020; seção 7) | ✅ |
 | — | Integração com o Azure | futuro |
 | — | Integração com o Google Agenda (reuniões do dia → sugestões de apontamento) | futuro |
 
@@ -363,9 +368,12 @@ O texto original da v0.2 (demandas com meta de horas, gráfico de horas × meta)
   servidor (com backup antes, seção 5).
 - **Distribuição (Painel):** o tempo de um dia (na semana) ou do mês dividido por demanda; apontamentos sem
   demanda aparecem pelo projeto. Trechos sobrepostos são divididos igualmente entre os apontamentos
-  simultâneos, para a soma das fatias bater com o total. Todas as fatias aparecem (v0.13: sem "Outros"); cores
-  da paleta categórica (5 tons e 5 variações por tema, 10 no total; depois repetem), atribuídas pela identidade
-  e não pelo tamanho. O espaço entre arcos é proporcional (no máximo 3px, nunca mais que 40% do arco) e o arco
+  simultâneos, para a soma das fatias bater com o total. Todas as fatias aparecem (v0.13: sem "Outros"). Desde a
+  v0.18 (decisão 0020), a cor vem do **tipo** da demanda, a mesma do Rendimento e do seletor de categoria: duas
+  demandas do mesmo tipo recebem tons dele (a cor, a variante `-ink` e as duas mais suaves; passando de quatro,
+  repetem), pela identidade e não pelo tamanho; apontamentos sem demanda ficam em `--series-other`. As fatias saem
+  agrupadas por tipo e a legenda traz o ícone do tipo (a cor nunca é a única pista). (Até a v0.17: os 10 tons da
+  paleta categórica, sem relação com o tipo.) O espaço entre arcos é proporcional (no máximo 3px, nunca mais que 40% do arco) e o arco
   tem um mínimo visível; a legenda cresce sem limite e fatia abaixo de 1% mostra "<1%".
 - **Celular:** barra inferior com as telas principais (seis desde a v0.16; "Apontamentos" aparece como "Apontar").
 
@@ -380,15 +388,40 @@ reestilização, auditorias e comparativos) está em `docs/HISTORICO.md`.
 - **Sino no header:** contador do que pede atenção (vermelho se houver algo urgente); ao passar o mouse ou
   focar, um resumo; ao clicar, a tela de lembretes.
 - **Lembretes e agenda (`/lembretes`):** só pelo sino. Lembretes por gravidade e agenda por data (prazos
-  vencidos, prazos e inícios dos ciclos, dias de apontamento do período atual e do próximo).
+  vencidos, prazos e inícios dos ciclos, dias de apontamento do período atual e do próximo). A gravidade de cada
+  lembrete vem no quadrado do ícone e escrita com um ponto na cor ("• Urgente"), sem selo preenchido (v0.18): vários
+  urgentes seguidos não viram uma fileira vermelha.
 
-### Estilo visual (regras vigentes, desde a v0.6)
+### Estilo visual (regras vigentes; sistema "Precisa" desde a v0.18, `docs/decisions/0020`)
 
 - **Mínimo na tela:** um título, uma ação principal e um filtro por tela; gráficos em destaque.
-- **Tokens** em `web/src/index.css`: tipografia (`text-2xs` … `text-display`, sem tamanhos soltos), raios
-  (`rounded-control`, `rounded-card`), espaço (`px-gutter`, `gap-section`, `max-w-page`) e cores nos dois
-  temas, com uma única cor de destaque (para a ação principal e o foco) e a paleta `--series-*` dos gráficos.
-  Cartões quase sem borda e sombra; campos com borda de contraste ≥ 3:1.
+- **Direção "Precisa":** ferramenta de uso diário, densa e exata. Bordas finas no lugar de sombras, raios pequenos,
+  números numa face própria e uma só cor de destaque.
+- **Tokens** em `web/src/index.css` (nada de valor solto nos componentes):
+  - *Fontes:* Geist no texto; Geist Mono para o número como dado (`.num`: KPIs, horas, posições, número do chamado),
+    nunca na frase em volta. `.tabular` alinha algarismos na fonte do texto (datas, contagens em frases).
+  - *Tipografia:* `text-2xs` 11 · `xs` 12 · `sm` 13 · `base` 14 · `lg` 16 · `2xl` 20 · `display` 28 px. Rótulos,
+    títulos de grupo e cabeçalhos de tabela em caixa normal, menores e mais claros; o número carrega o peso.
+  - *Raios:* `rounded-badge` 4 (selos, contagens), `rounded-control` 6 (botões, campos, chips, abas), `rounded-card`
+    10 (cartões, painéis); `rounded-full` só no que é redondo (pontos, anéis, barras de progresso).
+  - *Bordas e sombras:* borda fina visível nos dois temas separa os blocos; sombra (`--shadow-pop`) só no que flutua.
+    O escuro tem três camadas com passos visíveis. Campos com borda de contraste ≥ 3:1.
+  - *Espaço:* `px-gutter`, `gap-section`, `max-w-page`.
+- **Cor com significado (teoria das cores):** toda cor carrega um sentido e o comentário do token em `index.css`
+  registra o porquê.
+  - *Destaque:* o íris (`--accent`), só na ação principal, no foco e no item escolhido.
+  - *Tipos de demanda* (`--cat-<tipo>` preenche, `--cat-<tipo>-ink` desenha), sobre os 5 tons da paleta `--series-*`
+    validada para daltonismo: treinamento **azul** (conhecimento), chamado **laranja** (ação e resposta), ciclo
+    **verde** (crescimento), reunião **amarelo** (comunicação), atividade **rosa** (cuidado e apoio). A mesma cor em
+    gráficos, seletor de categoria, Kanban, listas e relatório; o ícone do tipo usa a variante `-ink`.
+  - *Dados sem categoria* (horas do dia, progresso): azul-escuro `--bar`, não cinza.
+  - *Status* (good/warning/critical) sempre com ícone e rótulo. O vermelho fica no que passou da meta (`.hatch-critical`
+    nas barras) e o texto ao redor não repete a cor.
+- **Componentes prontos** (em `index.css`): botões `.btn-primary` (só a ação principal), `.btn-secondary`,
+  `.btn-ghost`, `.btn-danger`, `.btn-icon` e `.btn-sm`; selo `.badge`; chip `.chip` (borda em repouso); indicadores
+  `.kpi-label` e `.kpi-value`; `.card` e `.field`. Cada forma tem um papel: botão, selo e chip não se confundem. As
+  classes de componente ficam em `@layer components`, para os utilitários do Tailwind valerem por cima.
+- **Estados vazios** dizem o que fazer: onde registrar o primeiro, o que a coluna recebe, que filtro trocar.
 - **ⓘ (`InfoHint`):** todo texto explicativo vai para a dica, nunca fixo na tela. Abre ao passar o mouse,
   focar ou tocar; Esc ou tocar fora fecha; ligada ao botão por `aria-describedby`; fica dentro da janela e,
   fechada, sai do layout.
@@ -404,7 +437,8 @@ reestilização, auditorias e comparativos) está em `docs/HISTORICO.md`.
   é uma barra de chips com todas as opções à vista: ícone do tipo na cor do tipo, nome e contagem num selo. O escolhido
   ganha fundo suave na cor, anel de 1px e texto forte (a cor nunca é a única pista); contagem zero deixa o chip apagado,
   mas clicável. Cores em tokens: `--cat-<tipo>` (preenche; os gráficos usam a mesma) e `--cat-<tipo>-ink` (ícone e
-  anel, contraste ≥ 3:1 nos dois temas), expostas como `categoryColor` e `categoryInk`. É um `radiogroup`: Tab entra no
+  anel, contraste ≥ 3:1 nos dois temas), expostas como `categoryColor` e `categoryInk`; qual cor vai para cada tipo
+  segue o significado (v0.18, acima). Chips com o raio de controle (v0.18; até a v0.17, pílulas). É um `radiogroup`: Tab entra no
   escolhido; setas, Home e End trocam. No celular os chips quebram linha, mais compactos abaixo de 640 px.
 - **Painel deslizante (`SlideOver`)** para formulários: diálogo modal (foco preso, Esc fecha, foco volta a
   quem abriu, rolagem travada); com algo digitado, fechar pede confirmação; no celular ocupa a tela.
@@ -504,8 +538,8 @@ cada dia, um chamado retomado à tarde) aparece reunida.
 - **Ciclo:** nome do projeto, tipo (planejada, intempestiva, preventiva), status (os 6 da seção
   8.1), prioridade, descrição, início e prazo opcional, vínculos técnicos opcionais. Mantém prazo,
   lembretes, linha do tempo, impedimentos e espera.
-- Cada linha mostra o título, o status, o prazo (ciclos abertos) e as horas apontadas
-  (sobreposições contadas uma vez). Ao expandir: descrição, tipo, prioridade, datas, ambiente e
+- Cada linha mostra o título (com o começo da descrição embaixo, v0.18; nas reuniões antigas, com quem), o status,
+  o prazo (ciclos abertos) e as horas apontadas (sobreposições contadas uma vez). Ao expandir: descrição, tipo, prioridade, datas, ambiente e
   vínculos técnicos; nos ciclos, a linha do tempo, os impedimentos e os apontamentos; nas demais,
   os apontamentos (cada ocorrência). Um resumo da descrição aparece ao passar o mouse no título.
 - Filtro de status (em aberto / encerrados / todos) em chamados, treinamentos e ciclos.
@@ -724,7 +758,9 @@ Só leitura dos apontamentos: nada é gravado. Regras em `shared/src/yield.ts`.
      famílias ("Mais em Tarefas · 63%" pode virar "Mais em Chamados · 38%"): não é piora.
    - Barras empilhadas por dia útil (chamados, reuniões, treinamentos, ciclos e Sem demanda, esta só se
      houver), com legenda escrita (cor, ícone da categoria, nome, horas e %), valor do dia em cima quando
-     cabe e tooltip com ícone, horas e % de cada parte. A cor é fixa por categoria (paleta `--series-*`).
+     cabe e tooltip com ícone, horas e % de cada parte. A cor é fixa por categoria e segue o significado (seção 7,
+     v0.18). A maior parte de cada dia mostra o ícone da categoria, num selo da superfície, quando cabe (ao menos 12%
+     da altura do gráfico; no mês, só em gráfico largo).
    - API: `split` em `GET /api/yield` traz, por dia e no total, `chamado`, `reuniao`, `treinamento`,
      `ciclo`, `semDemanda` e `total`, além de `tarefas` e `ciclos` (as famílias) e `predominant`
      (`{ categories, percent }`, v0.15; até a v0.14, `{ family, percent }`).
@@ -790,14 +826,19 @@ Princípio: o colaborador vê tudo o que tem em mãos, por andamento, e **põe e
   atividade não têm "Aguardando": a coluna fica apagada e diz por quê.
 - **Cartão:** posição, ícone do tipo, nome (link para a demanda em Demandas), começo da descrição e, quando há:
   prioridade alta ou urgente (ciclos), prazo, impedimentos abertos e horas apontadas. Embaixo, o **seletor de
-  status** (todos os da categoria; "Cancelado" tira o ciclo do quadro) e **subir**, **descer** e **editar**.
+  status** (todos os da categoria; "Cancelado" tira o ciclo do quadro; desde a v0.18, em forma de selo) e **subir**,
+  **descer** e **editar**.
+- **Coluna vazia (v0.18):** uma frase própria, dizendo o que ela recebe ("Nada aguardando. Arraste para cá o que
+  depende de outra pessoa."); com o quadro todo vazio, "A fazer" convida a declarar a primeira.
 - **Recolher o cartão:** o botão ˄ (com o mouse, junto de subir, descer e editar; no toque, no canto do nome) deixa só
   a linha de cima: posição, tipo e nome (até duas linhas). O status é o da coluna; prazo vencido ou de hoje e
   impedimento aberto viram um alerta (⚠, com o motivo no title e no leitor de tela). O ˅ expande; o foco acompanha o
   botão. A escolha é lembrada no navegador (`kanban:recolhidos`, os ids das demandas), sem ir ao servidor. Recolhido,
   com o mouse ele ainda arrasta; seletor, setas, editar e a pega do toque voltam ao expandir.
 - **Recolher a coluna:** a seta no canto superior direito da coluna (com o mouse, só aparece ao passar por ela ou ao
-  focar o botão; no toque, fica sempre à vista) esconde todos os cartões dela; ficam o nome e a contagem. A seta para
+  focar o botão; no toque, fica sempre à vista) esconde todos os cartões dela; ficam o nome e a contagem. Abaixo de
+  1024 px (uma coluna por vez, escolhida nas abas) o cabeçalho da coluna e a seta saem, para o nome não aparecer duas
+  vezes; fica só em "Concluído", pela janela de dias (v0.18). A seta para
   baixo expande. A escolha é lembrada no navegador (`kanban:colunas-recolhidas`). Recolhida, a coluna ainda recebe
   cartões arrastados ("Solte aqui"), que entram no fim dela. **Animação:** a altura desliza até zero e os cartões somem
   junto (`.fold`, em `index.css`: 200 ms acelerando ao recolher, 320 ms desacelerando ao expandir) e a seta gira em vez
