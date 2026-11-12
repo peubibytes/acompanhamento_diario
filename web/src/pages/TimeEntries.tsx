@@ -19,7 +19,7 @@ import { useCycle, useDayActivities, useDeleteActivity, useDemands } from '../ap
 import { ConformityBadge, dayStyle } from '../components/Badges';
 import { PeriodNav } from '../components/PeriodNav';
 import { IconButton } from '../components/DemandHistory';
-import { CategoryAvatar, categoryIcon } from '../components/DemandVisuals';
+import { CategoryAvatar, categoryIcon, categoryInk } from '../components/DemandVisuals';
 import { InfoHint } from '../components/InfoHint';
 import { AlertIcon, ChevronDown, ClockIcon, ListIcon, PencilIcon, PlusIcon, TrashIcon } from '../components/icons';
 import { PageHeader } from '../components/PageHeader';
@@ -182,11 +182,11 @@ export function TimeEntries() {
   );
 }
 
-/** Dia, horas e uma barrinha de progresso; o status vai no ícone e na cor da barra. */
+/** Dia, horas e uma barrinha de progresso; o status vai no ícone (com o rótulo para o leitor de tela). */
 function DayTabs({ days, selected, onSelect }: { days: DayMetrics[]; selected: ISODate; onSelect: (d: ISODate) => void }) {
   const today = todayISO();
   return (
-    <div className="grid grid-cols-5 gap-2" role="tablist" aria-label="Dia da semana">
+    <div className="grid grid-cols-5 gap-1.5 sm:gap-2" role="tablist" aria-label="Dia da semana">
       {days.map((d) => {
         const active = d.date === selected;
         const style = dayStyle(d);
@@ -198,36 +198,47 @@ function DayTabs({ days, selected, onSelect }: { days: DayMetrics[]; selected: I
             aria-selected={active}
             aria-current={isToday ? 'date' : undefined}
             onClick={() => onSelect(d.date)}
-            className={`min-w-0 rounded-xl border px-2.5 py-2.5 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-accent sm:px-3.5 sm:py-3 ${
-              active ? 'border-line-strong bg-surface shadow-sm' : 'border-transparent bg-surface-2/60 hover:bg-surface-2'
+            className={`min-w-0 rounded-card border px-2.5 py-2 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-accent sm:px-3 sm:py-2.5 ${
+              active ? 'border-accent bg-surface' : 'border-line hover:bg-surface'
             }`}
           >
             <span className="flex items-center justify-between gap-1">
               <span className="flex min-w-0 items-baseline gap-1.5">
-                <span className="text-sm font-semibold text-ink">{d.weekdayShort}</span>
+                <span className={`text-sm text-ink ${active ? 'font-semibold' : 'font-medium'}`}>{d.weekdayShort}</span>
                 <span className="tabular hidden truncate text-2xs text-ink-3 sm:inline">
                   {isToday ? 'Hoje' : formatDayMonth(d.date)}
                 </span>
-                {isToday && <span className="size-1.5 shrink-0 self-center rounded-full bg-ink sm:hidden" aria-hidden="true" />}
+                {isToday && <span className="size-1.5 shrink-0 self-center rounded-full bg-accent sm:hidden" aria-hidden="true" />}
               </span>
               <span className={`shrink-0 ${style.text}`} title={style.label}>
                 {style.icon(13)}
                 <span className="sr-only">{style.label}</span>
               </span>
             </span>
-            <span className="tabular mt-1 block truncate text-sm font-semibold text-ink sm:text-base">
+            <span className="num mt-1 block truncate text-base font-medium text-ink">
               {d.minutes ? formatDuration(d.minutes) : '—'}
             </span>
-            <span className="mt-2 block h-1 overflow-hidden rounded-full bg-grid">
-              <span
-                className="grow-x block h-full rounded-full transition-[width] duration-500 ease-out"
-                style={{ width: `${Math.min(100, (d.minutes / d.goal) * 100)}%`, background: style.bar }}
-              />
-            </span>
+            <DayProgress day={d} />
           </button>
         );
       })}
     </div>
+  );
+}
+
+/**
+ * Progresso do dia até a meta. Abaixo da meta, a parte feita em azul-escuro (ou verde, quando bate a meta). Acima, a meta
+ * inteira em azul-escuro e só o excesso em vermelho: o alerta fica no que passou, não no dia todo.
+ */
+function DayProgress({ day: d }: { day: DayMetrics }) {
+  const over = d.minutes > d.goal;
+  const done = over ? d.goal / d.minutes : Math.min(1, d.minutes / d.goal);
+  const fill = d.conformity === 'conforme' ? 'bg-good' : 'bg-bar';
+  return (
+    <span className="mt-2 flex h-1 gap-px overflow-hidden rounded-full bg-grid" aria-hidden="true">
+      {d.minutes > 0 && <span className={`grow-x h-full ${fill}`} style={{ width: `${done * 100}%` }} />}
+      {over && <span className="grow-x h-full flex-1 bg-critical" />}
+    </span>
   );
 }
 
@@ -246,15 +257,18 @@ function DaySummary({
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
-        <h2 className="text-sm font-semibold text-ink">
-          {m.weekdayLong}, {formatDayMonth(m.date)}
+        <h2 className="text-base font-semibold text-ink">
+          {m.weekdayLong}, <span className="tabular">{formatDayMonth(m.date)}</span>
         </h2>
-        <p className="tabular text-sm text-ink-2">
-          <strong className="font-semibold text-ink">{formatDuration(m.minutes)}</strong> de {formatDuration(m.goal)}
-        </p>
-        <ConformityBadge day={m} />
-        {m.diffLabel && <span className="tabular text-xs text-ink-3">{m.diffLabel}</span>}
-        <InfoHint label="Sobre o dia">
+        {/* Um bloco só: no celular, desce inteiro para a linha de baixo em vez de deixar o ⓘ sozinho. */}
+        <span className="flex items-center gap-2 whitespace-nowrap">
+          <span className="text-sm text-ink-2">
+            <strong className="num font-medium text-ink">{formatDuration(m.minutes)}</strong> de{' '}
+            <span className="num">{formatDuration(m.goal)}</span>
+          </span>
+          <ConformityBadge day={m} />
+          {m.diffLabel && <span className="num text-xs text-ink-3">{m.diffLabel}</span>}
+          <InfoHint label="Sobre o dia">
           <span className="block">
             {m.diagnosis} · {m.activityCount} {m.activityCount === 1 ? 'apontamento' : 'apontamentos'}.
           </span>
@@ -271,7 +285,8 @@ function DaySummary({
               dos "Apontar" é o total do dia, o que deve ser lançado no Azure.
             </span>
           )}
-        </InfoHint>
+          </InfoHint>
+        </span>
       </div>
 
       {showView && (
@@ -317,26 +332,33 @@ function EntryRow({ grouped = false, ...row }: RowProps & { grouped?: boolean })
           aria-expanded={expanded}
           aria-controls={detailId}
           onClick={onToggle}
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-3 text-left outline-none transition hover:bg-surface-2/60 focus-visible:ring-2 focus-visible:ring-accent"
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-control px-3 py-2.5 text-left outline-none transition hover:bg-surface-2/60 focus-visible:ring-2 focus-visible:ring-accent"
         >
-          <span className="tabular shrink-0 text-sm text-ink-2 sm:w-28">
-            {formatHM(a.startMinute)}–{formatHM(a.endMinute)}
-          </span>
-          {grouped ? (
-            <span className="min-w-0 flex-1 truncate text-sm text-ink-2">{a.description || '—'}</span>
-          ) : (
-            <span className="flex min-w-0 flex-1 items-center gap-2">
-              <span className="shrink-0 text-ink-3">
-                {demand ? categoryIcon[demand.category](15) : <AlertIcon size={15} className="text-warning-text" />}
-              </span>
-              <span className="truncate text-sm font-semibold text-ink">
-                {demand?.label ?? a.project}
-                {a.subject && <span className="ml-1.5 font-normal text-ink-3">· {a.subject}</span>}
-              </span>
+          {/* No celular, o horário desce para baixo do nome: o nome da demanda fica com a largura toda (até duas linhas). */}
+          <span className="flex min-w-0 flex-1 flex-col-reverse gap-0.5 sm:flex-row sm:items-center sm:gap-3">
+            <span className="num shrink-0 text-xs text-ink-3 sm:w-28 sm:text-sm sm:text-ink-2">
+              {formatHM(a.startMinute)}–{formatHM(a.endMinute)}
             </span>
-          )}
-          <span className="tabular shrink-0 text-right">
-            <span className="block text-sm font-semibold text-ink">{formatDuration(durationOf(a))}</span>
+            {grouped ? (
+              <span className="min-w-0 flex-1 text-sm text-ink-2 max-sm:line-clamp-2 sm:truncate">{a.description || '—'}</span>
+            ) : (
+              <span className="flex min-w-0 flex-1 items-start gap-2 sm:items-center">
+                <span
+                  className="mt-0.5 shrink-0 sm:mt-0"
+                  style={demand ? { color: categoryInk[demand.category] } : undefined}
+                  title={demand ? DEMAND_CATEGORY_LABEL[demand.category] : undefined}
+                >
+                  {demand ? categoryIcon[demand.category](15) : <AlertIcon size={15} className="text-warning-text" />}
+                </span>
+                <span className="min-w-0 text-sm font-semibold text-ink max-sm:line-clamp-2 sm:truncate">
+                  {demand?.label ?? a.project}
+                  {a.subject && <span className="ml-1.5 font-normal text-ink-3">· {a.subject}</span>}
+                </span>
+              </span>
+            )}
+          </span>
+          <span className="shrink-0 text-right">
+            <span className="num block text-sm font-medium text-ink">{formatDuration(durationOf(a))}</span>
             <LoggableTag minutes={row.loggable} differs={row.loggable !== durationOf(a)} />
           </span>
           <ChevronDown size={15} className={`shrink-0 text-ink-3 transition ${expanded ? 'rotate-180' : ''}`} />
@@ -418,17 +440,10 @@ function EntryActions({
       {confirming ? (
         <>
           <span className="mr-1 text-xs text-ink-2">Excluir?</span>
-          <button
-            onClick={doRemove}
-            disabled={remove.isPending}
-            className="rounded-full bg-critical px-3 py-1 text-xs font-semibold text-white hover:brightness-110"
-          >
+          <button onClick={doRemove} disabled={remove.isPending} className="btn-danger btn-sm">
             Sim
           </button>
-          <button
-            onClick={() => setConfirming(false)}
-            className="rounded-full px-3 py-1 text-xs font-semibold text-ink-2 hover:bg-surface-2"
-          >
+          <button onClick={() => setConfirming(false)} className="btn-ghost btn-sm">
             Não
           </button>
         </>
@@ -498,10 +513,10 @@ function ByDemand({
           <section key={first.id} className="py-1">
             <div className="flex items-center justify-between gap-3 px-3 pt-3 pb-1">
               <GroupHeading activity={first} demand={demand} />
-              <span className="tabular shrink-0 text-right">
-                <span className="block text-sm font-semibold text-ink">
-                  {formatDuration(total)}
-                  <span className="ml-2 text-xs font-normal text-ink-3">
+              <span className="shrink-0 text-right">
+                <span className="block text-sm text-ink">
+                  <span className="num font-medium">{formatDuration(total)}</span>
+                  <span className="ml-2 text-xs text-ink-3">
                     {items.length === 1 ? '1 horário' : `${items.length} horários`}
                   </span>
                 </span>
@@ -522,11 +537,12 @@ function ByDemand({
 
 function EmptyDay(): ReactNode {
   return (
-    <div className="card flex flex-col items-center px-6 py-14 text-center">
-      <span className="grid size-10 place-items-center rounded-full bg-surface-2 text-ink-2">
+    <div className="card flex flex-col items-center px-6 py-12 text-center">
+      <span className="grid size-10 place-items-center rounded-control bg-surface-2 text-ink-2">
         <ClockIcon size={20} />
       </span>
       <p className="mt-3 text-sm font-semibold text-ink">Nenhum apontamento neste dia</p>
+      <p className="mt-1 text-xs text-ink-3">Registre o primeiro horário em "Novo apontamento".</p>
     </div>
   );
 }
