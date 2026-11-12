@@ -47,6 +47,13 @@ nativo (`FilterSelect`). A gestão o achou "simples e feio", e havia problemas a
 - Quem chega a Demandas vê de uma vez todos os tipos e quantos estão em aberto em cada um, e troca de tipo com um
   clique em vez de dois.
 - A cor de um tipo agora é uma promessa do sistema: mudar `--cat-*` muda o gráfico e o filtro juntos.
+
+## Atualização (v0.18, decisão 0020)
+
+O mecanismo do item 3 continua (um token por tipo, `--cat-<tipo>` e `--cat-<tipo>-ink`), mas qual cor vai para cada
+tipo passou a seguir o significado: treinamento azul (conhecimento), chamado laranja (ação e resposta), ciclo verde
+(crescimento), reunião amarelo (comunicação) e atividade rosa (cuidado e apoio), sobre os mesmos 5 tons. Os chips
+trocaram a pílula pelo raio de controle e ganharam borda em repouso. O resto desta decisão não muda.
 - A barra ocupa mais espaço que o menu. Na largura de notebook cabe numa linha ao lado do status; no celular ocupa
   duas ou três linhas.
 - O último tipo de tarefa escolhido não é mais lembrado (a aba Tarefas o usava); não faz falta, porque todos os tipos
