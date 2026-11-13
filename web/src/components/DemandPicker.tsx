@@ -167,7 +167,7 @@ export function DemandPicker({ demands, value, onChange }: Props) {
             <Highlighted text={d.label} query={query} />
           </span>
           {!isOpenDemand(d) && (
-            <span className="shrink-0 rounded-full bg-neutral-soft px-2 py-0.5 text-2xs font-medium text-ink-2">Encerrada</span>
+            <span className="shrink-0 rounded-badge bg-neutral-soft px-2 py-0.5 text-2xs font-medium text-ink-2">Encerrada</span>
           )}
           <StatusBadge demand={d} />
         </div>
@@ -190,7 +190,7 @@ export function DemandPicker({ demands, value, onChange }: Props) {
     const titleId = `${listId}-g-${key}`;
     return (
       <div key={key} role="group" aria-labelledby={titleId} className="mb-1">
-        <div id={titleId} className="px-2.5 pt-2 pb-1 text-2xs font-semibold tracking-wider text-ink-3 uppercase">
+        <div id={titleId} className="px-2.5 pt-2 pb-1 text-xs font-semibold text-ink-3">
           {title}
         </div>
         {items.map(option)}
@@ -288,7 +288,7 @@ export function DemandPicker({ demands, value, onChange }: Props) {
                       aria-pressed={category === c}
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => setCategory(c)}
-                      className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${
+                      className={`rounded-control border px-2.5 py-1 text-xs font-medium transition ${
                         category === c ? 'border-accent bg-accent-soft text-accent' : 'border-line text-ink-2 hover:bg-surface-2'
                       }`}
                     >

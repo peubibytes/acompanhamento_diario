@@ -156,11 +156,16 @@ describe('Painel', () => {
     expect(panel.getByText('<1%')).toBeInTheDocument();
   });
 
-  it('Dia útil e Rendimento cabem na janela (sem rolagem no notebook); Ciclos e Distribuição seguem crescendo', async () => {
+  it('Rendimento e o Dia útil no mês cabem na janela; a semana (com a linha do turno), Ciclos e Distribuição seguem crescendo', async () => {
     const view = renderPage(<Dashboard />);
     // A altura vem do CSS (fit-viewport, em lg); aqui só se confere quais visões usam o modo.
     const fits = () => view.container.querySelector('.fit-viewport') !== null;
+    expect(fits()).toBe(false);
+    expect(await screen.findByRole('region', { name: 'Linha do turno' })).toBeInTheDocument();
+    await userEvent.click(scaleTabs().getByRole('tab', { name: 'Mês' }));
     expect(fits()).toBe(true);
+    expect(screen.queryByRole('region', { name: 'Linha do turno' })).not.toBeInTheDocument();
+    await userEvent.click(scaleTabs().getByRole('tab', { name: 'Semana' }));
     await userEvent.click(viewTabs().getByRole('tab', { name: 'Rendimento' }));
     expect(fits()).toBe(true);
     await userEvent.click(viewTabs().getByRole('tab', { name: 'Ciclos' }));

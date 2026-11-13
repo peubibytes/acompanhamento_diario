@@ -8,6 +8,7 @@ import { GoalPopover } from '../../components/GoalSelector';
 import { InfoHint } from '../../components/InfoHint';
 import { ArrowRight, CheckIcon, HourglassIcon, TrendUpIcon } from '../../components/icons';
 import { ProgressRing } from '../../components/ProgressRing';
+import { ShiftLine } from '../../components/ShiftLine';
 import { withDate } from '../../hooks';
 
 /** Situação do período em um selo curto (ícone + texto; a cor acompanha, nunca é a única pista). */
@@ -51,8 +52,9 @@ export function DayView({
   const status = weekStatus(week);
 
   return (
-    // Em lg, o cartão encolhe até a altura que o Painel lhe dá (fit-viewport); quem cede é o gráfico.
-    <section className="card rise p-5 sm:p-6 lg:flex lg:min-h-0 lg:flex-col">
+    <div className="space-y-section lg:flex lg:min-h-0 lg:flex-col">
+      {/* Em lg, no mês, o cartão encolhe até a altura que o Painel lhe dá (fit-viewport); quem cede é o gráfico. */}
+    <section className={`card rise p-5 sm:p-6 ${month ? 'lg:flex lg:min-h-0 lg:flex-col' : ''}`}>
       <div className="relative flex shrink-0 flex-col gap-5 sm:flex-row sm:items-center sm:gap-8">
         <div className="flex items-center gap-4">
           <ProgressRing percent={week.fillPercent} exceeded={week.diff > 0} size={72} />
@@ -90,7 +92,7 @@ export function DayView({
         {/* Título à esquerda, dias conformes no meio e o link à direita (no celular, o do meio desce). */}
         <div className="grid grid-cols-2 items-center gap-x-4 gap-y-3 sm:grid-cols-[1fr_auto_1fr]">
           <div className="flex items-center gap-1.5">
-            <h2 className="text-sm font-semibold text-ink">Horas por dia útil</h2>
+            <h2 className="title-plate text-lg whitespace-nowrap text-ink sm:text-2xl">Horas por dia útil</h2>
             <InfoHint label="Sobre horas por dia útil">
               <ChartHint scale={scale} />
             </InfoHint>
@@ -113,6 +115,20 @@ export function DayView({
         </div>
       </div>
     </section>
+
+      {/* Na semana, a linha do turno (v0.19, decisão 0021): quando cada apontamento aconteceu, dia a dia. */}
+      {!month && (
+        <section className="card rise" aria-label="Linha do turno">
+          <div className="flex flex-wrap items-center gap-x-2 border-b border-line px-4 py-2.5">
+            <h2 className="title-plate text-2xl text-ink">Linha do turno</h2>
+            <span className="hidden text-sm text-ink-3 sm:inline">· quando cada apontamento aconteceu</span>
+          </div>
+          <div className="p-4">
+            <ShiftLine days={days} />
+          </div>
+        </section>
+      )}
+    </div>
   );
 }
 

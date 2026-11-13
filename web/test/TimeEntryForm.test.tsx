@@ -24,7 +24,7 @@ const declareTraining = () =>
     category: 'treinamento',
     title: 'Curso de exemplo',
     description: '',
-    status: 'iniciado',
+    status: 'em_andamento',
   });
 
 /** Escolhe a demanda pelo seletor com busca, depois que a lista chega da API. */

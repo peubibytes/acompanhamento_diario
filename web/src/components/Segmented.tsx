@@ -40,12 +40,12 @@ export function Segmented<T extends string>({
       ref={root}
       role="tablist"
       aria-label={label}
-      className={`${stretch ? 'flex w-full sm:inline-flex sm:w-auto' : 'inline-flex'} relative items-center rounded-control bg-surface-2 p-0.5`}
+      className={`${stretch ? 'flex w-full sm:inline-flex sm:w-auto' : 'inline-flex'} relative items-stretch rounded-control border border-line-strong bg-surface`}
     >
       {thumb && (
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute rounded-badge bg-surface shadow-sm ring-1 ring-line"
+          className="pointer-events-none absolute bg-accent"
           style={thumb}
         />
       )}
@@ -57,17 +57,17 @@ export function Segmented<T extends string>({
             role="tab"
             aria-selected={on}
             onClick={() => onChange(o.value)}
-            className={`press relative inline-flex items-center justify-center gap-1.5 rounded-badge font-medium whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+            className={`press relative inline-flex items-center justify-center gap-1.5 font-medium whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-accent ${
               stretch ? `min-w-0 ${dense ? 'flex-auto' : 'flex-1'} sm:flex-none` : ''
             } ${size === 'sm' ? 'px-2.5 py-1 text-xs' : stretch ? `${dense ? 'px-1 text-xs max-[22.5rem]:px-0.5 max-[22.5rem]:text-2xs' : 'px-2 text-sm'} py-1.5 sm:px-3 sm:text-sm` : 'px-3 py-1.5 text-sm'} ${
-              on ? (thumb ? 'text-ink' : 'bg-surface text-ink shadow-sm ring-1 ring-line') : 'text-ink-2 hover:text-ink'
+              on ? (thumb ? 'font-semibold text-on-accent' : 'bg-accent font-semibold text-on-accent') : 'text-ink-2 hover:bg-surface-2 hover:text-ink'
             }`}
           >
             {o.icon}
             <span className="truncate">{o.label}</span>
             {o.count !== undefined && (
               // Com `dense`, a contagem some nas telas mais estreitas: o nome inteiro vale mais que o número.
-              <span className={`num text-xs text-ink-3 ${dense ? 'max-[26rem]:hidden' : ''}`}>{o.count}</span>
+              <span className={`num text-xs ${on ? 'opacity-80' : 'text-ink-3'} ${dense ? 'max-[26rem]:hidden' : ''}`}>{o.count}</span>
             )}
           </button>
         );

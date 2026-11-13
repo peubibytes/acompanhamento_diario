@@ -139,7 +139,7 @@ demands(id, category ('ciclo'|'chamado'|'reuniao'|'treinamento'|'atividade'),
         title (ciclo: nome do projeto · treinamento e atividade: nome · reunião: assunto), description,
         ticket_number (chamado, único), meeting_type, participants (reunião),
         kind, priority, start_date, due_date, branch, pr_url, environment (ciclo),
-        status (ciclo: 6 estados · chamado: 4 (sem 'iniciado', com 'em_espera', v0.14) · treinamento e atividade: 4 · reunião: nulo),
+        status (ciclo: 6 estados · chamado, treinamento e atividade: 4, sem 'iniciado' e com 'em_espera' (chamado desde a v0.14; treinamento e atividade desde a v0.19, migração 11) · reunião: nulo),
         board_rank,  -- v0.16: posição no Kanban dentro da coluna (1 = topo); nula enquanto não ordenada
         created_at, updated_at)
 demand_events(id, demand_id → demands (ON DELETE CASCADE), date, kind, text, flagged, created_at)
@@ -198,7 +198,10 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
    diária do ciclo de apontamento de hoje, ou do último/primeiro dia útil num mês passado/futuro);
    **Distribuição** com a rosca do mês inteiro, sem a escolha de dia; **Ciclos** usa o
    período ("no período"). Na semana nada muda.
-   - *Dia útil:* faixa fina com o anel de % preenchido, o selo da situação ("Faltam 17h15",
+   - *Linha do turno (v0.19, decisão 0021):* na semana, embaixo do Dia útil, um cartão com cada dia de 8h a 20h e os
+     apontamentos em blocos na cor do tipo, com a legenda (sigla e horas por tipo). No mês não aparece.
+   - *Dia útil:* faixa fina com o anel de %
+     preenchido, o selo da situação ("Faltam 17h15",
      "Excedeu 1h", "Meta atingida"), total realizado, meta semanal (no mês, "Meta do período") e dias conformes; abaixo, o
      gráfico por dia útil (~340 px), com o valor e o ícone de status em cima de cada barra e
      a linha de meta por cima das barras. Desde a v0.18 a barra vai até a meta em azul-escuro (`--bar`; verde quando
@@ -215,7 +218,8 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
      faixa, o selo **Não planejado** (v0.10): a fatia do tempo em ciclos intempestivos (seção 13).
    - Ação principal: "Registrar apontamentos". Link "Detalhes" no gráfico.
 2. **Apontamentos (`/apontamentos`; `/atividades` redireciona)** — abas Sex/Seg/Ter/Qua/Qui
-   (dia, horas e uma barrinha de progresso); mostra só o dia escolhido: resumo do dia em uma
+   (dia, horas e, desde a v0.19, o sinal de andon embaixo, no lugar da barrinha de progresso; a escolhida invertida) e,
+   com apontamentos no dia, a linha do turno dele; mostra só o dia escolhido: resumo do dia em uma
    linha, e a lista (por horário ou por demanda) ocupando a tela. O formulário (demanda, início,
    fim, duração ao vivo, o que foi feito, observações, status; a demanda se escolhe num seletor com busca) abre num painel deslizante pelo
    botão "Novo apontamento" ou ao editar. Ver seção 9.
@@ -272,6 +276,8 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 | 20 | v0.16: movimento — animações curtas, com tokens, e respeito a "reduzir movimento" (decisão 0018; seção 7) | ✅ |
 | 21 | v0.17: seletor de categoria em chips em Demandas e no Kanban, com cor fixa por tipo (decisão 0019; seção 7) | ✅ |
 | 22 | v0.18: redesenho visual "Precisa" — tokens, componentes base e as sete telas; cores com significado (decisão 0020; seção 7) | ✅ |
+| 23 | v0.19: sistema visual "Andon" — industrial, sem vícios de interface gerada: sem cor de marca, barra grafite, Barlow, cantos retos, sinal de andon e linha do turno (Painel na semana e Apontamentos); os indicadores do Painel mantêm o layout da v0.18 (decisão 0021; seção 7) | ✅ |
+| 24 | v0.19 (correção): treinamento e atividade sem "Iniciado" e com "Em espera", para irem a "Aguardando" no Kanban (decisão 0022; migração 11) | ✅ |
 | — | Integração com o Azure | futuro |
 | — | Integração com o Google Agenda (reuniões do dia → sugestões de apontamento) | futuro |
 
@@ -392,29 +398,37 @@ reestilização, auditorias e comparativos) está em `docs/HISTORICO.md`.
   lembrete vem no quadrado do ícone e escrita com um ponto na cor ("• Urgente"), sem selo preenchido (v0.18): vários
   urgentes seguidos não viram uma fileira vermelha.
 
-### Estilo visual (regras vigentes; sistema "Precisa" desde a v0.18, `docs/decisions/0020`)
+### Estilo visual (regras vigentes; sistema "Andon" desde a v0.19, `docs/decisions/0021`, sobre a base "Precisa" da v0.18, `0020`)
 
 - **Mínimo na tela:** um título, uma ação principal e um filtro por tela; gráficos em destaque.
-- **Direção "Precisa":** ferramenta de uso diário, densa e exata. Bordas finas no lugar de sombras, raios pequenos,
-  números numa face própria e uma só cor de destaque.
+- **Direção "Andon" (v0.19):** ferramenta de trabalho de empresa, industrial: densa e exata. Bordas finas no lugar de
+  sombras, cantos retos (2px), números em Barlow Condensed e **nenhuma cor de marca**: a ação principal e o escolhido
+  são pretos (no escuro, claros), por inversão. Cor saturada só em sinal (andon) e em dado (tipo da demanda). Barra do
+  topo em grafite (`--chrome`), com o nome em caixa alta e as telas em abas. Os indicadores (KPIs) mantêm o layout da v0.18;
+  sem sobrancelha em caixa alta, sem pílula e sem filete colorido em frase (os vícios listados na decisão 0021).
 - **Tokens** em `web/src/index.css` (nada de valor solto nos componentes):
-  - *Fontes:* Geist no texto; Geist Mono para o número como dado (`.num`: KPIs, horas, posições, número do chamado),
-    nunca na frase em volta. `.tabular` alinha algarismos na fonte do texto (datas, contagens em frases).
-  - *Tipografia:* `text-2xs` 11 · `xs` 12 · `sm` 13 · `base` 14 · `lg` 16 · `2xl` 20 · `display` 28 px. Rótulos,
+  - *Fontes (v0.19):* Barlow no texto; Barlow Condensed (desenho DIN) para o número como dado (`.num`: KPIs, horas,
+    posições, número do chamado) e para os títulos (`.title-plate`), nunca na frase em volta. Algarismos tabulares em
+    toda a página. (Até a v0.18: Geist e Geist Mono.)
+  - *Tipografia:* `text-2xs` 11 · `xs` 12 · `sm` 13 · `base` 14 · `lg` 16 · `2xl` 20 · `display` 32 px. Rótulos,
     títulos de grupo e cabeçalhos de tabela em caixa normal, menores e mais claros; o número carrega o peso.
-  - *Raios:* `rounded-badge` 4 (selos, contagens), `rounded-control` 6 (botões, campos, chips, abas), `rounded-card`
-    10 (cartões, painéis); `rounded-full` só no que é redondo (pontos, anéis, barras de progresso).
+  - *Raios (v0.19):* 2px em tudo (`rounded-badge`, `rounded-control`, `rounded-card`); `rounded-full` só no que é
+    redondo (pontos, anéis). Painéis (`.card`) com uma régua preta de 2px em cima. (Até a v0.18: 4, 6 e 10.)
   - *Bordas e sombras:* borda fina visível nos dois temas separa os blocos; sombra (`--shadow-pop`) só no que flutua.
     O escuro tem três camadas com passos visíveis. Campos com borda de contraste ≥ 3:1.
   - *Espaço:* `px-gutter`, `gap-section`, `max-w-page`.
 - **Cor com significado (teoria das cores):** toda cor carrega um sentido e o comentário do token em `index.css`
   registra o porquê.
-  - *Destaque:* o íris (`--accent`), só na ação principal, no foco e no item escolhido.
+  - *Destaque (v0.19):* o preto (`--accent`; no escuro, o claro), só na ação principal, no foco e no item escolhido.
+    (Até a v0.18: o íris.)
+  - *Andon (v0.19):* o sinal do dia numa célula preenchida (`.andon[data-tone]`, `AndonCell`): verde Conforme, âmbar
+    Abaixo, vermelho Irregular, cinza Pendente, sempre com ícone e rótulo. Nas abas de
+    Apontamentos e no contador do sino.
   - *Tipos de demanda* (`--cat-<tipo>` preenche, `--cat-<tipo>-ink` desenha), sobre os 5 tons da paleta `--series-*`
     validada para daltonismo: treinamento **azul** (conhecimento), chamado **laranja** (ação e resposta), ciclo
     **verde** (crescimento), reunião **amarelo** (comunicação), atividade **rosa** (cuidado e apoio). A mesma cor em
     gráficos, seletor de categoria, Kanban, listas e relatório; o ícone do tipo usa a variante `-ink`.
-  - *Dados sem categoria* (horas do dia, progresso): azul-escuro `--bar`, não cinza.
+  - *Dados sem categoria* (horas do dia, progresso): grafite-azulado `--bar`, não cinza.
   - *Status* (good/warning/critical) sempre com ícone e rótulo. O vermelho fica no que passou da meta (`.hatch-critical`
     nas barras) e o texto ao redor não repete a cor.
 - **Componentes prontos** (em `index.css`): botões `.btn-primary` (só a ação principal), `.btn-secondary`,
@@ -426,16 +440,17 @@ reestilização, auditorias e comparativos) está em `docs/HISTORICO.md`.
   focar ou tocar; Esc ou tocar fora fecha; ligada ao botão por `aria-describedby`; fica dentro da janela e,
   fechada, sai do layout.
 - **`PageHeader`** em todas as telas: título, ⓘ e a ação principal (ou a seta de voltar, `onBack`).
-- **Estrutura:** header de 56 px (logo, telas, sino, tema; só a tela atual tem fundo); todas as telas com
+- **Estrutura:** header de 48 px em grafite (nome, telas em abas, sino, tema; a tela atual é a aba encaixada, com o fundo da página); todas as telas com
   `max-w-page`, `px-gutter` e `space-y-section`; espaço da barra de rolagem sempre reservado.
-- **Cabe na janela (v0.16, notebook):** no Painel, **Dia útil** e **Rendimento** são um cartão só, sem nada abaixo,
+- **Cabe na janela (v0.16, notebook; v0.19: o Dia útil só no mês):** no Painel, **Dia útil** (no mês) e **Rendimento** são um cartão só, sem nada abaixo,
   então não criam rolagem: a partir de 1024 px de largura (`fit-viewport`, em `index.css`), a tela ocupa a altura útil
   da janela e quem cede é o gráfico (barras de 21rem/18rem até no mínimo 9rem; as alturas são em %). Em tela alta nada
   muda. Com até 800 px de altura, o espaço entre blocos (`--section`) cai para 1,25rem. Ciclos e Distribuição crescem
   com o conteúdo e seguem rolando.
 - **Seletor de categoria (v0.17, `CategoryFilter`, `docs/decisions/0019`):** em Demandas e no Kanban, o filtro por tipo
   é uma barra de chips com todas as opções à vista: ícone do tipo na cor do tipo, nome e contagem num selo. O escolhido
-  ganha fundo suave na cor, anel de 1px e texto forte (a cor nunca é a única pista); contagem zero deixa o chip apagado,
+  fica invertido (fundo preto, texto claro, com o quadradinho da cor do tipo ao lado; v0.19; até a v0.18, fundo suave na
+  cor e anel de 1px); contagem zero deixa o chip apagado,
   mas clicável. Cores em tokens: `--cat-<tipo>` (preenche; os gráficos usam a mesma) e `--cat-<tipo>-ink` (ícone e
   anel, contraste ≥ 3:1 nos dois temas), expostas como `categoryColor` e `categoryInk`; qual cor vai para cada tipo
   segue o significado (v0.18, acima). Chips com o raio de controle (v0.18; até a v0.17, pílulas). É um `radiogroup`: Tab entra no
@@ -483,7 +498,7 @@ Decisão em `docs/decisions/0001-demandas-viram-chamados.md`; o texto original d
 
 ### 8.2 Treinamentos — ✅ como Tarefa (v0.5)
 Declarados em Demandas → Treinamentos: nome, descrição e status (não iniciado,
-iniciado, em andamento, concluído). Sem carga horária: as horas de estudo são apontadas.
+em andamento, em espera, concluído; até a v0.18, "iniciado" no lugar de "em espera", decisão 0022). Sem carga horária: as horas de estudo são apontadas.
 Vínculo com metas fica para a seção 8.3.
 
 ### 8.3 Metas
@@ -524,8 +539,8 @@ cada dia, um chamado retomado à tarde) aparece reunida.
 - **Tarefas** têm quatro tipos:
   - **Chamados:** número do chamado (obrigatório, normalizado em maiúsculas, único), descrição
     (obrigatória: problema, quem solicitou, outras informações) e status: Não iniciado,
-    Em andamento, **Em espera**, Concluído (v0.14, decisão 0013: sem "Iniciado"; treinamentos e atividades mantêm
-    Não iniciado, Iniciado, Em andamento, Concluído). Troca rápida de status na própria linha.
+    Em andamento, **Em espera**, Concluído (v0.14, decisão 0013: sem "Iniciado"; desde a v0.19, decisão 0022,
+    treinamentos e atividades também). Troca rápida de status na própria linha.
   - **Reuniões (v0.14):** só o tipo (sugestões Daily, Semanal, Planejamento, Treinamento; aceita outro); com
     quem e assunto são informados em cada apontamento, com sugestão das pessoas já usadas na reunião. Única pelo tipo
     (as antigas, com pessoas e assunto, ficam como estavam). Antes da v0.14: tipo, com
@@ -594,7 +609,8 @@ Decisão em `docs/decisions/0003-status-so-na-demanda.md`.
   têm a data aproximada pelo último `updated_at`.
 - **Métricas de tarefas** (só chamados e treinamentos; reunião não tem status):
   - *Concluídas:* `completedAt` dentro do ciclo de apontamento (sexta → quinta);
-  - *Na fila:* status Não iniciado, agora; *Em andamento:* Iniciado ou Em andamento, agora.
+  - *Na fila:* status Não iniciado, agora; *Em andamento:* Em andamento ou Em espera, agora ("Iniciado" saiu de todas
+    as categorias na v0.19).
   - Desde a v0.11 nenhuma tela mostra essas métricas (a visão Tarefas saiu do Painel); `GET /api/metrics`
     continua devolvendo `tasks`.
 - **Métricas de ciclos abertos:** última atualização, dias úteis sem atualização (**parado** a partir
@@ -639,7 +655,7 @@ Montado na hora (nada é gravado); regras em `shared/src/report.ts`, testadas co
   (assunto X) com A e B"); a reunião antiga usa os dados da demanda.
 - **Plano:** entram também os ciclos que só começam depois, no fim, com "começa em dd/mm"; as atividades abertas vão
   para "Outras atividades" (com a caixa para tirar), fora da frase de planejamento e dos números; chamado em espera
-  leva "(em espera)". O relatório do período mostra só o que **andou** (prestação de contas, não plano) e não fala em fila.
+  leva "(em espera)" (o treinamento também, desde a v0.19). O relatório do período mostra só o que **andou** (prestação de contas, não plano) e não fala em fila.
 
 ### Relatório diário consolidado (v0.11)
 
@@ -809,12 +825,13 @@ Decisão em `docs/decisions/0017-kanban.md`. Regras em `shared/src/board.ts`, te
 
 Princípio: o colaborador vê tudo o que tem em mãos, por andamento, e **põe em cima o que importa mais**.
 
-- **Tela (`/kanban`):** quatro colunas, **A fazer**, **Em andamento**, **Aguardando** e **Concluído**, com a
+- **Tela (`/kanban`):** quatro colunas (v0.19: cabeçalho em grafite com uma faixa de sinal embaixo — neutro, azul, âmbar, verde), **A fazer**, **Em andamento**, **Aguardando** e **Concluído**, com a
   contagem de cada uma. O seletor de categoria (seção 7: todos, chamados, ciclos, treinamentos, atividades, com os
   cartões no quadro de cada um; na URL como `?tipo=`) e a
   ação principal **Declarar demanda** (o mesmo formulário de Demandas, com o tipo escolhido no topo do painel).
-- **Coluna = status** (`boardColumnOf`): A fazer = Novo, Não iniciado · Em andamento = Em andamento, Iniciado ·
-  Aguardando = Aguardando terceiro, Em homologação (ciclos) e Em espera (chamados) · Concluído = Concluído.
+- **Coluna = status** (`boardColumnOf`): A fazer = Novo, Não iniciado · Em andamento = Em andamento ·
+  Aguardando = Aguardando terceiro, Em homologação (ciclos) e Em espera (chamados, treinamentos e atividades) ·
+  Concluído = Concluído.
 - **Fora do quadro:** reuniões (sem status), ciclos cancelados e o que foi concluído há mais de 7 dias
   (`BOARD_DONE_DAYS`, contando hoje). Tudo continua em Demandas.
 - **Prioridade = ordem na coluna.** O número ao lado do nome é a posição (1 = topo). A ordem é gravada
@@ -822,9 +839,10 @@ Princípio: o colaborador vê tudo o que tem em mãos, por andamento, e **põe e
   ordem de declaração (`compareBoard`). Cada movimento regrava a coluna inteira, inclusive o que o filtro esconde.
   "Concluído" não tem ordem manual: o mais recente primeiro.
 - **Mover de coluna troca o status** (`statusForColumn`): o cartão recebe o primeiro status da coluna para a sua
-  categoria (ciclo em "Aguardando" → Aguardando terceiro) e a troca entra no histórico, com a data. Treinamento e
-  atividade não têm "Aguardando": a coluna fica apagada e diz por quê.
-- **Cartão:** posição, ícone do tipo, nome (link para a demanda em Demandas), começo da descrição e, quando há:
+  categoria (ciclo em "Aguardando" → Aguardando terceiro; chamado, treinamento e atividade → Em espera) e a troca entra
+  no histórico, com a data. Até a v0.18, treinamento e atividade não tinham "Aguardando" e a coluna ficava apagada para
+  eles (decisão 0022). Reunião não entra no quadro.
+- **Cartão (v0.19, como ordem de serviço):** posição numa etiqueta preta, sigla do tipo com o quadradinho da cor, nome (link para a demanda em Demandas), começo da descrição e, quando há:
   prioridade alta ou urgente (ciclos), prazo, impedimentos abertos e horas apontadas. Embaixo, o **seletor de
   status** (todos os da categoria; "Cancelado" tira o ciclo do quadro; desde a v0.18, em forma de selo) e **subir**,
   **descer** e **editar**.

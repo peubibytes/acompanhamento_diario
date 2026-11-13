@@ -21,7 +21,6 @@ export const BOARD_DONE_DAYS = 7;
 const COLUMN_OF_STATUS: Record<string, BoardColumn> = {
   novo: 'a_fazer',
   nao_iniciado: 'a_fazer',
-  iniciado: 'em_andamento',
   em_andamento: 'em_andamento',
   aguardando_terceiro: 'aguardando',
   em_homologacao: 'aguardando',
@@ -33,8 +32,8 @@ const COLUMN_OF_STATUS: Record<string, BoardColumn> = {
 export const boardColumnOf = (status: string): BoardColumn | null => COLUMN_OF_STATUS[status] ?? null;
 
 /**
- * O status que a demanda recebe ao ser solta numa coluna. Nulo quando a categoria não tem um
- * status para ela (reunião em qualquer uma; treinamento e atividade em "Aguardando").
+ * O status que a demanda recebe ao ser solta numa coluna. Nulo quando a categoria não tem um status para ela (só a
+ * reunião; desde a v0.19, treinamento e atividade vão para "Aguardando" como "Em espera", decisão 0022).
  */
 export function statusForColumn(category: DemandCategory, column: BoardColumn): string | null {
   if (category === 'reuniao') return null;
@@ -44,7 +43,7 @@ export function statusForColumn(category: DemandCategory, column: BoardColumn): 
     case 'em_andamento':
       return 'em_andamento';
     case 'aguardando':
-      return category === 'ciclo' ? 'aguardando_terceiro' : category === 'chamado' ? 'em_espera' : null;
+      return category === 'ciclo' ? 'aguardando_terceiro' : 'em_espera';
     case 'concluido':
       return 'concluido';
   }

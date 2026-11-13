@@ -58,6 +58,16 @@ export const toneStyle: Record<
   },
 };
 
+/** Célula de andon: o sinal do dia preenchido, com ícone e rótulo (a cor nunca é a única pista). */
+export function AndonCell({ tone, label, className = '' }: { tone: DayTone; label?: string; className?: string }) {
+  return (
+    <span className={`andon ${className}`} data-tone={tone}>
+      {toneStyle[tone].icon(14)}
+      {label ?? toneStyle[tone].short}
+    </span>
+  );
+}
+
 export const dayStyle = (d: Pick<DayMetrics, 'conformity' | 'exceeded'>) => toneStyle[dayTone(d)];
 
 /** Badge de conformidade (rótulo da planilha); o excedido ganha cor e ícone próprios. */

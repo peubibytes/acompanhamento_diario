@@ -940,14 +940,16 @@ describe('migração do banco', () => {
 describe('v0.14: status pelo apontamento, reuniões e chamados em espera', () => {
   const ticket = { category: 'chamado', ticketNumber: 'V14-0001', description: 'Chamado fictício' };
 
-  it('chamado aceita "em espera" e recusa "iniciado"; treinamento segue com "iniciado"', async () => {
+  it('chamado aceita "em espera" e recusa "iniciado"; treinamento também, desde a v0.19', async () => {
     const created = (await api('POST', '/demands', ticket)).data as DemandSummary;
     assert.equal((await api('PUT', `/demands/${created.id}/status`, { status: 'em_espera' })).status, 200);
     assert.equal((await api('PUT', `/demands/${created.id}/status`, { status: 'iniciado' })).status, 400);
 
-    const training = (await api('POST', '/demands', { category: 'treinamento', title: 'Curso v14', status: 'iniciado' })).data;
-    assert.equal(training.status, 'iniciado');
-    assert.equal((await api('PUT', `/demands/${training.id}/status`, { status: 'em_espera' })).status, 400);
+    assert.equal((await api('POST', '/demands', { category: 'treinamento', title: 'Curso v14', status: 'iniciado' })).status, 400);
+    const training = (await api('POST', '/demands', { category: 'treinamento', title: 'Curso v14', status: 'em_andamento' })).data;
+    assert.equal(training.status, 'em_andamento');
+    assert.equal((await api('PUT', `/demands/${training.id}/status`, { status: 'em_espera' })).status, 200);
+    assert.equal((await api('PUT', `/demands/${training.id}/status`, { status: 'iniciado' })).status, 400);
 
     await api('DELETE', `/demands/${created.id}`);
     await api('DELETE', `/demands/${training.id}`);
@@ -1001,9 +1003,14 @@ describe('v0.14: status pelo apontamento, reuniões e chamados em espera', () =>
       '2026-10-28',
     ]);
 
+    // Treinamento vai para "Aguardando" como "Em espera" (v0.19, decisão 0022).
+    const waiting = await api('PUT', '/board', { demandId: course.id, status: 'em_espera', order: [course.id] });
+    assert.equal(waiting.status, 200);
+    assert.equal(waiting.data.status, 'em_espera');
+
     // Inválidos: nada muda.
-    assert.equal((await api('PUT', '/board', { demandId: course.id, status: 'em_espera', order: [course.id] })).status, 400);
-    assert.equal(await rankOf(course.id), null);
+    assert.equal((await api('PUT', '/board', { demandId: course.id, status: 'iniciado', order: [course.id] })).status, 400);
+    assert.equal((await api('GET', `/demands/${course.id}`)).data.status, 'em_espera');
     assert.equal((await api('PUT', '/board', { demandId: a.id, status: 'concluido', order: [a.id, 9999] })).status, 400);
     assert.equal((await api('GET', `/demands/${a.id}`)).data.status, 'em_andamento');
     assert.equal((await api('PUT', '/board', { demandId: a.id, order: [a.id, a.id] })).status, 400);
@@ -1057,7 +1064,7 @@ describe('v0.14: status pelo apontamento, reuniões e chamados em espera', () =>
 });
 
 describe('migração 9 (v0.14)', () => {
-  it('chamado "iniciado" vira "em andamento" (também no histórico); treinamento e reuniões antigas não mudam', () => {
+  it('chamado "iniciado" vira "em andamento" (também no histórico); reuniões antigas não mudam', () => {
     const db = new DatabaseSync(':memory:');
     migrate(db, 8);
     db.exec(`
@@ -1080,7 +1087,8 @@ describe('migração 9 (v0.14)', () => {
     const repo = createRepo(db);
     const [ticket, training, meeting] = repo.listDemands();
     assert.equal(ticket.category === 'chamado' && ticket.status, 'em_andamento');
-    assert.equal(training.category === 'treinamento' && training.status, 'iniciado');
+    // O treinamento "iniciado" só muda na migração 11 (v0.19), que também roda aqui.
+    assert.equal(training.category === 'treinamento' && training.status, 'em_andamento');
     assert.deepEqual(meeting, { id: 3, category: 'reuniao', meetingType: 'Daily', participants: 'Equipe Exemplo', subject: 'Assunto antigo' });
 
     // As trocas iniciado ↔ em_andamento viram em_andamento → em_andamento e somem; a declaração e as reais ficam.
@@ -1091,7 +1099,7 @@ describe('migração 9 (v0.14)', () => {
         [null, 'nao_iniciado', '2026-10-01'],
       ],
     );
-    assert.deepEqual(repo.listDemandStatusChanges(2).map((c) => [c.from, c.to]), [[null, 'iniciado']]);
+    assert.deepEqual(repo.listDemandStatusChanges(2).map((c) => [c.from, c.to]), [[null, 'em_andamento']]);
 
     // O apontamento antigo fica com os campos novos vazios.
     const [old] = repo.listDemandActivities(3);
@@ -1100,5 +1108,48 @@ describe('migração 9 (v0.14)', () => {
     db.exec(`INSERT INTO demands (category, meeting_type) VALUES ('reuniao', 'Repasses')`);
     assert.throws(() => db.exec(`INSERT INTO demands (category, ticket_number, description, status) VALUES ('chamado', 'X1', 'x', 'iniciado')`));
     db.exec(`INSERT INTO demands (category, ticket_number, description, status) VALUES ('chamado', 'X2', 'x', 'em_espera')`);
+  });
+});
+
+describe('migração 11 (v0.19)', () => {
+  it('treinamento e atividade "iniciado" viram "em andamento" (também no histórico) e aceitam "em espera"', () => {
+    const db = new DatabaseSync(':memory:');
+    migrate(db, 10);
+    db.exec(`
+      INSERT INTO demands (category, title, status, board_rank) VALUES ('treinamento', 'Curso fictício', 'iniciado', 2);
+      INSERT INTO demands (category, title, status) VALUES ('atividade', 'Atividade fictícia', 'iniciado');
+      INSERT INTO demands (category, ticket_number, description, status)
+        VALUES ('chamado', 'MIG0000011', 'Fictício', 'em_espera');
+      INSERT INTO demand_status_changes (demand_id, from_status, to_status, changed_at) VALUES
+        (1, NULL, 'nao_iniciado', '2026-10-01'),
+        (1, 'nao_iniciado', 'iniciado', '2026-10-02'),
+        (1, 'iniciado', 'em_andamento', '2026-10-03'),
+        (2, NULL, 'iniciado', '2026-10-01');
+      INSERT INTO activities (date, start_minute, end_minute, project, demand_id) VALUES ('2026-10-02', 480, 540, 'Curso fictício', 1);
+    `);
+
+    migrate(db);
+
+    const repo = createRepo(db);
+    const [training, activity, ticket] = repo.listDemands();
+    assert.equal(training.category === 'treinamento' && training.status, 'em_andamento');
+    assert.equal((db.prepare('SELECT board_rank FROM demands WHERE id = 1').get() as { board_rank: number }).board_rank, 2);
+    assert.equal(activity.category === 'atividade' && activity.status, 'em_andamento');
+    assert.equal(ticket.category === 'chamado' && ticket.status, 'em_espera');
+    // A troca iniciado → em_andamento vira em_andamento → em_andamento e some; as demais ficam.
+    assert.deepEqual(
+      repo.listDemandStatusChanges(1).map((c) => [c.from, c.to, c.date]),
+      [
+        ['nao_iniciado', 'em_andamento', '2026-10-02'],
+        [null, 'nao_iniciado', '2026-10-01'],
+      ],
+    );
+    assert.deepEqual(repo.listDemandStatusChanges(2).map((c) => [c.from, c.to]), [[null, 'em_andamento']]);
+    assert.equal(repo.listDemandActivities(1).length, 1);
+    // O banco recusa "iniciado" e aceita "em espera" nas duas categorias.
+    assert.throws(() => db.exec(`INSERT INTO demands (category, title, status) VALUES ('treinamento', 'X', 'iniciado')`));
+    assert.throws(() => db.exec(`INSERT INTO demands (category, title, status) VALUES ('atividade', 'X', 'iniciado')`));
+    db.exec(`INSERT INTO demands (category, title, status) VALUES ('treinamento', 'Y', 'em_espera')`);
+    db.exec(`INSERT INTO demands (category, title, status) VALUES ('atividade', 'Z', 'em_espera')`);
   });
 });
