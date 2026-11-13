@@ -1,7 +1,7 @@
 # 0021 — Sistema visual "Andon": industrial, sem vícios de interface gerada
 
 - **Data:** 2026-11-13
-- **Status:** em validação (branch de teste; entra na `main` só depois de aprovada)
+- **Status:** aceita (validada em 13/11/2026)
 - **Contexto:** PLANO.md, seções 3 e 7, v0.19; ajusta a decisão 0020 ("Precisa") sem desfazer a base dela
 
 ## Contexto

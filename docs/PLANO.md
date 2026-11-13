@@ -276,8 +276,8 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 | 20 | v0.16: movimento — animações curtas, com tokens, e respeito a "reduzir movimento" (decisão 0018; seção 7) | ✅ |
 | 21 | v0.17: seletor de categoria em chips em Demandas e no Kanban, com cor fixa por tipo (decisão 0019; seção 7) | ✅ |
 | 22 | v0.18: redesenho visual "Precisa" — tokens, componentes base e as sete telas; cores com significado (decisão 0020; seção 7) | ✅ |
-| 24 | v0.19 (correção): treinamento e atividade sem "Iniciado" e com "Em espera", para irem a "Aguardando" no Kanban (decisão 0022; migração 11) | em validação |
-| 23 | v0.19: sistema visual "Andon" — industrial, sem vícios de interface gerada: sem cor de marca, barra grafite, Barlow, cantos retos, sinal de andon e linha do turno (Painel na semana e Apontamentos); os indicadores do Painel mantêm o layout da v0.18 (decisão 0021; seção 7) | em validação |
+| 23 | v0.19: sistema visual "Andon" — industrial, sem vícios de interface gerada: sem cor de marca, barra grafite, Barlow, cantos retos, sinal de andon e linha do turno (Painel na semana e Apontamentos); os indicadores do Painel mantêm o layout da v0.18 (decisão 0021; seção 7) | ✅ |
+| 24 | v0.19 (correção): treinamento e atividade sem "Iniciado" e com "Em espera", para irem a "Aguardando" no Kanban (decisão 0022; migração 11) | ✅ |
 | — | Integração com o Azure | futuro |
 | — | Integração com o Google Agenda (reuniões do dia → sugestões de apontamento) | futuro |
 
