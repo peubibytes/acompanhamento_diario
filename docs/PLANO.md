@@ -276,7 +276,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 | 20 | v0.16: movimento — animações curtas, com tokens, e respeito a "reduzir movimento" (decisão 0018; seção 7) | ✅ |
 | 21 | v0.17: seletor de categoria em chips em Demandas e no Kanban, com cor fixa por tipo (decisão 0019; seção 7) | ✅ |
 | 22 | v0.18: redesenho visual "Precisa" — tokens, componentes base e as sete telas; cores com significado (decisão 0020; seção 7) | ✅ |
-| 23 | v0.19: sistema visual "Andon" — industrial, sem vícios de interface gerada: sem cor de marca, barra grafite, Barlow, cantos retos, sinal de andon e linha do turno (Painel na semana e Apontamentos); os indicadores do Painel mantêm o layout da v0.18 (decisão 0021; seção 7). O Kanban voltou ao visual da v0.18 (seção 14) | ✅ |
+| 23 | v0.19: sistema visual "Andon" — industrial, sem vícios de interface gerada: sem cor de marca, barra grafite, Barlow, cantos retos, sinal de andon e linha do turno (Painel na semana e Apontamentos); os indicadores do Painel mantêm o layout da v0.18 (decisão 0021; seção 7) | ✅ |
 | 24 | v0.19 (correção): treinamento e atividade sem "Iniciado" e com "Em espera", para irem a "Aguardando" no Kanban (decisão 0022; migração 11) | ✅ |
 | — | Integração com o Azure | futuro |
 | — | Integração com o Google Agenda (reuniões do dia → sugestões de apontamento) | futuro |
@@ -825,8 +825,7 @@ Decisão em `docs/decisions/0017-kanban.md`. Regras em `shared/src/board.ts`, te
 
 Princípio: o colaborador vê tudo o que tem em mãos, por andamento, e **põe em cima o que importa mais**.
 
-- **Tela (`/kanban`):** quatro colunas (o cabeçalho é o da v0.18: ícone, nome e contagem sobre o fundo da coluna; o cabeçalho em
-  grafite com faixa de sinal da v0.19 foi desfeito, decisão 0021), **A fazer**, **Em andamento**, **Aguardando** e **Concluído**, com a
+- **Tela (`/kanban`):** quatro colunas (v0.19: cabeçalho em grafite com uma faixa de sinal embaixo — neutro, azul, âmbar, verde), **A fazer**, **Em andamento**, **Aguardando** e **Concluído**, com a
   contagem de cada uma. O seletor de categoria (seção 7: todos, chamados, ciclos, treinamentos, atividades, com os
   cartões no quadro de cada um; na URL como `?tipo=`) e a
   ação principal **Declarar demanda** (o mesmo formulário de Demandas, com o tipo escolhido no topo do painel).
@@ -843,7 +842,7 @@ Princípio: o colaborador vê tudo o que tem em mãos, por andamento, e **põe e
   categoria (ciclo em "Aguardando" → Aguardando terceiro; chamado, treinamento e atividade → Em espera) e a troca entra
   no histórico, com a data. Até a v0.18, treinamento e atividade não tinham "Aguardando" e a coluna ficava apagada para
   eles (decisão 0022). Reunião não entra no quadro.
-- **Cartão:** posição, ícone do tipo (como na v0.18; a etiqueta preta e a sigla da v0.19 foram desfeitas, decisão 0021), nome (link para a demanda em Demandas), começo da descrição e, quando há:
+- **Cartão (v0.19, como ordem de serviço):** posição numa etiqueta preta, sigla do tipo com o quadradinho da cor, nome (link para a demanda em Demandas), começo da descrição e, quando há:
   prioridade alta ou urgente (ciclos), prazo, impedimentos abertos e horas apontadas. Embaixo, o **seletor de
   status** (todos os da categoria; "Cancelado" tira o ciclo do quadro; desde a v0.18, em forma de selo) e **subir**,
   **descer** e **editar**.
