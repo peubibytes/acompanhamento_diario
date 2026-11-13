@@ -62,7 +62,7 @@ describe('Kanban: colunas', () => {
       else assert.ok(BOARD_COLUMNS.includes(boardColumnOf(s)!), s);
     }
     assert.equal(boardColumnOf('em_homologacao'), 'aguardando');
-    assert.equal(boardColumnOf('iniciado'), 'em_andamento');
+    assert.equal(boardColumnOf('em_espera'), 'aguardando');
   });
 
   it('o status de destino é um status válido da categoria e cai na própria coluna', () => {
@@ -81,9 +81,9 @@ describe('Kanban: colunas', () => {
     }
   });
 
-  it('treinamento e atividade não têm "Aguardando"; reunião não tem coluna alguma', () => {
-    assert.equal(statusForColumn('treinamento', 'aguardando'), null);
-    assert.equal(statusForColumn('atividade', 'aguardando'), null);
+  it('treinamento e atividade vão para "Aguardando" como "Em espera" (v0.19); reunião não tem coluna alguma', () => {
+    assert.equal(statusForColumn('treinamento', 'aguardando'), 'em_espera');
+    assert.equal(statusForColumn('atividade', 'aguardando'), 'em_espera');
     assert.equal(statusForColumn('chamado', 'aguardando'), 'em_espera');
     assert.equal(statusForColumn('ciclo', 'aguardando'), 'aguardando_terceiro');
     for (const column of BOARD_COLUMNS) assert.equal(statusForColumn('reuniao', column), null);
@@ -98,14 +98,15 @@ describe('Kanban: quadro', () => {
         cycle(2, { status: 'em_homologacao' }),
         cycle(3, { status: 'cancelado' }),
         ticket(4, 'em_espera'),
-        training(5, 'iniciado'),
+        training(5, 'em_andamento'),
+        training(6, 'em_espera'),
         meeting,
       ]),
       TODAY,
     );
     assert.deepEqual(ids(board.a_fazer), [1]);
     assert.deepEqual(ids(board.em_andamento), [5]);
-    assert.deepEqual(ids(board.aguardando), [2, 4]);
+    assert.deepEqual(ids(board.aguardando), [2, 4, 6]);
     assert.deepEqual(ids(board.concluido), []);
   });
 

@@ -87,7 +87,10 @@ export function CategoryFilter<T extends string>({
               } ${on ? '' : empty ? 'text-ink-3 hover:text-ink-2' : 'text-ink-2 hover:text-ink'}`}
             >
               {o.category && (
-                <span aria-hidden="true" className="inline-flex" style={{ color: categoryInk[o.category] }}>
+                // Escolhido, o chip é invertido (fundo preto): o ícone acompanha o texto, e a cor do tipo vai para o
+                // quadradinho ao lado, que contrasta com o fundo nos dois temas.
+                <span aria-hidden="true" className="inline-flex items-center gap-1" style={on ? undefined : { color: categoryInk[o.category] }}>
+                  {on && <span className="size-2" style={{ background: categoryColor[o.category] }} />}
                   {categoryIcon[o.category](14)}
                 </span>
               )}

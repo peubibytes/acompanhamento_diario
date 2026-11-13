@@ -30,7 +30,7 @@ describe('Lembretes: Seus dados', () => {
   });
 
   it('com dados nunca exportados, pede a exportação e leva até Seus dados', async () => {
-    await api.call('POST', '/demands', { category: 'treinamento', title: 'Curso fictício', status: 'iniciado' });
+    await api.call('POST', '/demands', { category: 'treinamento', title: 'Curso fictício', status: 'em_andamento' });
     renderPage(<Reminders />, { url: '/lembretes' });
     const reminder = await reminders().findByRole('link', { name: /Exporte seus dados/ });
     expect(reminder).toHaveAttribute('href', '/lembretes#seus-dados');
@@ -38,7 +38,7 @@ describe('Lembretes: Seus dados', () => {
   });
 
   it('depois de exportar, mostra quando foi e o lembrete sai', async () => {
-    await api.call('POST', '/demands', { category: 'treinamento', title: 'Curso fictício', status: 'iniciado' });
+    await api.call('POST', '/demands', { category: 'treinamento', title: 'Curso fictício', status: 'em_andamento' });
     await api.call('GET', '/export');
     renderPage(<Reminders />, { url: '/lembretes' });
     expect(await reminders().findByText(/Apontamento na quinta/)).toBeInTheDocument();

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { usePeriodScale, useRefDate, withDate } from '../hooks';
-import { ClockIcon, GridIcon, KanbanIcon, ListIcon, StopwatchIcon, TableIcon, TargetIcon } from './icons';
+import { ClockIcon, GridIcon, KanbanIcon, ListIcon, TableIcon, TargetIcon } from './icons';
 import { NotificationBell } from './NotificationBell';
 import { ThemeToggle } from './ThemeToggle';
 
@@ -22,30 +22,33 @@ export function Layout() {
 
   return (
     <div className="min-h-dvh">
-      <header className="sticky top-0 z-30 border-b print:hidden border-line bg-bg/85 backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-page items-center justify-between gap-3 px-gutter">
+      {/* Barra do topo em grafite, como a placa de um equipamento: o nome, as telas em abas e, à direita, o sino e o
+          tema. A tela atual é a aba "encaixada" na página (o fundo dela). */}
+      <header className="sticky top-0 z-30 bg-chrome text-chrome-ink print:hidden">
+        <div className="mx-auto flex h-12 max-w-page items-stretch justify-between gap-3 px-gutter">
           <NavLink
             to={withDate('/', date, scale)}
-            className="flex items-center gap-2.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="flex items-center rounded-control outline-none focus-visible:ring-2 focus-visible:ring-chrome-ink"
           >
-            <span className="grid size-7 place-items-center rounded-lg bg-accent text-on-accent">
-              <StopwatchIcon size={17} strokeWidth={2.25} />
+            {/* Entre sm e lg as seis abas ocupam a largura: fica a sigla, com o nome para o leitor de tela. */}
+            <span className="title-plate text-lg leading-none whitespace-nowrap sm:hidden lg:inline">
+              ACOMPANHAMENTO<span className="max-[359px]:hidden"> DIÁRIO</span>
             </span>
-            <span className="text-sm font-semibold tracking-tight text-ink sm:hidden lg:inline">
-              Acompanhamento Diário
+            <span className="title-plate hidden text-lg leading-none sm:inline lg:hidden" aria-label="Acompanhamento Diário">
+              AD
             </span>
           </NavLink>
-          <div className="flex items-center gap-1">
-            {/* Desktop/tablet: navegação no topo; a tela atual é a única com fundo */}
-            <nav className="mr-2 hidden items-center gap-0.5 sm:flex" aria-label="Principal">
+          <div className="flex items-stretch gap-1">
+            {/* Desktop/tablet: navegação no topo, em abas */}
+            <nav className="mr-2 hidden items-stretch sm:flex" aria-label="Principal">
               {links.map((l) => (
                 <NavLink
                   key={l.to}
                   to={withDate(l.to, date, scale)}
                   end
                   className={({ isActive }) =>
-                    `rounded-control px-1.5 py-1.5 text-sm font-medium md:px-3 outline-none transition focus-visible:ring-2 focus-visible:ring-accent ${
-                      isActive ? 'bg-surface-2 text-ink' : 'text-ink-2 hover:text-ink'
+                    `flex items-center px-2 text-sm font-medium md:px-3.5 outline-none transition focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-chrome-ink ${
+                      isActive ? 'bg-bg font-semibold text-ink' : 'text-chrome-ink-2 hover:bg-white/10 hover:text-chrome-ink'
                     }`
                   }
                 >
@@ -53,8 +56,10 @@ export function Layout() {
                 </NavLink>
               ))}
             </nav>
-            <NotificationBell />
-            <ThemeToggle />
+            <div className="flex items-center gap-1">
+              <NotificationBell />
+              <ThemeToggle />
+            </div>
           </div>
         </div>
       </header>
@@ -68,7 +73,7 @@ export function Layout() {
 
       {/* Celular: barra de navegação inferior, ao alcance do polegar */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:hidden print:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 bg-chrome pb-[env(safe-area-inset-bottom)] sm:hidden print:hidden"
         aria-label="Principal"
       >
         {/* Cada tela ocupa o que o nome pede e a sobra é dividida: seis nomes cabem em 320 px sem cortar. */}
@@ -79,8 +84,8 @@ export function Layout() {
               to={withDate(l.to, date, scale)}
               end
               className={({ isActive }) =>
-                `flex min-w-0 flex-auto flex-col items-center gap-0.5 py-2 text-2xs outline-none transition focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent ${
-                  isActive ? 'font-semibold text-ink' : 'font-medium text-ink-3 hover:text-ink'
+                `flex min-w-0 flex-auto flex-col items-center gap-0.5 py-2 text-2xs outline-none transition focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-chrome-ink ${
+                  isActive ? 'bg-bg font-semibold text-ink' : 'font-medium text-chrome-ink-2 hover:text-chrome-ink'
                 }`
               }
             >

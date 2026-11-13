@@ -16,7 +16,8 @@ import {
   type ISODate,
 } from '@acomp/shared';
 import { useCycle, useDayActivities, useDeleteActivity, useDemands } from '../api/client';
-import { ConformityBadge, dayStyle } from '../components/Badges';
+import { AndonCell, ConformityBadge, dayTone } from '../components/Badges';
+import { ShiftLine } from '../components/ShiftLine';
 import { PeriodNav } from '../components/PeriodNav';
 import { IconButton } from '../components/DemandHistory';
 import { CategoryAvatar, categoryIcon, categoryInk } from '../components/DemandVisuals';
@@ -127,6 +128,15 @@ export function TimeEntries() {
         {cycle.data ? <DayTabs days={cycle.data.days} selected={day} onSelect={selectDay} /> : <Skeleton className="h-20" />}
       </div>
 
+      {metrics && metrics.minutes > 0 && (
+        <section className="card rise" aria-label="Linha do turno do dia">
+          <h2 className="title-plate border-b border-line px-4 py-2.5 text-2xl text-ink">Linha do turno</h2>
+          <div className="p-4">
+            <ShiftLine key={day} days={[metrics]} />
+          </div>
+        </section>
+      )}
+
       <section className="space-y-3" aria-label="Apontamentos do dia">
         {metrics && (
           <DaySummary
@@ -182,14 +192,17 @@ export function TimeEntries() {
   );
 }
 
-/** Dia, horas e uma barrinha de progresso; o status vai no ícone (com o rótulo para o leitor de tela). */
+/**
+ * Dia, horas e o sinal de andon (v0.19, decisão 0021): as cinco abas encaixadas numa faixa só, a escolhida invertida
+ * (fundo preto), e embaixo de cada uma a célula de sinal com ícone e rótulo.
+ */
 function DayTabs({ days, selected, onSelect }: { days: DayMetrics[]; selected: ISODate; onSelect: (d: ISODate) => void }) {
   const today = todayISO();
   return (
-    <div className="grid grid-cols-5 gap-1.5 sm:gap-2" role="tablist" aria-label="Dia da semana">
-      {days.map((d) => {
+    <div className="grid grid-cols-5 border border-line-strong bg-surface" role="tablist" aria-label="Dia da semana">
+      {days.map((d, i) => {
         const active = d.date === selected;
-        const style = dayStyle(d);
+        const tone = dayTone(d);
         const isToday = d.date === today;
         return (
           <button
@@ -198,47 +211,25 @@ function DayTabs({ days, selected, onSelect }: { days: DayMetrics[]; selected: I
             aria-selected={active}
             aria-current={isToday ? 'date' : undefined}
             onClick={() => onSelect(d.date)}
-            className={`min-w-0 rounded-card border px-2.5 py-2 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-accent sm:px-3 sm:py-2.5 ${
-              active ? 'border-accent bg-surface' : 'border-line hover:bg-surface'
-            }`}
+            className={`flex min-w-0 flex-col text-left outline-none transition focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent ${
+              i > 0 ? 'border-l border-line-strong' : ''
+            } ${active ? 'bg-accent text-on-accent' : 'text-ink hover:bg-surface-2'}`}
           >
-            <span className="flex items-center justify-between gap-1">
+            <span className="flex items-baseline justify-between gap-1 px-2.5 pt-2 sm:px-3">
               <span className="flex min-w-0 items-baseline gap-1.5">
-                <span className={`text-sm text-ink ${active ? 'font-semibold' : 'font-medium'}`}>{d.weekdayShort}</span>
-                <span className="tabular hidden truncate text-2xs text-ink-3 sm:inline">
+                <span className="title-plate text-lg">{d.weekdayShort}</span>
+                <span className={`tabular hidden truncate text-xs sm:inline ${active ? 'opacity-80' : 'text-ink-3'}`}>
                   {isToday ? 'Hoje' : formatDayMonth(d.date)}
                 </span>
-                {isToday && <span className="size-1.5 shrink-0 self-center rounded-full bg-accent sm:hidden" aria-hidden="true" />}
               </span>
-              <span className={`shrink-0 ${style.text}`} title={style.label}>
-                {style.icon(13)}
-                <span className="sr-only">{style.label}</span>
-              </span>
+              <span className="num hidden truncate text-2xl sm:block">{d.minutes ? formatDuration(d.minutes) : '—'}</span>
             </span>
-            <span className="num mt-1 block truncate text-base font-medium text-ink">
-              {d.minutes ? formatDuration(d.minutes) : '—'}
-            </span>
-            <DayProgress day={d} />
+            <span className="num truncate px-2.5 text-lg sm:hidden">{d.minutes ? formatDuration(d.minutes) : '—'}</span>
+            <AndonCell tone={tone} className="mt-2 px-2.5 py-1 text-sm max-sm:justify-center sm:px-3 max-sm:[&>:last-child]:sr-only" />
           </button>
         );
       })}
     </div>
-  );
-}
-
-/**
- * Progresso do dia até a meta. Abaixo da meta, a parte feita em azul-escuro (ou verde, quando bate a meta). Acima, a meta
- * inteira em azul-escuro e só o excesso em vermelho: o alerta fica no que passou, não no dia todo.
- */
-function DayProgress({ day: d }: { day: DayMetrics }) {
-  const over = d.minutes > d.goal;
-  const done = over ? d.goal / d.minutes : Math.min(1, d.minutes / d.goal);
-  const fill = d.conformity === 'conforme' ? 'bg-good' : 'bg-bar';
-  return (
-    <span className="mt-2 flex h-1 gap-px overflow-hidden rounded-full bg-grid" aria-hidden="true">
-      {d.minutes > 0 && <span className={`grow-x h-full ${fill}`} style={{ width: `${done * 100}%` }} />}
-      {over && <span className="grow-x h-full flex-1 bg-critical" />}
-    </span>
   );
 }
 

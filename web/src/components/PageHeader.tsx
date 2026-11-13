@@ -31,7 +31,7 @@ export function PageHeader({
             <ArrowLeft size={18} />
           </button>
         )}
-        <h1 className="truncate text-2xl font-semibold tracking-tight text-ink">{title}</h1>
+        <h1 className="title-plate truncate text-2xl text-ink sm:text-display">{title}</h1>
         {hint && <InfoHint label={`Sobre ${title}`}>{hint}</InfoHint>}
       </div>
       {action && <div className="flex max-w-full shrink-0 flex-wrap items-center gap-3">{action}</div>}

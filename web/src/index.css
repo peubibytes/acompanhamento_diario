@@ -4,18 +4,19 @@
 @custom-variant can-hover (@media (hover: hover));
 
 /*
- * Tokens visuais — direção "Precisa" (v0.18, docs/decisions/0020)
+ * Tokens visuais — sistema "Andon" (v0.19, docs/decisions/0021; sobre a base "Precisa" da v0.18, decisão 0020)
  * ─────────────────────────────────────────────────────────────────
- * Ferramenta de uso diário: densa e exata. Bordas finas no lugar de sombras, raios pequenos, números numa
- * face monoespaçada e uma só cor de destaque (íris).
+ * Ferramenta de trabalho de empresa, industrial: densa e exata. Bordas finas no lugar de sombras, cantos retos
+ * (2px), números em Barlow Condensed (desenho DIN, a letra das placas e painéis) e nenhuma cor de marca: a ação
+ * principal e o item escolhido são pretos (inversão, como etiqueta de máquina). Cor saturada só em sinal
+ * (andon: status do dia) e em dado (tipo da demanda).
  *
  * Escalas (iguais nos dois temas), em @theme static:
- *   fontes      font-sans (Geist: texto) · font-mono (Geist Mono: o número como dado, via .num)
+ *   fontes      font-sans (Barlow: texto) · font-mono (Barlow Condensed: o número como dado, via .num; o nome
+ *               do token ficou "mono" para não mexer nas telas, mas a face é a condensada, com algarismos tabulares)
  *   tipografia  text-2xs 11 · xs 12 · sm 13 · base 14 · lg 16 · 2xl 20 · display 28   (nenhum tamanho solto)
- *   raios       rounded-badge 4 (selos, contagens) · rounded-control 6 (botões, campos, chips, abas)
- *               · rounded-card 10 (cartões, painéis) · rounded-full só para o que é redondo (pontos, avatares,
- *               anéis, barras de progresso). Transição: lg, xl e 2xl apontam para os mesmos valores até as telas
- *               trocarem para os nomes acima (Etapa 4 do redesenho).
+ *   raios       2px em tudo (rounded-badge, rounded-control, rounded-card, e lg/xl/2xl apontam para o mesmo valor)
+ *               · rounded-full só para o que é redondo (pontos, anéis)
  *   espaço      passos de 4px do Tailwind (1, 2, 3, 4, 6, 8, 12, 16) e três nomes de layout:
  *               px-gutter (margem da página), gap-section / space-y-section (entre blocos),
  *               max-w-page (largura do conteúdo)
@@ -23,9 +24,9 @@
  * Componentes prontos (fim deste arquivo): .tabular · .num · .kpi-label/.kpi-value · .hatch-critical · .card · .field · .btn-primary · .btn-secondary · .btn-ghost ·
  *   .btn-danger · .btn-icon (e .btn-sm) · .badge · .chip
  * Cores (por tema), em :root e nos dois blocos escuros:
- *   neutros levemente frios (na direção do íris); --bar (azul-escuro) preenche as barras de dados sem categoria;
- *   uma única cor de destaque (--accent), usada na ação principal,
- *   no foco e no item escolhido; o resto é neutro. Cores de status (good/warning/critical) nunca carregam
+ *   neutros grafite; --chrome* é a barra do topo (grafite nos dois temas); --bar (grafite-azulado) preenche as
+ *   barras de dados sem categoria; --accent é o preto da ação principal, do foco e do item escolhido (no escuro,
+ *   o claro); --andon-* são as células de sinal (verde, âmbar, vermelho, cinza), sempre com ícone e rótulo. Cores de status (good/warning/critical) nunca carregam
  *   significado sozinhas: sempre com ícone ou rótulo. --series-* é a paleta categórica dos gráficos.
  *   Contraste conferido (WCAG AA): texto ≥ 4,5:1; bordas de campos, foco e barras ≥ 3:1.
  * Movimento (v0.16, docs/decisions/0018), em :root, mais abaixo:
@@ -35,8 +36,8 @@
  *   ligado no sistema, nenhuma animação roda (bloco final) e o JavaScript confere o mesmo (motion.ts).
  */
 @theme static {
-  --font-sans: 'Geist', ui-sans-serif, system-ui, sans-serif;
-  --font-mono: 'Geist Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --font-sans: 'Barlow', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Barlow Condensed', 'Barlow', ui-sans-serif, system-ui, sans-serif;
 
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1rem;
@@ -50,17 +51,19 @@
   --text-lg--line-height: 1.5rem;
   --text-2xl: 1.25rem;
   --text-2xl--line-height: 1.75rem;
-  /* Números de destaque (KPIs), em Geist Mono. */
-  --text-display: 1.75rem;
+  /* Números de destaque (KPIs), em Barlow Condensed. */
+  --text-display: 2rem;
   --text-display--line-height: 1.1;
 
-  --radius-badge: 0.25rem;
-  --radius-control: 0.375rem;
-  --radius-card: 0.625rem;
-  /* Transição (ver o cabeçalho): os nomes do Tailwind usados nas telas seguem a escala nova. */
-  --radius-lg: 0.375rem;
-  --radius-xl: 0.625rem;
-  --radius-2xl: 0.625rem;
+  --radius-badge: 2px;
+  --radius-control: 2px;
+  --radius-card: 2px;
+  /* Os nomes do Tailwind usados nas telas seguem a mesma escala reta. */
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 2px;
+  --radius-2xl: 2px;
 
   --container-page: 72rem;
 
@@ -82,51 +85,66 @@
   --ease-spring: cubic-bezier(0.34, 1.45, 0.64, 1);
 
   color-scheme: light;
-  --bg: #f7f7f8;
+  --bg: #e9eaec;
   --surface: #ffffff;
-  --surface-2: #f1f1f3;
+  --surface-2: #f4f5f6;
   /* Bordas finas e visíveis: são elas que separam os blocos. Campos usam --border-strong (3:1). */
-  --border: #e4e4e8;
-  --border-strong: #85858f;
-  --text: #18181b;
-  --text-2: #52525b;
-  --text-3: #6b6b76;
-  --accent: #5b5bd6;
-  --accent-hover: #4b4bc4;
-  --accent-soft: #eeeefc;
+  --border: #d3d6da;
+  --border-strong: #80858e;
+  --text: #121417;
+  --text-2: #4a4f57;
+  --text-3: #5f656e;
+  /* Sem cor de marca: a ação principal, o foco e o escolhido são pretos (no escuro, claros). */
+  --accent: #121417;
+  --accent-hover: #2b3038;
+  --accent-soft: #e3e5e8;
   --on-accent: #ffffff;
-  --grid: #ebebef;
-  --baseline: #c4c4cc;
-  /* Preenchimento das barras de dados que não têm categoria (horas do dia, progresso): azul-escuro, não cinza. */
-  --bar: #24336b;
+  --grid: #ecedef;
+  --baseline: #c4c8cd;
+  /* Preenchimento das barras de dados que não têm categoria (horas do dia, progresso): grafite-azulado. */
+  --bar: #2b3440;
   --shadow-card: none;
-  --shadow-pop: 0 12px 32px -12px rgb(24 24 40 / 0.22), 0 2px 6px rgb(24 24 40 / 0.06);
+  --shadow-pop: 0 10px 28px -12px rgb(18 20 23 / 0.28), 0 2px 6px rgb(18 20 23 / 0.08);
+  /* Barra do topo: grafite nos dois temas (a "placa" do equipamento). */
+  --chrome: #16181b;
+  --chrome-ink: #e6e8eb;
+  --chrome-ink-2: #a9aeb6;
 
   /* Status: nunca carregam significado sozinhos — sempre acompanhados de ícone + rótulo. */
-  --good: #1f883d;
-  --good-text: #177135;
-  --good-soft: #e6f4ea;
-  --warning: #b36b00;
-  --warning-text: #975a00;
-  --warning-soft: #fdf3dc;
-  --critical: #d1343e;
-  --critical-text: #c42b36;
-  --critical-soft: #fdecee;
-  --neutral: #8b8b96;
-  --neutral-soft: #efeff2;
+  --good: #1e8e3e;
+  --good-text: #1a7335;
+  --good-soft: #e3f2e7;
+  --warning: #a86f00;
+  --warning-text: #8a5a00;
+  --warning-soft: #fdf1d0;
+  --critical: #d93025;
+  --critical-text: #b3261e;
+  --critical-soft: #fce8e6;
+  --neutral: #8a8f98;
+  --neutral-soft: #eceef0;
+
+  /* Andon: a célula preenchida, como a luz de sinal de uma máquina. Cada uma com o seu texto (contraste AA). */
+  --andon-good: #1e8e3e;
+  --andon-good-ink: #ffffff;
+  --andon-warn: #f0b400;
+  --andon-warn-ink: #121417;
+  --andon-crit: #d93025;
+  --andon-crit-ink: #ffffff;
+  --andon-idle: #d3d6da;
+  --andon-idle-ink: #121417;
 
   /* Paleta categórica (validada para daltonismo); ordem fixa dos slots, nunca ciclada. */
-  --series-1: #2a78d6;
-  --series-2: #eb6834;
-  --series-3: #1baf7a;
-  --series-4: #eda100;
-  --series-5: #e87ba4;
-  --series-1b: #1b4f8f;
-  --series-2b: #a8441d;
-  --series-3b: #0f7a55;
-  --series-4b: #8a6200;
-  --series-5b: #a83a64;
-  --series-other: #a8a8b0;
+  --series-1: #1a66c9;
+  --series-2: #e8710a;
+  --series-3: #2e9e5b;
+  --series-4: #f2c200;
+  --series-5: #c2408c;
+  --series-1b: #154f9c;
+  --series-2b: #a34c00;
+  --series-3b: #1f7040;
+  --series-4b: #7a6100;
+  --series-5b: #9a2f6e;
+  --series-other: #a3a8af;
 
   /* Cor fixa de cada tipo de demanda: a mesma no gráfico, no seletor de categoria e no Kanban.
    * Desde a v0.18 a cor vem do significado (teoria das cores), sobre os mesmos 5 tons validados para daltonismo:
@@ -169,89 +187,111 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
-    --bg: #0f0f11;
-    --surface: #17171a;
-    --surface-2: #202024;
-    --border: #2a2a30;
-    --border-strong: #6e6e78;
-    --text: #ededef;
-    --text-2: #b4b4bb;
-    --text-3: #8e8e97;
-    --accent: #8b8cf0;
-    --accent-hover: #a5a6f5;
-    --accent-soft: #23233d;
-    --on-accent: #0f0f1a;
-    --grid: #26262b;
-    --baseline: #3a3a42;
-    --bar: #4b62b0;
+    --bg: #0f1113;
+    --surface: #181b1f;
+    --surface-2: #1f2328;
+    --border: #30353c;
+    --border-strong: #6b717a;
+    --text: #e6e8eb;
+    --text-2: #b4b9c0;
+    --text-3: #8f959e;
+    --accent: #e6e8eb;
+    --accent-hover: #ffffff;
+    --accent-soft: #2a2e34;
+    --on-accent: #121417;
+    --grid: #262a30;
+    --baseline: #3a3f46;
+    --bar: #9aa6b8;
     --shadow-card: none;
     --shadow-pop: 0 12px 32px -12px rgb(0 0 0 / 0.75), 0 2px 6px rgb(0 0 0 / 0.35);
-    --good: #3fb950;
-    --good-text: #4cc76a;
-    --good-soft: #15291b;
-    --warning: #d29922;
-    --warning-text: #f0b44c;
-    --warning-soft: #2f2513;
-    --critical: #d03b3b;
-    --critical-text: #ff7b7b;
-    --critical-soft: #341a1c;
-    --neutral: #6e6e78;
-    --neutral-soft: #24242a;
-    --series-1: #3987e5;
-    --series-2: #d95926;
-    --series-3: #199e70;
-    --series-4: #c98500;
-    --series-5: #d55181;
+    --chrome: #08090a;
+    --chrome-ink: #e6e8eb;
+    --chrome-ink-2: #9aa0a8;
+    --good: #3fb95f;
+    --good-text: #5cc27a;
+    --good-soft: #142a1b;
+    --warning: #e0a800;
+    --warning-text: #f0b400;
+    --warning-soft: #2e2510;
+    --critical: #e5483d;
+    --critical-text: #ff7b70;
+    --critical-soft: #34191a;
+    --neutral: #6b717a;
+    --neutral-soft: #24282d;
+    --andon-good: #1e8e3e;
+    --andon-good-ink: #ffffff;
+    --andon-warn: #f0b400;
+    --andon-warn-ink: #121417;
+    --andon-crit: #d93025;
+    --andon-crit-ink: #ffffff;
+    --andon-idle: #3a3f46;
+    --andon-idle-ink: #e6e8eb;
+    --series-1: #3d86e0;
+    --series-2: #e8710a;
+    --series-3: #2e9e5b;
+    --series-4: #e0b400;
+    --series-5: #d0559c;
     --series-1b: #7fb2f0;
-    --series-2b: #f08a5f;
-    --series-3b: #55cfa0;
-    --series-4b: #f0c050;
-    --series-5b: #f0a0c0;
-    --series-other: #5e5e66;
+    --series-2b: #f59a52;
+    --series-3b: #5cc58a;
+    --series-4b: #f2cf4a;
+    --series-5b: #ec9cca;
+    --series-other: #5f646b;
   }
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #0f0f11;
-  --surface: #17171a;
-  --surface-2: #202024;
-  --border: #2a2a30;
-  --border-strong: #6e6e78;
-  --text: #ededef;
-  --text-2: #b4b4bb;
-  --text-3: #8e8e97;
-  --accent: #8b8cf0;
-  --accent-hover: #a5a6f5;
-  --accent-soft: #23233d;
-  --on-accent: #0f0f1a;
-  --grid: #26262b;
-  --baseline: #3a3a42;
-  --bar: #4b62b0;
+  --bg: #0f1113;
+  --surface: #181b1f;
+  --surface-2: #1f2328;
+  --border: #30353c;
+  --border-strong: #6b717a;
+  --text: #e6e8eb;
+  --text-2: #b4b9c0;
+  --text-3: #8f959e;
+  --accent: #e6e8eb;
+  --accent-hover: #ffffff;
+  --accent-soft: #2a2e34;
+  --on-accent: #121417;
+  --grid: #262a30;
+  --baseline: #3a3f46;
+  --bar: #9aa6b8;
   --shadow-card: none;
   --shadow-pop: 0 12px 32px -12px rgb(0 0 0 / 0.75), 0 2px 6px rgb(0 0 0 / 0.35);
-  --good: #3fb950;
-  --good-text: #4cc76a;
-  --good-soft: #15291b;
-  --warning: #d29922;
-  --warning-text: #f0b44c;
-  --warning-soft: #2f2513;
-  --critical: #d03b3b;
-  --critical-text: #ff7b7b;
-  --critical-soft: #341a1c;
-  --neutral: #6e6e78;
-  --neutral-soft: #24242a;
-  --series-1: #3987e5;
-  --series-2: #d95926;
-  --series-3: #199e70;
-  --series-4: #c98500;
-  --series-5: #d55181;
+  --chrome: #08090a;
+  --chrome-ink: #e6e8eb;
+  --chrome-ink-2: #9aa0a8;
+  --good: #3fb95f;
+  --good-text: #5cc27a;
+  --good-soft: #142a1b;
+  --warning: #e0a800;
+  --warning-text: #f0b400;
+  --warning-soft: #2e2510;
+  --critical: #e5483d;
+  --critical-text: #ff7b70;
+  --critical-soft: #34191a;
+  --neutral: #6b717a;
+  --neutral-soft: #24282d;
+  --andon-good: #1e8e3e;
+  --andon-good-ink: #ffffff;
+  --andon-warn: #f0b400;
+  --andon-warn-ink: #121417;
+  --andon-crit: #d93025;
+  --andon-crit-ink: #ffffff;
+  --andon-idle: #3a3f46;
+  --andon-idle-ink: #e6e8eb;
+  --series-1: #3d86e0;
+  --series-2: #e8710a;
+  --series-3: #2e9e5b;
+  --series-4: #e0b400;
+  --series-5: #d0559c;
   --series-1b: #7fb2f0;
-  --series-2b: #f08a5f;
-  --series-3b: #55cfa0;
-  --series-4b: #f0c050;
-  --series-5b: #f0a0c0;
-  --series-other: #5e5e66;
+  --series-2b: #f59a52;
+  --series-3b: #5cc58a;
+  --series-4b: #f2cf4a;
+  --series-5b: #ec9cca;
+  --series-other: #5f646b;
 }
 
 @theme inline {
@@ -281,6 +321,17 @@
   --color-critical-soft: var(--critical-soft);
   --color-neutral: var(--neutral);
   --color-neutral-soft: var(--neutral-soft);
+  --color-chrome: var(--chrome);
+  --color-chrome-ink: var(--chrome-ink);
+  --color-chrome-ink-2: var(--chrome-ink-2);
+  --color-andon-good: var(--andon-good);
+  --color-andon-good-ink: var(--andon-good-ink);
+  --color-andon-warn: var(--andon-warn);
+  --color-andon-warn-ink: var(--andon-warn-ink);
+  --color-andon-crit: var(--andon-crit);
+  --color-andon-crit-ink: var(--andon-crit-ink);
+  --color-andon-idle: var(--andon-idle);
+  --color-andon-idle-ink: var(--andon-idle-ink);
   --spacing-gutter: var(--gutter);
   --spacing-section: var(--section);
 }
@@ -294,7 +345,7 @@
   @media (min-width: 64rem) {
     display: flex;
     flex-direction: column;
-    height: calc(100dvh - 3.5rem - 1px - 2 * var(--section));
+    height: calc(100dvh - 3rem - 2 * var(--section));
   }
 }
 
@@ -315,19 +366,57 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Número como dado (KPIs, horas, posições no quadro): Geist Mono. Só no número, nunca na frase em volta. */
+body {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Número como dado (KPIs, horas, posições no quadro): Barlow Condensed. Só no número, nunca na frase em volta. */
 .num {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
+  font-weight: 600;
 }
 
-/* Cartão: separado do fundo pela borda fina, sem sombra (funciona igual nos dois temas). */
+/* Painel: separado do fundo pela borda fina e marcado por uma régua de 2px em cima, sem sombra. */
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
+  border-top: 2px solid var(--text);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
+}
+
+/* Título de painel e de tela: Barlow Condensed, o peso da placa. */
+.title-plate {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+/* Célula de andon: o sinal do dia preenchido, como a luz de uma máquina. Sempre com ícone e rótulo dentro. */
+.andon {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.andon[data-tone='conforme'] {
+  background: var(--andon-good);
+  color: var(--andon-good-ink);
+}
+.andon[data-tone='abaixo'] {
+  background: var(--andon-warn);
+  color: var(--andon-warn-ink);
+}
+.andon[data-tone='acima'] {
+  background: var(--andon-crit);
+  color: var(--andon-crit-ink);
+}
+.andon[data-tone='pendente'] {
+  background: var(--andon-idle);
+  color: var(--andon-idle-ink);
 }
 
 /* Em camada própria: os utilitários do Tailwind (flex, margens, quebra de linha) ainda valem por cima destas classes. */
@@ -346,7 +435,7 @@ body {
     white-space: nowrap;
   }
 
-  /* Indicadores (KPIs): rótulo discreto em caixa normal e o número em Geist Mono. */
+  /* Indicadores (KPIs): rótulo discreto em caixa normal e o número em Barlow Condensed. */
   .kpi-label {
     font-size: var(--text-xs);
     line-height: var(--text-xs--line-height);
@@ -360,8 +449,7 @@ body {
     font-variant-numeric: tabular-nums;
     font-size: var(--text-2xl);
     line-height: var(--text-display--line-height);
-    font-weight: 500;
-    letter-spacing: -0.03em;
+    font-weight: 700;
     color: var(--text);
   }
   @media (min-width: 40rem) {
@@ -490,9 +578,9 @@ body {
   gap: 0.375rem;
   border-radius: var(--radius-control);
   padding: 0.4375rem 0.875rem;
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   line-height: var(--text-sm--line-height);
-  font-weight: 500;
+  font-weight: 600;
   white-space: nowrap;
   outline: none;
   transition:
@@ -504,7 +592,6 @@ body {
 .btn-primary {
   background: var(--accent);
   color: var(--on-accent);
-  box-shadow: var(--shadow-sm);
 }
 .btn-primary:hover {
   background: var(--accent-hover);
@@ -512,7 +599,7 @@ body {
 .btn-secondary {
   background: var(--surface);
   color: var(--text);
-  box-shadow: inset 0 0 0 1px var(--border);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
 }
 .btn-secondary:hover {
   background: var(--surface-2);
@@ -587,20 +674,20 @@ body {
   scale: 0.94;
 }
 
-/* Chip de categoria (CategoryFilter): --chip é a cor do tipo e --chip-ink a variante que desenha o anel.
- * Em repouso: superfície com borda fina. Escolhido: fundo suave na cor, anel de 1px e texto forte;
- * sem cor (Todos), o neutro. */
+/* Chip de categoria (CategoryFilter): --chip é a cor do tipo e --chip-ink a variante que desenha o ícone.
+ * Em repouso: superfície com borda de controle. Escolhido: invertido (fundo preto, texto claro), como os
+ * demais seletores; a cor do tipo fica no ícone. */
 .chip {
   background-color: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--border);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
 }
 .chip:hover {
   background-color: var(--surface-2);
 }
 .chip[aria-checked='true'] {
-  background-color: color-mix(in srgb, var(--chip, var(--text-3)) 14%, var(--surface));
-  box-shadow: inset 0 0 0 1px var(--chip-ink, var(--border-strong));
-  color: var(--text);
+  background-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  color: var(--on-accent);
 }
 
 /* Blocos e cartões que chegam à tela. */

@@ -40,16 +40,16 @@ describe('Declarar reunião (v0.14)', () => {
   });
 });
 
-describe('Status do chamado (v0.14)', () => {
-  it('o chamado oferece "Em espera" e não "Iniciado"; o treinamento mantém "Iniciado"', async () => {
+describe('Status do chamado (v0.14) e das tarefas (v0.19)', () => {
+  it('chamado e treinamento oferecem "Em espera" e não "Iniciado"', async () => {
     const { unmount } = renderPage(<DemandForm category="chamado" onDone={() => {}} />);
     expect(screen.getByRole('radio', { name: /Em espera/ })).toBeInTheDocument();
     expect(screen.queryByRole('radio', { name: /^Iniciado/ })).not.toBeInTheDocument();
     unmount();
 
     renderPage(<DemandForm category="treinamento" onDone={() => {}} />);
-    expect(screen.getByRole('radio', { name: /^Iniciado/ })).toBeInTheDocument();
-    expect(screen.queryByRole('radio', { name: /Em espera/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /Em espera/ })).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: /^Iniciado/ })).not.toBeInTheDocument();
   });
 });
 

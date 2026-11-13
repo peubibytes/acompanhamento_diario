@@ -81,9 +81,10 @@ export function Dashboard() {
     }
   };
 
-  // Dia útil e Rendimento são um cartão só, sem nada abaixo: cabem na janela (o gráfico encolhe) em vez de rolar.
-  // Ciclos e Distribuição crescem com o conteúdo e seguem rolando.
-  const fit = view === 'semana' || view === 'rendimento';
+  // Rendimento e o Dia útil no mês são um cartão só, sem nada abaixo: cabem na janela (o gráfico encolhe) em vez de
+  // rolar. O Dia útil na semana (com a linha do turno embaixo, v0.19), Ciclos e Distribuição crescem com o conteúdo e
+  // seguem rolando.
+  const fit = (view === 'semana' && scale === 'month') || view === 'rendimento';
 
   return (
     <div className={`space-y-section ${fit ? 'fit-viewport' : ''}`}>

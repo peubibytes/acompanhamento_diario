@@ -54,8 +54,8 @@ export function NotificationBell() {
         aria-label={label}
         aria-haspopup="true"
         aria-expanded={open}
-        className={`relative grid size-9 place-items-center rounded-control outline-none transition focus-visible:ring-2 focus-visible:ring-accent ${
-          onPage ? 'bg-surface-2 text-ink' : 'text-ink-2 hover:bg-surface-2 hover:text-ink'
+        className={`relative grid size-9 place-items-center rounded-control outline-none transition focus-visible:ring-2 focus-visible:ring-chrome-ink ${
+          onPage ? 'bg-bg text-ink' : 'text-chrome-ink-2 hover:bg-white/10 hover:text-chrome-ink'
         }`}
       >
         <BellIcon size={18} />
@@ -63,8 +63,8 @@ export function NotificationBell() {
           <span
             // A chave refaz o "pulo" quando o número muda.
             key={attention}
-            className={`pop tabular absolute -top-1 -right-1 grid h-[18px] min-w-[18px] place-items-center rounded-full px-1 text-2xs font-bold ring-2 ring-bg ${
-              critical ? 'bg-critical text-white' : 'bg-warning text-[#0b0b0b]'
+            className={`pop tabular absolute -top-1 -right-1 grid h-[18px] min-w-[18px] place-items-center rounded-badge px-1 text-2xs font-bold ring-2 ring-chrome ${
+              critical ? 'bg-andon-crit text-andon-crit-ink' : 'bg-andon-warn text-andon-warn-ink'
             }`}
             aria-hidden="true"
           >

@@ -6,7 +6,7 @@ export function SectionTitle({ title, hint, aside }: { title: string; hint?: Rea
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
       <div className="flex items-center gap-1.5">
-        <h2 className="text-sm font-semibold text-ink">{title}</h2>
+        <h2 className="title-plate text-2xl text-ink">{title}</h2>
         {hint && <InfoHint label={`Sobre ${title.toLowerCase()}`}>{hint}</InfoHint>}
       </div>
       {aside}

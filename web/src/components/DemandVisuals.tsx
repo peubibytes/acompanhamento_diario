@@ -127,9 +127,8 @@ export function CycleStatusBadge({ status }: { status: CycleStatus }) {
 
 export const taskStatusStyle: Record<TaskStatus | TicketStatus, { badge: string; icon: (s: number) => ReactNode }> = {
   nao_iniciado: { badge: 'bg-neutral-soft text-ink-2', icon: (s) => <DashIcon size={s} /> },
-  iniciado: { badge: 'bg-accent-soft text-accent', icon: (s) => <ClockIcon size={s} /> },
   em_andamento: { badge: 'bg-accent-soft text-accent', icon: (s) => <ClockIcon size={s} /> },
-  // Em espera (só chamados): âmbar com ampulheta; a cor nunca é a única pista.
+  // Em espera (chamados, treinamentos e atividades): âmbar com ampulheta; a cor nunca é a única pista.
   em_espera: { badge: 'bg-warning-soft text-warning-text', icon: (s) => <HourglassIcon size={s} /> },
   concluido: { badge: 'bg-good-soft text-good-text', icon: (s) => <CheckIcon size={s} /> },
 };
