@@ -94,4 +94,19 @@ describe('Movimento', () => {
     expect(screen.getByRole('tab', { name: 'Dois' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tab', { name: 'Um' })).toHaveAttribute('aria-selected', 'false');
   });
+
+  it('o foco inicial do painel não tira o foco de um campo que a pessoa já escolheu dentro dele', async () => {
+    stubMotion(false);
+    // O foco inicial vem um quadro depois de abrir: o clique no segundo campo chega antes dele.
+    render(
+      <SlideOver open onClose={() => {}} title="Declarar chamado">
+        <button type="button">Chamado</button>
+        <input aria-label="Número do chamado" />
+      </SlideOver>,
+    );
+    const field = screen.getByLabelText('Número do chamado');
+    field.focus();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    expect(field).toHaveFocus();
+  });
 });
