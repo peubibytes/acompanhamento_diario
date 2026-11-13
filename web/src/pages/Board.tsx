@@ -37,6 +37,14 @@ type Panel = { mode: 'new'; category: BoardCategory } | { mode: 'edit'; id: numb
 
 const isBoardCategory = (v: string | null): v is BoardCategory => BOARD_CATEGORIES.includes(v as BoardCategory);
 
+/** A faixa de sinal de cada coluna: neutro, em curso, à espera, concluído. */
+const COLUMN_SIGNAL: Record<BoardColumn, string> = {
+  a_fazer: 'var(--neutral)',
+  em_andamento: 'var(--series-1)',
+  aguardando: 'var(--andon-warn)',
+  concluido: 'var(--andon-good)',
+};
+
 const COLUMN_ICON: Record<BoardColumn, (s: number) => ReactNode> = {
   a_fazer: (s) => <DashIcon size={s} />,
   em_andamento: (s) => <ClockIcon size={s} />,
@@ -299,7 +307,7 @@ export function Board() {
             const sortable = column !== 'concluido';
             const rest = cards.filter((d) => d.id !== drag?.id);
             const line = (
-              <li key="drop-line" aria-hidden="true" className="h-1 rounded-full bg-accent" />
+              <li key="drop-line" aria-hidden="true" className="h-1 bg-accent" />
             );
             const folded = collapsedColumns.has(column);
             const items: ReactNode[] = [];
@@ -328,16 +336,21 @@ export function Board() {
                 key={column}
                 data-board-column={column}
                 aria-label={BOARD_COLUMN_LABEL[column]}
-                className={`group/column min-w-0 flex-col rounded-card bg-surface-2/60 p-2 transition ${column === mobileColumn ? 'flex' : 'hidden lg:flex'} ${
+                className={`group/column min-w-0 flex-col rounded-card bg-line/60 p-2 transition ${column === mobileColumn ? 'flex' : 'hidden lg:flex'} ${
                   over?.allowed ? 'ring-2 ring-accent' : ''
                 } ${blocked ? 'opacity-50' : ''}`}
               >
-                <div className="flex items-center gap-2 pl-2">
-                  <h2 className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-sm font-semibold text-ink">
-                    <span className="text-ink-3">{COLUMN_ICON[column](15)}</span>
-                    {BOARD_COLUMN_LABEL[column]}
-                    <span className="tabular text-xs font-medium text-ink-3">{cards.length}</span>
-                    {column === 'concluido' && <span className="ml-auto text-2xs font-medium text-ink-3">últimos {BOARD_DONE_DAYS} dias</span>}
+                {/* Cabeçalho da coluna em grafite, com a faixa de sinal embaixo (a cor do andamento, como a luz de uma
+                    estação de trabalho); o nome e a contagem dizem o mesmo por escrito. */}
+                <div
+                  className="-mx-2 -mt-2 mb-2 flex items-center gap-2 border-b-4 bg-chrome pr-1.5 pl-3 text-chrome-ink"
+                  style={{ borderBottomColor: COLUMN_SIGNAL[column] }}
+                >
+                  <h2 className="flex min-w-0 flex-1 items-center gap-2 py-2 text-base">
+                    <span className="text-chrome-ink-2">{COLUMN_ICON[column](15)}</span>
+                    <span className="title-plate text-lg">{BOARD_COLUMN_LABEL[column]}</span>
+                    {column === 'concluido' && <span className="text-2xs font-medium text-chrome-ink-2">últimos {BOARD_DONE_DAYS} dias</span>}
+                    <span className="num ml-auto text-2xl leading-none">{cards.length}</span>
                   </h2>
                   {/* Canto superior direito da coluna. Com o mouse, só aparece ao passar por ela (ou ao focar o botão). */}
                   <button
@@ -346,7 +359,7 @@ export function Board() {
                     aria-expanded={!folded}
                     aria-label={`${folded ? 'Expandir' : 'Recolher'} a coluna ${BOARD_COLUMN_LABEL[column]}`}
                     title={folded ? 'Expandir a coluna' : 'Recolher a coluna'}
-                    className="press grid size-7 shrink-0 place-items-center rounded-full text-ink-3 outline-none hover:bg-surface hover:text-ink focus-visible:ring-2 focus-visible:ring-accent can-hover:opacity-0 can-hover:transition can-hover:group-hover/column:opacity-100 can-hover:focus-visible:opacity-100"
+                    className="press grid size-7 shrink-0 place-items-center rounded-control text-chrome-ink-2 outline-none hover:bg-white/10 hover:text-chrome-ink focus-visible:ring-2 focus-visible:ring-chrome-ink can-hover:opacity-0 can-hover:transition can-hover:group-hover/column:opacity-100 can-hover:focus-visible:opacity-100"
                   >
                     {/* Uma seta só, que gira: para cima aberta, para baixo recolhida. */}
                     <ChevronUp size={15} className="turn" data-turned={folded || undefined} />

@@ -51,7 +51,7 @@ export function ThemeToggle() {
       onClick={toggle}
       aria-label={label}
       title={label}
-      className="press grid size-9 shrink-0 place-items-center rounded-control text-ink-2 outline-none hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-accent"
+      className="press grid size-9 shrink-0 place-items-center rounded-control text-chrome-ink-2 outline-none hover:bg-white/10 hover:text-chrome-ink focus-visible:ring-2 focus-visible:ring-chrome-ink"
     >
       <span key={theme} className="pop grid">
         {theme === 'dark' ? <SunIcon size={18} /> : <MoonIcon size={18} />}

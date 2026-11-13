@@ -28,7 +28,7 @@ import {
   type ReportWorkItem,
 } from '@acomp/shared';
 import { useDailyReport } from '../api/client';
-import { categoryIcon, categoryInk } from '../components/DemandVisuals';
+import { categoryColor, categoryIcon, categoryInk } from '../components/DemandVisuals';
 import { ChevronLeft, ChevronRight } from '../components/icons';
 import { PageHeader } from '../components/PageHeader';
 import { SectionTitle } from '../components/SectionTitle';
@@ -179,31 +179,35 @@ function DayNav({ date, onChange }: { date: ISODate; onChange: (d: ISODate) => v
   const yesterday = previousWorkday(today);
   const tag = date === today ? 'Hoje' : date === yesterday ? 'Dia útil anterior' : 'Dia';
   const navButton =
-    'press btn-icon disabled:opacity-40';
+    'press grid w-9 shrink-0 place-items-center self-stretch text-ink-2 outline-none hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent disabled:opacity-40';
 
+  // O mesmo controle encaixado da navegação de períodos: ‹ dia ›, com a situação junto do nome, em caixa normal.
   return (
-    <div className="flex items-center gap-1">
-      <button type="button" className={navButton} onClick={() => onChange(previousWorkday(date))} aria-label="Dia útil anterior">
-        <ChevronLeft />
-      </button>
-      <div className="min-w-0 px-1 text-center sm:text-left">
-        <p className="text-2xs font-semibold tracking-wider text-ink-3 uppercase">{tag}</p>
-        <p className="tabular text-base font-semibold whitespace-nowrap text-ink">{dayLabel(date)}</p>
+    <div className="flex items-center gap-2">
+      <div className="flex h-9 min-w-0 items-stretch rounded-control border border-line-strong bg-surface">
+        <button type="button" className={navButton} onClick={() => onChange(previousWorkday(date))} aria-label="Dia útil anterior">
+          <ChevronLeft />
+        </button>
+        <div className="flex min-w-0 items-center gap-1.5 border-x border-line px-3">
+          <p className="hidden text-sm text-ink-3 md:inline">{tag}</p>
+          <span aria-hidden="true" className="hidden text-ink-3 md:inline">·</span>
+          <p className="tabular text-sm font-semibold whitespace-nowrap text-ink">{dayLabel(date)}</p>
+        </div>
+        <button
+          type="button"
+          className={navButton}
+          onClick={() => onChange(nextWorkday(date))}
+          disabled={date >= today}
+          aria-label="Próximo dia útil"
+        >
+          <ChevronRight />
+        </button>
       </div>
-      <button
-        type="button"
-        className={navButton}
-        onClick={() => onChange(nextWorkday(date))}
-        disabled={date >= today}
-        aria-label="Próximo dia útil"
-      >
-        <ChevronRight />
-      </button>
       {date !== yesterday && (
         <button
           type="button"
           onClick={() => onChange(yesterday)}
-          className="ml-1 rounded-control bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent transition hover:brightness-95"
+          className="btn-secondary btn-sm ml-1"
         >
           Dia útil anterior
         </button>
@@ -217,10 +221,10 @@ const many = (n: number) => n > REPORT_INLINE_LIMIT;
 /** Colunas dos indicadores, de 1 a 4. */
 const METRIC_GRID = ['grid-cols-1', 'grid-cols-2', 'grid-cols-3', 'grid-cols-2 sm:grid-cols-4'];
 
-/** A frase que abre cada tópico: em destaque, com o filete da cor de destaque. */
+/** A frase que abre cada tópico: em destaque pelo peso e pelo tamanho, sem filete nem moldura. */
 function Lead({ children }: { children: ReactNode }) {
   return (
-    <p className="mt-4 border-l-2 border-accent pl-4 text-base font-medium text-pretty text-ink" data-testid="report-lead">
+    <p className="mt-4 text-lg font-semibold text-pretty text-ink" data-testid="report-lead">
       {children}
     </p>
   );
@@ -233,14 +237,14 @@ function DateChip({ date }: { date: ISODate }) {
 
 function Metric({ label, value, icon }: { label: string; value: string; icon: ReactNode }) {
   return (
-    <div className="rounded-control bg-surface-2 px-3 py-2.5">
+    <div className="border-line px-3 py-2.5 [&+&]:border-l">
       <dt className="flex items-center gap-1.5 text-xs font-medium text-ink-3">
         <span aria-hidden className="hidden sm:inline">
           {icon}
         </span>
         {label}
       </dt>
-      <dd className="num mt-1 text-2xl font-medium text-ink">{value}</dd>
+      <dd className="num mt-1 text-display leading-none text-ink">{value}</dd>
     </div>
   );
 }
@@ -269,10 +273,10 @@ function DoneSection({ report, today }: { report: DailyReport; today: ISODate })
   const headline = doneHeadline(report, today);
   // Só os indicadores com valor: não há "0 reuniões" nem "0h de ciclo".
   const metrics = [
-    d.tickets.length > 0 && { label: 'Chamados', value: String(d.tickets.length), icon: <span style={{ color: categoryInk.chamado }}>{categoryIcon.chamado(12)}</span> },
-    d.meetings.length > 0 && { label: 'Reuniões', value: String(d.meetings.length), icon: <span style={{ color: categoryInk.reuniao }}>{categoryIcon.reuniao(12)}</span> },
-    d.trainings.length > 0 && { label: 'Treinamentos', value: String(d.trainings.length), icon: <span style={{ color: categoryInk.treinamento }}>{categoryIcon.treinamento(12)}</span> },
-    d.cycleMinutes > 0 && { label: 'Ciclos', value: formatDuration(d.cycleMinutes), icon: <span style={{ color: categoryInk.ciclo }}>{categoryIcon.ciclo(12)}</span> },
+    d.tickets.length > 0 && { label: 'Chamados', value: String(d.tickets.length), icon: <span className="block size-2" style={{ background: categoryColor.chamado }} /> },
+    d.meetings.length > 0 && { label: 'Reuniões', value: String(d.meetings.length), icon: <span className="block size-2" style={{ background: categoryColor.reuniao }} /> },
+    d.trainings.length > 0 && { label: 'Treinamentos', value: String(d.trainings.length), icon: <span className="block size-2" style={{ background: categoryColor.treinamento }} /> },
+    d.cycleMinutes > 0 && { label: 'Ciclos', value: formatDuration(d.cycleMinutes), icon: <span className="block size-2" style={{ background: categoryColor.ciclo }} /> },
   ].filter((m) => m !== false);
 
   return (
@@ -288,7 +292,7 @@ function DoneSection({ report, today }: { report: DailyReport; today: ISODate })
       ) : (
         <>
           {metrics.length > 0 && (
-            <dl className={`mt-4 grid gap-2 ${METRIC_GRID[metrics.length - 1]}`}>
+            <dl className={`mt-4 grid border border-line ${METRIC_GRID[metrics.length - 1]}`}>
               {metrics.map((m) => (
                 <Metric key={m.label} {...m} />
               ))}
