@@ -44,8 +44,8 @@ function storedView(): View {
 const PAGE_HINT = (
   <>
     <span className="block">
-      <strong className="font-semibold text-ink">Dia útil:</strong> o quadro de produção (planejado × realizado, com o
-      sinal de cada dia) e a linha do turno. A escala (Semana ou Mês) vale para todas as visões.
+      <strong className="font-semibold text-ink">Dia útil:</strong> horas apontadas, meta, total realizado e dias
+      conformes do período. A escala (Semana ou Mês) vale para todas as visões.
     </span>
     <span className="mt-1.5 block">
       <strong className="font-semibold text-ink">Distribuição:</strong> quais demandas ocuparam mais tempo em um dia (na
@@ -82,8 +82,8 @@ export function Dashboard() {
   };
 
   // Rendimento e o Dia útil no mês são um cartão só, sem nada abaixo: cabem na janela (o gráfico encolhe) em vez de
-  // rolar. O Dia útil na semana (quadro de produção e linha do turno, v0.19), Ciclos e Distribuição crescem com o
-  // conteúdo e seguem rolando.
+  // rolar. O Dia útil na semana (com a linha do turno embaixo, v0.19), Ciclos e Distribuição crescem com o conteúdo e
+  // seguem rolando.
   const fit = (view === 'semana' && scale === 'month') || view === 'rendimento';
 
   return (

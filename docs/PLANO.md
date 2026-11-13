@@ -198,12 +198,9 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
    diária do ciclo de apontamento de hoje, ou do último/primeiro dia útil num mês passado/futuro);
    **Distribuição** com a rosca do mês inteiro, sem a escolha de dia; **Ciclos** usa o
    período ("no período"). Na semana nada muda.
-   - *Dia útil (v0.19, decisão 0021): os indicadores e o quadro de produção.* Os indicadores mantêm o layout da v0.18
-     (descrito abaixo: anel de % preenchido, selo da situação, total realizado, meta e demandas cumpridas). Abaixo deles,
-     na semana, o **quadro de produção**: a tabela dia a dia (meta, realizado, diferença, apontamentos e o **sinal de
-     andon**; cada dia leva aos apontamentos dele; no celular, uma lista com um dia por linha), e um segundo cartão com a
-     **linha do turno**: cada dia de 8h a 20h com os apontamentos em blocos na cor do tipo e a legenda com a sigla e as
-     horas. No mês ficam as barras por dia útil. *Até a v0.18:* faixa fina com o anel de %
+   - *Linha do turno (v0.19, decisão 0021):* na semana, embaixo do Dia útil, um cartão com cada dia de 8h a 20h e os
+     apontamentos em blocos na cor do tipo, com a legenda (sigla e horas por tipo). No mês não aparece.
+   - *Dia útil:* faixa fina com o anel de %
      preenchido, o selo da situação ("Faltam 17h15",
      "Excedeu 1h", "Meta atingida"), total realizado, meta semanal (no mês, "Meta do período") e dias conformes; abaixo, o
      gráfico por dia útil (~340 px), com o valor e o ícone de status em cima de cada barra e
@@ -279,7 +276,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 | 20 | v0.16: movimento — animações curtas, com tokens, e respeito a "reduzir movimento" (decisão 0018; seção 7) | ✅ |
 | 21 | v0.17: seletor de categoria em chips em Demandas e no Kanban, com cor fixa por tipo (decisão 0019; seção 7) | ✅ |
 | 22 | v0.18: redesenho visual "Precisa" — tokens, componentes base e as sete telas; cores com significado (decisão 0020; seção 7) | ✅ |
-| 23 | v0.19: sistema visual "Andon" — industrial, sem vícios de interface gerada: sem cor de marca, barra grafite, Barlow, cantos retos, sinal de andon, quadro de produção e linha do turno (decisão 0021; seção 7) | em validação |
+| 23 | v0.19: sistema visual "Andon" — industrial, sem vícios de interface gerada: sem cor de marca, barra grafite, Barlow, cantos retos, sinal de andon e linha do turno (Painel na semana e Apontamentos); os indicadores do Painel mantêm o layout da v0.18 (decisão 0021; seção 7) | em validação |
 | — | Integração com o Azure | futuro |
 | — | Integração com o Google Agenda (reuniões do dia → sugestões de apontamento) | futuro |
 
@@ -424,7 +421,7 @@ reestilização, auditorias e comparativos) está em `docs/HISTORICO.md`.
   - *Destaque (v0.19):* o preto (`--accent`; no escuro, o claro), só na ação principal, no foco e no item escolhido.
     (Até a v0.18: o íris.)
   - *Andon (v0.19):* o sinal do dia numa célula preenchida (`.andon[data-tone]`, `AndonCell`): verde Conforme, âmbar
-    Abaixo, vermelho Irregular, cinza Pendente, sempre com ícone e rótulo. No Painel (quadro de produção), nas abas de
+    Abaixo, vermelho Irregular, cinza Pendente, sempre com ícone e rótulo. Nas abas de
     Apontamentos e no contador do sino.
   - *Tipos de demanda* (`--cat-<tipo>` preenche, `--cat-<tipo>-ink` desenha), sobre os 5 tons da paleta `--series-*`
     validada para daltonismo: treinamento **azul** (conhecimento), chamado **laranja** (ação e resposta), ciclo
@@ -444,7 +441,7 @@ reestilização, auditorias e comparativos) está em `docs/HISTORICO.md`.
 - **`PageHeader`** em todas as telas: título, ⓘ e a ação principal (ou a seta de voltar, `onBack`).
 - **Estrutura:** header de 48 px em grafite (nome, telas em abas, sino, tema; a tela atual é a aba encaixada, com o fundo da página); todas as telas com
   `max-w-page`, `px-gutter` e `space-y-section`; espaço da barra de rolagem sempre reservado.
-- **Cabe na janela (v0.16, notebook; v0.19: o Dia útil só no mês):** no Painel, **Dia útil** no mês e **Rendimento** são um cartão só, sem nada abaixo,
+- **Cabe na janela (v0.16, notebook; v0.19: o Dia útil só no mês):** no Painel, **Dia útil** (no mês) e **Rendimento** são um cartão só, sem nada abaixo,
   então não criam rolagem: a partir de 1024 px de largura (`fit-viewport`, em `index.css`), a tela ocupa a altura útil
   da janela e quem cede é o gráfico (barras de 21rem/18rem até no mínimo 9rem; as alturas são em %). Em tela alta nada
   muda. Com até 800 px de altura, o espaço entre blocos (`--section`) cai para 1,25rem. Ciclos e Distribuição crescem

@@ -36,18 +36,15 @@ industrial. A segunda, **Andon**, foi aprovada para teste.
 5. **Andon** (`.andon[data-tone]`, `AndonCell` em `Badges.tsx`): o sinal do dia como a luz de uma máquina, uma célula
    preenchida — verde **Conforme**, âmbar **Abaixo**, vermelho **Irregular**, cinza **Pendente** —, sempre com ícone e
    rótulo dentro. Tokens `--andon-*` com o texto de cada um (contraste AA).
-6. **Painel → Dia útil ganha o quadro de produção** (planejado × realizado):
-   - **os indicadores mantêm o layout da v0.18** (pedido na validação): o anel de preenchido com o selo da situação e
-     os três números (total realizado, meta — o mesmo popover — e demandas cumpridas), com o ⓘ; só a pele muda
-     (Barlow Condensed nos números, cantos retos);
-   - na semana, a **tabela dia a dia** (meta, realizado, diferença, apontamentos e o sinal), cada dia levando aos
-     apontamentos dele; no celular, uma lista com um dia por linha;
-   - na semana, a **linha do turno** (`ShiftLine`): cada dia de 8h a 20h (a escala se alarga se preciso), com os
-     apontamentos em blocos na cor do tipo e a legenda com a sigla (CIC, CHM, REU, TRE, ATV) e as horas;
-   - no mês, as barras por dia útil continuam (são até 23 colunas). Só o mês e o Rendimento seguem cabendo na janela
-     (`fit-viewport`); a semana cresce com o conteúdo.
+6. **Painel → Dia útil:** os indicadores (anel de preenchido com o selo da situação, total realizado, meta e demandas
+   cumpridas) e o gráfico "Horas por dia útil" ficam como na v0.18, só com a pele nova (decidido na validação). Na
+   semana, abaixo, um segundo cartão com a **linha do turno** de cada dia (ver o item 7). Um "quadro de produção"
+   (tabela dia a dia com o andon) foi proposto e **não foi aprovado**. Com o cartão a mais, o Dia útil na semana deixa
+   de caber na janela (`fit-viewport`) e cresce com o conteúdo; no mês, sem a linha do turno, segue cabendo.
 7. **Apontamentos:** as abas dos dias numa faixa encaixada, a escolhida invertida, com o andon embaixo de cada uma (sai
-   a barrinha de progresso); a linha do turno do dia aparece acima da lista quando há apontamento.
+   a barrinha de progresso); a **linha do turno** do dia (`ShiftLine`: de 8h a 20h, a escala se alarga se preciso, com
+   os apontamentos em blocos na cor do tipo e a legenda com a sigla — CIC, CHM, REU, TRE, ATV — e as horas) aparece
+   acima da lista quando há apontamento.
 8. **Kanban:** cabeçalho de coluna em grafite com uma faixa de sinal embaixo (neutro, azul, âmbar, verde); o cartão
    como ordem de serviço: a posição numa etiqueta preta e o tipo pela sigla com o quadradinho da cor.
 9. **Controles retos e encaixados:** segmentados com o escolhido em preto (o fundo ainda desliza até ele), seletor de
@@ -64,6 +61,6 @@ reduzir o número deles fica para uma próxima etapa.
 
 ## Consequências
 
-- Um teste muda: o Dia útil na semana deixa de usar `fit-viewport` (o quadro e a linha do turno crescem com o conteúdo).
+- Um teste muda: o Dia útil na semana deixa de usar `fit-viewport` (a linha do turno vem abaixo do gráfico).
 - A linha do turno busca os apontamentos do período (`/api/activities?from=&to=`); nada novo no servidor.
 - Telas ainda não revistas uma a uma (Demandas, Detalhes, Lembretes, formulários) herdam a pele pelos tokens.
