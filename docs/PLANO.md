@@ -198,12 +198,12 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
    diária do ciclo de apontamento de hoje, ou do último/primeiro dia útil num mês passado/futuro);
    **Distribuição** com a rosca do mês inteiro, sem a escolha de dia; **Ciclos** usa o
    período ("no período"). Na semana nada muda.
-   - *Dia útil (v0.19, decisão 0021): o quadro de produção.* Uma faixa de células encaixadas com total realizado, meta
-     semanal (no mês, "Meta do período"; tocar edita a meta diária), diferença com sinal, dias conformes e o preenchido
-     numa barra segmentada por dia útil (saíram o anel e "Demandas cumpridas"). Na semana, abaixo, a tabela dia a dia
-     (meta, realizado, diferença, apontamentos e o **sinal de andon**; cada dia leva aos apontamentos dele; no celular,
-     uma lista com um dia por linha) e a **linha do turno**: cada dia de 8h a 20h com os apontamentos em blocos na cor do
-     tipo e a legenda com a sigla e as horas. No mês ficam as barras abaixo. *Até a v0.18:* faixa fina com o anel de %
+   - *Dia útil (v0.19, decisão 0021): os indicadores e o quadro de produção.* Os indicadores mantêm o layout da v0.18
+     (descrito abaixo: anel de % preenchido, selo da situação, total realizado, meta e demandas cumpridas). Abaixo deles,
+     na semana, o **quadro de produção**: a tabela dia a dia (meta, realizado, diferença, apontamentos e o **sinal de
+     andon**; cada dia leva aos apontamentos dele; no celular, uma lista com um dia por linha), e um segundo cartão com a
+     **linha do turno**: cada dia de 8h a 20h com os apontamentos em blocos na cor do tipo e a legenda com a sigla e as
+     horas. No mês ficam as barras por dia útil. *Até a v0.18:* faixa fina com o anel de %
      preenchido, o selo da situação ("Faltam 17h15",
      "Excedeu 1h", "Meta atingida"), total realizado, meta semanal (no mês, "Meta do período") e dias conformes; abaixo, o
      gráfico por dia útil (~340 px), com o valor e o ícone de status em cima de cada barra e
@@ -406,7 +406,7 @@ reestilização, auditorias e comparativos) está em `docs/HISTORICO.md`.
 - **Direção "Andon" (v0.19):** ferramenta de trabalho de empresa, industrial: densa e exata. Bordas finas no lugar de
   sombras, cantos retos (2px), números em Barlow Condensed e **nenhuma cor de marca**: a ação principal e o escolhido
   são pretos (no escuro, claros), por inversão. Cor saturada só em sinal (andon) e em dado (tipo da demanda). Barra do
-  topo em grafite (`--chrome`), com o nome em caixa alta e as telas em abas. Sem anel de %, sem faixa de KPIs solta,
+  topo em grafite (`--chrome`), com o nome em caixa alta e as telas em abas. Os indicadores (KPIs) mantêm o layout da v0.18;
   sem sobrancelha em caixa alta, sem pílula e sem filete colorido em frase (os vícios listados na decisão 0021).
 - **Tokens** em `web/src/index.css` (nada de valor solto nos componentes):
   - *Fontes (v0.19):* Barlow no texto; Barlow Condensed (desenho DIN) para o número como dado (`.num`: KPIs, horas,

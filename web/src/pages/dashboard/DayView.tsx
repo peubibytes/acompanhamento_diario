@@ -1,12 +1,26 @@
+import { useId } from 'react';
 import { Link } from 'react-router';
-import { formatDayMonth, formatDuration, type DayMetrics, type PeriodScale, type PeriodSummary } from '@acomp/shared';
-import { AndonCell, dayTone, toneStyle, type DayTone } from '../../components/Badges';
+import { formatDayMonth, formatDuration, type DayMetrics, type PeriodScale, type PeriodSummary, type WeekMetrics } from '@acomp/shared';
+import { useDemands } from '../../api/client';
+import { AndonCell, dayTone, toneStyle } from '../../components/Badges';
 import { DailyChart } from '../../components/DailyChart';
 import { GoalPopover } from '../../components/GoalSelector';
 import { InfoHint } from '../../components/InfoHint';
-import { ArrowRight } from '../../components/icons';
+import { ArrowRight, CheckIcon, HourglassIcon, TrendUpIcon } from '../../components/icons';
+import { ProgressRing } from '../../components/ProgressRing';
 import { ShiftLine } from '../../components/ShiftLine';
 import { withDate } from '../../hooks';
+
+/** Situação do período em um selo curto (ícone + texto; a cor acompanha, nunca é a única pista). */
+function weekStatus(week: WeekMetrics) {
+  if (week.diff > 0) return { text: `Excedeu ${formatDuration(week.diff)}`, style: toneStyle.acima.badge, icon: <TrendUpIcon size={13} /> };
+  if (week.diff === 0) return { text: 'Meta atingida', style: toneStyle.conforme.badge, icon: <CheckIcon size={13} /> };
+  return {
+    text: `Faltam ${formatDuration(week.goal - week.total)}`,
+    style: toneStyle.pendente.badge,
+    icon: <HourglassIcon size={13} />,
+  };
+}
 
 const LABEL = 'kpi-label';
 const NUMBER = 'kpi-value';
@@ -44,65 +58,75 @@ export function DayView({
 }) {
   const { totals: week, days, scale } = summary;
   const month = scale === 'month';
-  const periodTone: DayTone = week.total === 0 ? 'pendente' : week.diff > 0 ? 'acima' : week.diff === 0 ? 'conforme' : 'abaixo';
+  const status = weekStatus(week);
 
   return (
     <div className="space-y-section lg:flex lg:min-h-0 lg:flex-col">
       {/* Em lg, no mês, o cartão encolhe até a altura que o Painel lhe dá (fit-viewport); quem cede é o gráfico. */}
-      <section className={`card rise ${month ? 'lg:flex lg:min-h-0 lg:flex-col' : ''}`} aria-label="Quadro de produção">
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line px-4 py-2.5">
-          <div className="flex items-center gap-1.5">
-            <h2 className="title-plate text-2xl text-ink">Quadro de produção</h2>
-            <span className="hidden text-sm text-ink-3 sm:inline">· planejado × realizado</span>
-            <InfoHint label="Sobre o quadro de produção">
+      {/* Os indicadores mantêm o layout da v0.18 (anel, selo da situação e três números); o quadro e a linha do turno
+          vêm abaixo. Em lg, no mês, o cartão encolhe até a altura que o Painel lhe dá (fit-viewport). */}
+      <section className={`card rise p-5 sm:p-6 ${month ? 'lg:flex lg:min-h-0 lg:flex-col' : ''}`} aria-label="Quadro de produção">
+        <div className="relative flex shrink-0 flex-col gap-5 sm:flex-row sm:items-center sm:gap-8">
+          <div className="flex items-center gap-4">
+            <ProgressRing percent={week.fillPercent} exceeded={week.diff > 0} size={72} />
+            <div className="min-w-0">
+              <p className={LABEL}>Preenchido</p>
+              <span className={`badge mt-1.5 ${status.style}`}>
+                {status.icon}
+                {status.text}
+              </span>
+            </div>
+          </div>
+
+          <dl className="grid flex-1 grid-cols-3 gap-4 sm:border-l sm:border-line sm:pr-8 sm:pl-8">
+            <div>
+              <dt className={LABEL}>Total realizado</dt>
+              <dd className={NUMBER}>{formatDuration(week.total)}</dd>
+            </div>
+            <GoalPopover
+              date={goalDate}
+              dailyGoal={dailyGoal}
+              weekGoal={week.goal}
+              label={month ? 'Meta do período' : 'Meta semanal'}
+            />
+            <FulfilledStat />
+          </dl>
+
+          <span className="absolute top-0 right-0">
+            <InfoHint label="Sobre estes números">
               <KpiHint scale={scale} dailyGoal={dailyGoal} dayCount={days.length} />
             </InfoHint>
-          </div>
-          <Link
-            to={withDate('/detalhes', date)}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-2 transition hover:text-ink"
-          >
-            Detalhes dia a dia <ArrowRight size={14} />
-          </Link>
+          </span>
         </div>
 
-        {/* A faixa do período: células encaixadas, separadas por fios, como as de um painel. */}
-        <dl className="grid shrink-0 grid-cols-2 border-b border-line sm:grid-cols-[repeat(4,minmax(0,1fr))_minmax(0,1.6fr)] [&>*]:border-line [&>*]:px-4 [&>*]:py-3 max-sm:[&>*:nth-child(even)]:border-l sm:[&>*+*]:border-l max-sm:[&>*:nth-child(n+3)]:border-t">
-          <div>
-            <dt className={LABEL}>Total realizado</dt>
-            <dd className={NUMBER}>{formatDuration(week.total)}</dd>
+        <div className={`mt-6 border-t border-line pt-5 lg:mt-5 lg:pt-4 ${month ? 'lg:flex lg:min-h-0 lg:flex-col' : ''}`}>
+          {/* Título à esquerda, dias conformes no meio e o link à direita (no celular, o do meio desce). */}
+          <div className="grid grid-cols-2 items-center gap-x-4 gap-y-3 sm:grid-cols-[1fr_auto_1fr]">
+            <h2 className="title-plate text-2xl text-ink">{month ? 'Horas por dia útil' : 'Quadro de produção'}</h2>
+            <p className="tabular order-last col-span-2 text-center text-sm text-ink-2 sm:order-none sm:col-span-1">
+              Dias conformes{' '}
+              <strong className="font-semibold text-ink">
+                {week.conformDays}/{days.length}
+              </strong>
+            </p>
+            <Link
+              to={withDate('/detalhes', date)}
+              className="inline-flex items-center gap-1.5 justify-self-end text-sm font-medium text-ink-2 transition hover:text-ink"
+            >
+              Detalhes <ArrowRight size={14} />
+            </Link>
           </div>
-          <GoalPopover date={goalDate} dailyGoal={dailyGoal} weekGoal={week.goal} label={month ? 'Meta do período' : 'Meta semanal'} />
-          <div>
-            <dt className={LABEL}>Diferença</dt>
-            <dd className={`${NUMBER} ${toneStyle[periodTone].text}`}>{signedDiff(week.total, week.diff)}</dd>
-          </div>
-          <div>
-            <dt className={LABEL}>Dias conformes</dt>
-            <dd className={NUMBER}>
-              {week.conformDays}/{days.length}
-            </dd>
-          </div>
-          <div className="col-span-2 sm:col-span-1">
-            <dt className={`${LABEL} flex justify-between`}>
-              Preenchido <span className="num text-sm text-ink">{week.fillPercent}%</span>
-            </dt>
-            <dd className="mt-2.5">
-              <FillBar percent={week.fillPercent} segments={month ? 1 : days.length} exceeded={week.diff > 0} />
-            </dd>
-          </div>
-        </dl>
-
-        {month ? (
-          <div className="p-4 lg:flex lg:min-h-0 lg:flex-col">
-            <DailyChart days={days} goal={commonGoal(days)} scale={scale} />
-          </div>
-        ) : (
-          <>
-            <ProductionList days={days} />
-            <ProductionTable days={days} />
-          </>
-        )}
+          {month ? (
+            <div className="mt-8 lg:mt-5 lg:flex lg:min-h-0 lg:flex-col">
+              <DailyChart days={days} goal={commonGoal(days)} scale={scale} />
+            </div>
+          ) : (
+            <div className="mt-4 border border-line">
+              <ProductionList days={days} />
+              <ProductionTable days={days} />
+            </div>
+          )}
+        </div>
       </section>
 
       {!month && (
@@ -116,23 +140,6 @@ export function DayView({
           </div>
         </section>
       )}
-    </div>
-  );
-}
-
-/** Barra de preenchimento em segmentos (um por dia útil na semana), como um indicador de máquina. */
-function FillBar({ percent, segments, exceeded }: { percent: number; segments: number; exceeded: boolean }) {
-  return (
-    <div className="relative h-3 bg-grid" role="img" aria-label={`${percent}% da meta preenchida`}>
-      <div
-        className="grow-x absolute inset-y-0 left-0"
-        style={{ width: `${Math.min(100, percent)}%`, background: exceeded ? 'var(--critical)' : 'var(--bar)' }}
-      />
-      <div className="absolute inset-0 flex" aria-hidden="true">
-        {Array.from({ length: segments }, (_, i) => (
-          <span key={i} className={`flex-1 ${i < segments - 1 ? 'border-r-2 border-surface' : ''}`} />
-        ))}
-      </div>
     </div>
   );
 }
@@ -250,6 +257,37 @@ function ProductionTable({ days }: { days: DayMetrics[] }) {
   );
 }
 
+/** Demandas concluídas (chamados, treinamentos e ciclos); o cartão suspenso separa tarefas de ciclos. */
+function FulfilledStat() {
+  const demands = useDemands();
+  // Atividades ficam de fora: não entram nos números (decisão 0009).
+  const done = (demands.data ?? []).filter(
+    (d) => d.category !== 'reuniao' && d.category !== 'atividade' && d.status === 'concluido',
+  );
+  const cycles = done.filter((d) => d.category === 'ciclo').length;
+  const tasks = done.length - cycles;
+  const id = useId();
+
+  return (
+    <div className="group relative" tabIndex={0} aria-describedby={id}>
+      <dt className={LABEL}>Demandas cumpridas</dt>
+      <dd className={NUMBER}>{demands.data ? done.length : '—'}</dd>
+      <div
+        id={id}
+        role="tooltip"
+        className="tip-surface hint-in absolute top-full right-0 z-30 mt-2 hidden w-52 p-3 text-sm group-focus-within:block group-hover:block sm:right-auto sm:left-0"
+      >
+        <p className="flex items-baseline justify-between gap-4 text-ink-2">
+          Tarefas concluídas <strong className="tabular font-semibold text-ink">{tasks}</strong>
+        </p>
+        <p className="mt-1.5 flex items-baseline justify-between gap-4 text-ink-2">
+          Ciclos concluídos <strong className="tabular font-semibold text-ink">{cycles}</strong>
+        </p>
+      </div>
+    </div>
+  );
+}
+
 /** O que cada número da faixa significa: fica no ⓘ, não na tela. */
 function KpiHint({ scale, dailyGoal, dayCount }: { scale: PeriodScale; dailyGoal: number; dayCount: number }) {
   const term = 'font-semibold text-ink';
@@ -277,6 +315,10 @@ function KpiHint({ scale, dailyGoal, dayCount }: { scale: PeriodScale; dailyGoal
             valor para mudar a meta diária.
           </>
         )}
+      </span>
+      <span className="mt-1.5 block">
+        <strong className={term}>Demandas cumpridas:</strong> chamados, treinamentos e ciclos concluídos, desde o início.
+        Reuniões não têm status e não entram.
       </span>
       <span className="mt-1.5 block">
         <strong className={term}>Sinal (andon):</strong> verde, o dia bateu a meta; âmbar, faltou; vermelho, passou

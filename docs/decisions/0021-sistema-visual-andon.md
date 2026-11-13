@@ -13,7 +13,7 @@ de interface gerada por IA. Uma auditoria das telas, com dados fictícios, listo
 - **Roxo-íris como marca** (o índigo padrão de shadcn/Linear) e o logo de ícone num quadrado arredondado.
 - **Geist e Geist Mono**, o par padrão da Vercel; a hora em mono ("3h30") parecendo código.
 - **Faixa de quatro KPIs** (rótulo cinza e número grande) e o **anel de progresso**, que repetia Total ÷ Meta;
-  "Demandas cumpridas 0" ocupava um quarto da faixa.
+  "Demandas cumpridas 0" ocupava um quarto da faixa. (Na validação, ficou decidido manter o layout dos indicadores.)
 - **ⓘ e sobrancelhas em caixa alta** ("PERÍODO ATUAL") por toda parte.
 - **Tudo em pílula** (segmentados, chips, status, "Hoje") e cartão branco de raio 10 sobre fundo cinza.
 - **Frase com filete colorido à esquerda** no relatório.
@@ -36,9 +36,10 @@ industrial. A segunda, **Andon**, foi aprovada para teste.
 5. **Andon** (`.andon[data-tone]`, `AndonCell` em `Badges.tsx`): o sinal do dia como a luz de uma máquina, uma célula
    preenchida — verde **Conforme**, âmbar **Abaixo**, vermelho **Irregular**, cinza **Pendente** —, sempre com ícone e
    rótulo dentro. Tokens `--andon-*` com o texto de cada um (contraste AA).
-6. **Painel → Dia útil vira o quadro de produção** (planejado × realizado):
-   - uma faixa de células encaixadas: total realizado, meta (o mesmo popover), diferença com sinal, dias conformes e
-     **preenchido** numa barra segmentada por dia útil (sai o anel e "Demandas cumpridas");
+6. **Painel → Dia útil ganha o quadro de produção** (planejado × realizado):
+   - **os indicadores mantêm o layout da v0.18** (pedido na validação): o anel de preenchido com o selo da situação e
+     os três números (total realizado, meta — o mesmo popover — e demandas cumpridas), com o ⓘ; só a pele muda
+     (Barlow Condensed nos números, cantos retos);
    - na semana, a **tabela dia a dia** (meta, realizado, diferença, apontamentos e o sinal), cada dia levando aos
      apontamentos dele; no celular, uma lista com um dia por linha;
    - na semana, a **linha do turno** (`ShiftLine`): cada dia de 8h a 20h (a escala se alarga se preciso), com os
@@ -52,8 +53,7 @@ industrial. A segunda, **Andon**, foi aprovada para teste.
 9. **Controles retos e encaixados:** segmentados com o escolhido em preto (o fundo ainda desliza até ele), seletor de
    categoria com o escolhido invertido (a cor do tipo vai para o quadradinho ao lado), navegação de período e de dia
    como um controle só (‹ período ›), com a situação em caixa normal ("Período anterior · Sex 06/11 → Qui 12/11").
-10. **Relatório:** a frase de abertura em destaque pelo peso, sem filete; os indicadores numa faixa de células com
-    borda, não em blocos cinza.
+10. **Relatório:** a frase de abertura em destaque pelo peso, sem filete; os indicadores mantêm o layout da v0.18.
 11. **Cores dos tipos:** os significados da 0020 ficam (treinamento azul, chamado laranja, ciclo verde, reunião amarelo,
     atividade rosa), em tons de sinalização mais saturados, com as variantes `-ink` revistas para contraste ≥ 3:1.
 

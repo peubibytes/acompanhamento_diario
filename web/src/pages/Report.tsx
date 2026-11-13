@@ -28,7 +28,7 @@ import {
   type ReportWorkItem,
 } from '@acomp/shared';
 import { useDailyReport } from '../api/client';
-import { categoryColor, categoryIcon, categoryInk } from '../components/DemandVisuals';
+import { categoryIcon, categoryInk } from '../components/DemandVisuals';
 import { ChevronLeft, ChevronRight } from '../components/icons';
 import { PageHeader } from '../components/PageHeader';
 import { SectionTitle } from '../components/SectionTitle';
@@ -237,14 +237,14 @@ function DateChip({ date }: { date: ISODate }) {
 
 function Metric({ label, value, icon }: { label: string; value: string; icon: ReactNode }) {
   return (
-    <div className="border-line px-3 py-2.5 [&+&]:border-l">
+    <div className="rounded-control bg-surface-2 px-3 py-2.5">
       <dt className="flex items-center gap-1.5 text-xs font-medium text-ink-3">
         <span aria-hidden className="hidden sm:inline">
           {icon}
         </span>
         {label}
       </dt>
-      <dd className="num mt-1 text-display leading-none text-ink">{value}</dd>
+      <dd className="num mt-1 text-2xl font-medium text-ink">{value}</dd>
     </div>
   );
 }
@@ -273,10 +273,10 @@ function DoneSection({ report, today }: { report: DailyReport; today: ISODate })
   const headline = doneHeadline(report, today);
   // Só os indicadores com valor: não há "0 reuniões" nem "0h de ciclo".
   const metrics = [
-    d.tickets.length > 0 && { label: 'Chamados', value: String(d.tickets.length), icon: <span className="block size-2" style={{ background: categoryColor.chamado }} /> },
-    d.meetings.length > 0 && { label: 'Reuniões', value: String(d.meetings.length), icon: <span className="block size-2" style={{ background: categoryColor.reuniao }} /> },
-    d.trainings.length > 0 && { label: 'Treinamentos', value: String(d.trainings.length), icon: <span className="block size-2" style={{ background: categoryColor.treinamento }} /> },
-    d.cycleMinutes > 0 && { label: 'Ciclos', value: formatDuration(d.cycleMinutes), icon: <span className="block size-2" style={{ background: categoryColor.ciclo }} /> },
+    d.tickets.length > 0 && { label: 'Chamados', value: String(d.tickets.length), icon: <span style={{ color: categoryInk.chamado }}>{categoryIcon.chamado(12)}</span> },
+    d.meetings.length > 0 && { label: 'Reuniões', value: String(d.meetings.length), icon: <span style={{ color: categoryInk.reuniao }}>{categoryIcon.reuniao(12)}</span> },
+    d.trainings.length > 0 && { label: 'Treinamentos', value: String(d.trainings.length), icon: <span style={{ color: categoryInk.treinamento }}>{categoryIcon.treinamento(12)}</span> },
+    d.cycleMinutes > 0 && { label: 'Ciclos', value: formatDuration(d.cycleMinutes), icon: <span style={{ color: categoryInk.ciclo }}>{categoryIcon.ciclo(12)}</span> },
   ].filter((m) => m !== false);
 
   return (
@@ -292,7 +292,7 @@ function DoneSection({ report, today }: { report: DailyReport; today: ISODate })
       ) : (
         <>
           {metrics.length > 0 && (
-            <dl className={`mt-4 grid border border-line ${METRIC_GRID[metrics.length - 1]}`}>
+            <dl className={`mt-4 grid gap-2 ${METRIC_GRID[metrics.length - 1]}`}>
               {metrics.map((m) => (
                 <Metric key={m.label} {...m} />
               ))}
