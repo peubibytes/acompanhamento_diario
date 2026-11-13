@@ -53,7 +53,7 @@ export function DayView({
 
   return (
     <div className="space-y-section lg:flex lg:min-h-0 lg:flex-col">
-    // Em lg, o cartão encolhe até a altura que o Painel lhe dá (fit-viewport); quem cede é o gráfico.
+      {/* Em lg, no mês, o cartão encolhe até a altura que o Painel lhe dá (fit-viewport); quem cede é o gráfico. */}
     <section className={`card rise p-5 sm:p-6 ${month ? 'lg:flex lg:min-h-0 lg:flex-col' : ''}`}>
       <div className="relative flex shrink-0 flex-col gap-5 sm:flex-row sm:items-center sm:gap-8">
         <div className="flex items-center gap-4">
@@ -92,7 +92,7 @@ export function DayView({
         {/* Título à esquerda, dias conformes no meio e o link à direita (no celular, o do meio desce). */}
         <div className="grid grid-cols-2 items-center gap-x-4 gap-y-3 sm:grid-cols-[1fr_auto_1fr]">
           <div className="flex items-center gap-1.5">
-            <h2 className="title-plate text-2xl text-ink">Horas por dia útil</h2>
+            <h2 className="title-plate text-lg whitespace-nowrap text-ink sm:text-2xl">Horas por dia útil</h2>
             <InfoHint label="Sobre horas por dia útil">
               <ChartHint scale={scale} />
             </InfoHint>
