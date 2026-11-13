@@ -53,8 +53,11 @@ export function SlideOver({
     const root = document.documentElement;
     root.style.overflow = 'hidden';
 
-    // Foco inicial: o primeiro campo do corpo; na falta dele, o próprio painel.
+    // Foco inicial: o primeiro campo do corpo; na falta dele, o próprio painel. Vem um quadro depois
+    // (o painel precisa estar na tela); se nesse meio-tempo a pessoa já pôs o foco num campo do painel,
+    // ele fica onde está, senão o que ela digita iria para outro controle.
     const frame = requestAnimationFrame(() => {
+      if (panel.current?.contains(document.activeElement)) return;
       const body = panel.current?.querySelector<HTMLElement>('[data-slideover-body]');
       (body?.querySelector<HTMLElement>(FOCUSABLE) ?? panel.current)?.focus();
     });

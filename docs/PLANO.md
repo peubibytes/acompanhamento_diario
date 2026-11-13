@@ -441,7 +441,7 @@ reestilização, auditorias e comparativos) está em `docs/HISTORICO.md`.
   segue o significado (v0.18, acima). Chips com o raio de controle (v0.18; até a v0.17, pílulas). É um `radiogroup`: Tab entra no
   escolhido; setas, Home e End trocam. No celular os chips quebram linha, mais compactos abaixo de 640 px.
 - **Painel deslizante (`SlideOver`)** para formulários: diálogo modal (foco preso, Esc fecha, foco volta a
-  quem abriu, rolagem travada); com algo digitado, fechar pede confirmação; no celular ocupa a tela.
+  quem abriu, rolagem travada; o foco inicial vai ao primeiro campo, mas não tira o de quem já clicou num campo do painel); com algo digitado, fechar pede confirmação; no celular ocupa a tela.
 - **Listas compactas:** o essencial na linha; detalhes ao expandir; editar e excluir no hover (no celular,
   dentro da linha expandida).
 - **Gráficos:** rótulos diretos, detalhes no hover ou foco; tooltips fechados saem do layout.
