@@ -45,8 +45,10 @@ industrial. A segunda, **Andon**, foi aprovada para teste.
    a barrinha de progresso); a **linha do turno** do dia (`ShiftLine`: de 8h a 20h, a escala se alarga se preciso, com
    os apontamentos em blocos na cor do tipo e a legenda com a sigla — CIC, CHM, REU, TRE, ATV — e as horas) aparece
    acima da lista quando há apontamento.
-8. **Kanban:** cabeçalho de coluna em grafite com uma faixa de sinal embaixo (neutro, azul, âmbar, verde); o cartão
-   como ordem de serviço: a posição numa etiqueta preta e o tipo pela sigla com o quadradinho da cor.
+8. ~~**Kanban:** cabeçalho de coluna em grafite com uma faixa de sinal embaixo (neutro, azul, âmbar, verde); o cartão
+   como ordem de serviço: a posição numa etiqueta preta e o tipo pela sigla com o quadradinho da cor.~~ **Desfeito
+   (13/11/2026):** não aprovado no uso; o Kanban voltou ao visual da v0.18 (cabeçalho com ícone, nome e contagem sobre o
+   fundo da coluna; no cartão, a posição em número simples e o ícone do tipo). A pele global (fontes, raios, cores) segue valendo.
 9. **Controles retos e encaixados:** segmentados com o escolhido em preto (o fundo ainda desliza até ele), seletor de
    categoria com o escolhido invertido (a cor do tipo vai para o quadradinho ao lado), navegação de período e de dia
    como um controle só (‹ período ›), com a situação em caixa normal ("Período anterior · Sex 06/11 → Qui 12/11").
