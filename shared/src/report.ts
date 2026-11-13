@@ -361,8 +361,9 @@ export function buildDailyReport(input: DailyReportInput): DailyReport {
       const started = d.status !== 'nao_iniciado';
       // Todo chamado e treinamento aberto entra no plano; "novo" só no chamado ainda não iniciado e recém-declarado
       // (declarado no dia do relatório ou depois).
+      // Em espera (chamado; treinamento desde a v0.19, decisão 0022) leva o aviso junto do nome.
+      if (d.status === 'em_espera') detail = `${detail}${detail ? ' ' : ''}(em espera)`;
       if (d.category === 'chamado') {
-        if (d.status === 'em_espera') detail = `${detail}${detail ? ' ' : ''}(em espera)`;
         nextTickets.push(nextItem(d, detail, !started && isRecent(d)));
       } else nextTrainings.push(nextItem(d, detail));
     } else if (d.category === 'atividade') {

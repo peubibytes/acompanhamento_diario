@@ -80,8 +80,11 @@ export const DEMAND_ENVIRONMENT_LABEL: Record<DemandEnvironment, string> = {
 
 // ── Tarefas (chamados e treinamentos têm status; reuniões, não) ─────────────
 
-/** Treinamentos e atividades. */
-export const TASK_STATUSES = ['nao_iniciado', 'iniciado', 'em_andamento', 'concluido'] as const;
+/**
+ * Treinamentos e atividades. Desde a v0.19 (docs/decisions/0022) os mesmos status do chamado: sem "Iniciado", com
+ * "Em espera" (antes não podiam ir para "Aguardando" no Kanban).
+ */
+export const TASK_STATUSES = ['nao_iniciado', 'em_andamento', 'em_espera', 'concluido'] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
 /** Chamados (v0.14, docs/decisions/0013): sem "Iniciado", com "Em espera". */
@@ -90,7 +93,6 @@ export type TicketStatus = (typeof TICKET_STATUSES)[number];
 
 export const TASK_STATUS_LABEL: Record<TaskStatus | TicketStatus, string> = {
   nao_iniciado: 'Não iniciado',
-  iniciado: 'Iniciado',
   em_andamento: 'Em andamento',
   em_espera: 'Em espera',
   concluido: 'Concluído',

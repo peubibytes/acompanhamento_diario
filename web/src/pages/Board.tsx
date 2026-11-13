@@ -63,8 +63,8 @@ const PAGE_HINT = (
       seletor do cartão troca o status e as setas mudam a posição.
     </span>
     <span className="mt-1.5 block">
-      <strong className="font-semibold text-ink">Aguardando</strong> reúne chamados em espera e ciclos aguardando terceiro ou em
-      homologação. <strong className="font-semibold text-ink">Concluído</strong> mostra os últimos {BOARD_DONE_DAYS} dias.
+      <strong className="font-semibold text-ink">Aguardando</strong> reúne chamados, treinamentos e atividades em espera e
+      ciclos aguardando terceiro ou em homologação. <strong className="font-semibold text-ink">Concluído</strong> mostra os últimos {BOARD_DONE_DAYS} dias.
       Reuniões (sem status) e ciclos cancelados não aparecem aqui.
     </span>
   </>

@@ -139,7 +139,7 @@ demands(id, category ('ciclo'|'chamado'|'reuniao'|'treinamento'|'atividade'),
         title (ciclo: nome do projeto · treinamento e atividade: nome · reunião: assunto), description,
         ticket_number (chamado, único), meeting_type, participants (reunião),
         kind, priority, start_date, due_date, branch, pr_url, environment (ciclo),
-        status (ciclo: 6 estados · chamado: 4 (sem 'iniciado', com 'em_espera', v0.14) · treinamento e atividade: 4 · reunião: nulo),
+        status (ciclo: 6 estados · chamado, treinamento e atividade: 4, sem 'iniciado' e com 'em_espera' (chamado desde a v0.14; treinamento e atividade desde a v0.19, migração 11) · reunião: nulo),
         board_rank,  -- v0.16: posição no Kanban dentro da coluna (1 = topo); nula enquanto não ordenada
         created_at, updated_at)
 demand_events(id, demand_id → demands (ON DELETE CASCADE), date, kind, text, flagged, created_at)
@@ -276,6 +276,7 @@ Toda tela começa por um cabeçalho padrão (`PageHeader`): título, um ⓘ com 
 | 20 | v0.16: movimento — animações curtas, com tokens, e respeito a "reduzir movimento" (decisão 0018; seção 7) | ✅ |
 | 21 | v0.17: seletor de categoria em chips em Demandas e no Kanban, com cor fixa por tipo (decisão 0019; seção 7) | ✅ |
 | 22 | v0.18: redesenho visual "Precisa" — tokens, componentes base e as sete telas; cores com significado (decisão 0020; seção 7) | ✅ |
+| 24 | v0.19 (correção): treinamento e atividade sem "Iniciado" e com "Em espera", para irem a "Aguardando" no Kanban (decisão 0022; migração 11) | em validação |
 | 23 | v0.19: sistema visual "Andon" — industrial, sem vícios de interface gerada: sem cor de marca, barra grafite, Barlow, cantos retos, sinal de andon e linha do turno (Painel na semana e Apontamentos); os indicadores do Painel mantêm o layout da v0.18 (decisão 0021; seção 7) | em validação |
 | — | Integração com o Azure | futuro |
 | — | Integração com o Google Agenda (reuniões do dia → sugestões de apontamento) | futuro |
@@ -497,7 +498,7 @@ Decisão em `docs/decisions/0001-demandas-viram-chamados.md`; o texto original d
 
 ### 8.2 Treinamentos — ✅ como Tarefa (v0.5)
 Declarados em Demandas → Treinamentos: nome, descrição e status (não iniciado,
-iniciado, em andamento, concluído). Sem carga horária: as horas de estudo são apontadas.
+em andamento, em espera, concluído; até a v0.18, "iniciado" no lugar de "em espera", decisão 0022). Sem carga horária: as horas de estudo são apontadas.
 Vínculo com metas fica para a seção 8.3.
 
 ### 8.3 Metas
@@ -538,8 +539,8 @@ cada dia, um chamado retomado à tarde) aparece reunida.
 - **Tarefas** têm quatro tipos:
   - **Chamados:** número do chamado (obrigatório, normalizado em maiúsculas, único), descrição
     (obrigatória: problema, quem solicitou, outras informações) e status: Não iniciado,
-    Em andamento, **Em espera**, Concluído (v0.14, decisão 0013: sem "Iniciado"; treinamentos e atividades mantêm
-    Não iniciado, Iniciado, Em andamento, Concluído). Troca rápida de status na própria linha.
+    Em andamento, **Em espera**, Concluído (v0.14, decisão 0013: sem "Iniciado"; desde a v0.19, decisão 0022,
+    treinamentos e atividades também). Troca rápida de status na própria linha.
   - **Reuniões (v0.14):** só o tipo (sugestões Daily, Semanal, Planejamento, Treinamento; aceita outro); com
     quem e assunto são informados em cada apontamento, com sugestão das pessoas já usadas na reunião. Única pelo tipo
     (as antigas, com pessoas e assunto, ficam como estavam). Antes da v0.14: tipo, com
@@ -608,7 +609,8 @@ Decisão em `docs/decisions/0003-status-so-na-demanda.md`.
   têm a data aproximada pelo último `updated_at`.
 - **Métricas de tarefas** (só chamados e treinamentos; reunião não tem status):
   - *Concluídas:* `completedAt` dentro do ciclo de apontamento (sexta → quinta);
-  - *Na fila:* status Não iniciado, agora; *Em andamento:* Iniciado ou Em andamento, agora.
+  - *Na fila:* status Não iniciado, agora; *Em andamento:* Em andamento ou Em espera, agora ("Iniciado" saiu de todas
+    as categorias na v0.19).
   - Desde a v0.11 nenhuma tela mostra essas métricas (a visão Tarefas saiu do Painel); `GET /api/metrics`
     continua devolvendo `tasks`.
 - **Métricas de ciclos abertos:** última atualização, dias úteis sem atualização (**parado** a partir
@@ -653,7 +655,7 @@ Montado na hora (nada é gravado); regras em `shared/src/report.ts`, testadas co
   (assunto X) com A e B"); a reunião antiga usa os dados da demanda.
 - **Plano:** entram também os ciclos que só começam depois, no fim, com "começa em dd/mm"; as atividades abertas vão
   para "Outras atividades" (com a caixa para tirar), fora da frase de planejamento e dos números; chamado em espera
-  leva "(em espera)". O relatório do período mostra só o que **andou** (prestação de contas, não plano) e não fala em fila.
+  leva "(em espera)" (o treinamento também, desde a v0.19). O relatório do período mostra só o que **andou** (prestação de contas, não plano) e não fala em fila.
 
 ### Relatório diário consolidado (v0.11)
 
@@ -827,8 +829,9 @@ Princípio: o colaborador vê tudo o que tem em mãos, por andamento, e **põe e
   contagem de cada uma. O seletor de categoria (seção 7: todos, chamados, ciclos, treinamentos, atividades, com os
   cartões no quadro de cada um; na URL como `?tipo=`) e a
   ação principal **Declarar demanda** (o mesmo formulário de Demandas, com o tipo escolhido no topo do painel).
-- **Coluna = status** (`boardColumnOf`): A fazer = Novo, Não iniciado · Em andamento = Em andamento, Iniciado ·
-  Aguardando = Aguardando terceiro, Em homologação (ciclos) e Em espera (chamados) · Concluído = Concluído.
+- **Coluna = status** (`boardColumnOf`): A fazer = Novo, Não iniciado · Em andamento = Em andamento ·
+  Aguardando = Aguardando terceiro, Em homologação (ciclos) e Em espera (chamados, treinamentos e atividades) ·
+  Concluído = Concluído.
 - **Fora do quadro:** reuniões (sem status), ciclos cancelados e o que foi concluído há mais de 7 dias
   (`BOARD_DONE_DAYS`, contando hoje). Tudo continua em Demandas.
 - **Prioridade = ordem na coluna.** O número ao lado do nome é a posição (1 = topo). A ordem é gravada
@@ -836,8 +839,9 @@ Princípio: o colaborador vê tudo o que tem em mãos, por andamento, e **põe e
   ordem de declaração (`compareBoard`). Cada movimento regrava a coluna inteira, inclusive o que o filtro esconde.
   "Concluído" não tem ordem manual: o mais recente primeiro.
 - **Mover de coluna troca o status** (`statusForColumn`): o cartão recebe o primeiro status da coluna para a sua
-  categoria (ciclo em "Aguardando" → Aguardando terceiro) e a troca entra no histórico, com a data. Treinamento e
-  atividade não têm "Aguardando": a coluna fica apagada e diz por quê.
+  categoria (ciclo em "Aguardando" → Aguardando terceiro; chamado, treinamento e atividade → Em espera) e a troca entra
+  no histórico, com a data. Até a v0.18, treinamento e atividade não tinham "Aguardando" e a coluna ficava apagada para
+  eles (decisão 0022). Reunião não entra no quadro.
 - **Cartão (v0.19, como ordem de serviço):** posição numa etiqueta preta, sigla do tipo com o quadradinho da cor, nome (link para a demanda em Demandas), começo da descrição e, quando há:
   prioridade alta ou urgente (ciclos), prazo, impedimentos abertos e horas apontadas. Embaixo, o **seletor de
   status** (todos os da categoria; "Cancelado" tira o ciclo do quadro; desde a v0.18, em forma de selo) e **subir**,

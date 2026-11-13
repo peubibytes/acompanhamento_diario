@@ -129,7 +129,7 @@ describe('tarefas: concluídas, fila e em andamento', () => {
   const changes = [
     change(5, 'em_andamento', 'concluido', '2026-10-27'),
     change(6, 'em_andamento', 'concluido', '2026-10-20'),
-    change(7, 'iniciado', 'concluido', '2026-10-23'),
+    change(7, 'em_andamento', 'concluido', '2026-10-23'),
     change(9, 'em_andamento', 'concluido', '2026-10-27'),
   ];
   const summaries = demands.map((d) => buildDemandSummary(d, [], TODAY, { statusChanges: changes }));
@@ -147,7 +147,7 @@ describe('tarefas: concluídas, fila e em andamento', () => {
     const dates = ['2026-10-22', '2026-10-23', '2026-10-29'];
     const edge = dates.map((date, i) =>
       buildDemandSummary(ticket(i + 1, 'concluido'), [], TODAY, {
-        statusChanges: [change(i + 1, 'iniciado', 'concluido', date)],
+        statusChanges: [change(i + 1, 'em_andamento', 'concluido', date)],
       }),
     );
     assert.equal(taskOverview(edge, PERIOD).completed, 2);

@@ -39,7 +39,7 @@ describe('Kanban', () => {
     await ticket(A);
     await ticket(B, 'em_andamento');
     await ticket(C, 'em_espera');
-    await api.call('POST', '/demands', { category: 'treinamento', title: 'Curso de exemplo', status: 'iniciado' });
+    await api.call('POST', '/demands', { category: 'treinamento', title: 'Curso de exemplo', status: 'em_andamento' });
     await api.call('POST', '/demands', { category: 'reuniao', meetingType: 'Daily' });
     await api.call('POST', '/demands', { category: 'ciclo', title: 'Projeto cancelado', status: 'cancelado' });
 
